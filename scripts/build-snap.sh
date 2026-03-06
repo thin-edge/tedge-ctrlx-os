@@ -17,6 +17,8 @@ BUILD_USER="$(whoami)"
 VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
+mkdir -p logs
+
 echo "======================================"
 echo "Building thin-edge.io CTRLX App"
 echo "Version: ${VERSION}  Commit: ${GIT_COMMIT}"
@@ -48,9 +50,10 @@ echo "=============================================="
 echo "Step 6: Build Snap for amd64"
 echo "=============================================="
 
-AMD64_BUILD_LOG="build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
+AMD64_BUILD_LOG="logs/build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building amd64 snap (logging to $AMD64_BUILD_LOG)..."
 
+# set -o pipefail stellt sicher, dass snapcraft-Fehler auch durch tee durchschlagen
 if snapcraft --destructive-mode --enable-manifest --target-arch=amd64 2>&1 | tee "$AMD64_BUILD_LOG"; then
     AMD64_SNAP=$(ls -1 thin-edge-io_*_amd64.snap 2>/dev/null | head -1 || true)
     if [ -z "$AMD64_SNAP" ]; then
@@ -64,7 +67,7 @@ fi
 
 # Snap-Installation testen
 echo "[i] Testing snap install --dangerous $AMD64_SNAP ..."
-SNAP_INSTALL_LOG="snap-install-$(date +%Y%m%d-%H%M%S).log"
+SNAP_INSTALL_LOG="logs/snap-install-$(date +%Y%m%d-%H%M%S).log"
 if sudo snap install --dangerous "$AMD64_SNAP" 2>&1 | tee "$SNAP_INSTALL_LOG"; then
     echo -e "${GREEN}[✓] Snap installation test successful!${NC}"
 else
@@ -81,12 +84,14 @@ echo "=============================================="
 # Build-Info für arm64 aktualisieren
 sed -i "s/^Architecture: .*/Architecture: arm64/" configs/build-info.txt
 
-echo "[i] Starting arm64 build (for ctrlX CORE hardware)..."
-if snapcraft --destructive-mode --enable-manifest --target-arch=arm64 2>&1; then
+ARM64_BUILD_LOG="logs/build-snap-arm64-$(date +%Y%m%d-%H%M%S).log"
+echo "[i] Starting arm64 build (for ctrlX CORE hardware, logging to $ARM64_BUILD_LOG)..."
+if snapcraft --destructive-mode --enable-manifest --target-arch=arm64 2>&1 | tee "$ARM64_BUILD_LOG"; then
     ARM64_SNAP=$(ls -1 thin-edge-io_*_arm64.snap 2>/dev/null | head -1 || true)
     if [ -n "$ARM64_SNAP" ]; then
         echo -e "${GREEN}[✓] arm64 snap built: $ARM64_SNAP ($(du -h "$ARM64_SNAP" | cut -f1))${NC}"
     fi
 else
-    echo -e "${RED}[✗] arm64 build failed!${NC}"
+    echo -e "${RED}[✗] arm64 build failed! Siehe: $ARM64_BUILD_LOG${NC}"
+    # arm64 ist nicht zwingend – kein exit 1
 fi
