@@ -1,0 +1,17 @@
+map {header.X-Auth-Scopes} {role} {
+	~thin-edge-io.rwx "Admin"
+	~thin-edge-io.rw "Editor"
+	~thin-edge-io.r "Viewer"
+	~rexroth-device.all.rwx "Admin"
+	~rexroth-device.all.rw "Editor"
+	~rexroth-device.all.r "Viewer"
+	default "None"
+}
+
+@noslash path /thin-edge-io
+redir @noslash /thin-edge-io/ 301
+
+reverse_proxy unix//var/snap/thin-edge-io/current/package-run/thin-edge-io/web.sock {
+	header_up X-WEBAUTH-USER {header.X-Auth-Name}
+	header_up X-WEBAUTH-ROLE {role}
+}

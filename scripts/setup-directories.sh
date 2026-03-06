@@ -1,0 +1,74 @@
+#!/bin/bash
+# Setup script that runs BEFORE any tedge service starts
+# This ensures all necessary directories exist
+
+set -e
+
+echo "=== thin-edge.io Directory Setup ==="
+echo "SNAP: $SNAP"
+echo "SNAP_DATA: $SNAP_DATA"
+echo "SNAP_COMMON: $SNAP_COMMON"
+echo "SNAP_REVISION: $SNAP_REVISION"
+
+
+
+# Feste Pfade für Snap-Umgebung (funktioniert auch, wenn SNAP_DATA/SNAP_COMMON leer sind)
+SNAP_DATA_PATH="/var/snap/thin-edge-io/current"
+SNAP_COMMON_PATH="/var/snap/thin-edge-io/common"
+
+# Log build information if available
+if [ -f "$SNAP/meta/build-info.txt" ]; then
+    BUILD_VERSION=$(head -n 1 "$SNAP/meta/build-info.txt")
+    echo "Build: $BUILD_VERSION"
+fi
+
+
+# Create all necessary base directories
+
+mkdir -p "$SNAP_DATA_PATH/tedge"
+mkdir -p "$SNAP_DATA_PATH/tedge/run"
+mkdir -p "$SNAP_DATA_PATH/tedge/sm-plugins"
+mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins"
+mkdir -p "$SNAP_DATA_PATH/tedge/.agent"
+mkdir -p "$SNAP_COMMON_PATH/tedge"
+mkdir -p "$SNAP_COMMON_PATH/tedge/run"
+mkdir -p "$SNAP_COMMON_PATH/tedge/log"
+mkdir -p "$SNAP_COMMON_PATH/mosquitto"
+mkdir -p "$SNAP_DATA_PATH/package-run/thin-edge-io"
+chmod 777 "$SNAP_DATA_PATH/package-run"
+chmod 777 "$SNAP_DATA_PATH/package-run/thin-edge-io"
+
+
+
+
+
+
+# Lock-Verzeichnis in allen relevanten Snap-Revisionen anlegen (current, SNAP_DATA, common)
+for LOCKDIR in "$SNAP_DATA_PATH/tedge/run/lock" "$SNAP_DATA/tedge/run/lock" "$SNAP_COMMON_PATH/tedge/run/lock"; do
+    echo "Creating lock directory: $LOCKDIR"
+    mkdir -p "$LOCKDIR"
+    chmod 777 "$LOCKDIR"
+done
+
+
+
+# Verify setup
+echo "=== Verification ==="
+
+echo "Lock directory in SNAP_COMMON_PATH:"
+ls -ld "$SNAP_COMMON_PATH/tedge/run/lock"
+
+echo "Lock directory in SNAP_DATA_PATH:"
+ls -ld "$SNAP_DATA_PATH/tedge/run/lock"
+
+echo "Target verification:"
+
+# Kein Symlink mehr prüfen, sondern direktes Lock-Verzeichnis
+if [ -d "$SNAP_DATA_PATH/tedge/run/lock" ] && [ -w "$SNAP_DATA_PATH/tedge/run/lock" ]; then
+    echo "  ✓ Lock directory exists and is writable"
+else
+    echo "  ✗ Lock directory missing or not writable!"
+    exit 1
+fi
+
+echo "=== Setup completed successfully ==="

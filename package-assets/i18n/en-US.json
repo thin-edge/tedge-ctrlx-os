@@ -1,0 +1,43 @@
+{
+  "title": "thin-edge.io IoT Edge Framework",
+  "description": "Open-source cloud-agnostic IoT edge framework for resource-constrained devices",
+  "menu": {
+    "sidebar": {
+      "title": "thin-edge.io",
+      "tooltip": "thin-edge.io Overview and Status"
+    },
+    "settings": {
+      "title": "thin-edge.io Configuration",
+      "tooltip": "thin-edge.io Cloud Connections and Device Settings"
+    }
+  },
+  "tabs": {
+    "status": "Status",
+    "c8y": "Cumulocity IoT",
+    "aws": "AWS IoT",
+    "azure": "Azure IoT Hub",
+    "device": "Device"
+  },
+  "status": {
+    "title": "Service Status",
+    "mqtt": "MQTT Broker",
+    "agent": "Agent",
+    "bridge": "Data Bridge",
+    "running": "Running",
+    "stopped": "Stopped",
+    "unknown": "Unknown",
+    "refresh": "Refresh",
+    "restart": "Restart Services"
+  },
+  "config": {
+    "c8y": {
+      "title": "Cumulocity IoT Configuration",
+      "url": "C8y URL",
+      "url_placeholder": "https://tenant.cumulocity.com",
+      "tenant": "Tenant",
+      "tenant_placeholder": "t12345",
+      "enabled": "Enabled",
+      "save": "Save C8y Configuration"
+    }
+  }
+}

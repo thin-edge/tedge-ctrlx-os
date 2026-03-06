@@ -1,0 +1,567 @@
+# thin-edge.io CTRLX App
+# Snapcraft configuration for packaging thin-edge.io as a ctrlX AUTOMATION app
+# See https://snapcraft.io/docs/getting-started
+
+name: thin-edge-io
+title: thin-edge.io IoT Edge Framework
+version: 1.7.1
+grade: stable
+summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
+description: |
+  thin-edge.io is an open-source and cloud-agnostic edge framework designed 
+  for resource-constrained IoT edge devices. This app provides connectivity 
+  to Cumulocity IoT, AWS IoT, and Azure IoT Hub platforms.
+  
+  Features:
+  - Multi-cloud connectivity (Cumulocity, AWS, Azure)
+  - Device management and monitoring
+  - Software management
+  - Log management
+  - Configuration management
+  - Remote access capabilities
+  - MQTT messaging
+  
+  Components included:
+  - tedge: Main CLI tool
+  - tedge-agent: Agent for software/configuration management
+  - tedge-mapper: Protocol translation (c8y/aws/azure)
+  - tedge-watchdog: Health monitoring
+  - Plugins: apt, firmware, remote access, file management
+  - Mosquitto MQTT broker (local)
+
+# Metadata
+license: Apache-2.0
+contact: https://github.com/thin-edge/thin-edge.io/discussions
+website: https://thin-edge.io
+source-code: https://github.com/thin-edge/thin-edge.io
+issues: https://github.com/thin-edge/thin-edge.io/issues
+
+base: core22
+confinement: strict
+icon: web/www/icon.png
+
+# Map hard-coded system paths used by tedge-agent binaries into writable snap locations
+layout:
+  /usr/share/tedge/log-plugins:
+    bind: $SNAP_DATA/tedge/log-plugins
+  /usr/share/tedge/sm-plugins:
+    bind: $SNAP_DATA/tedge/sm-plugins
+
+architectures:
+  - build-on: [amd64]
+    build-for: [amd64]
+  - build-on: [amd64, arm64]
+    build-for: [arm64]
+
+# Define apps and services
+apps:
+  # Directory setup service - runs ONCE before any other service
+  setup-directories:
+    command: scripts/setup-directories.sh
+    daemon: oneshot
+    environment:
+      TZ: Europe/Berlin
+    passthrough:
+      remain-after-exit: true
+
+  # Main CLI tool
+  tedge:
+    command: scripts/tedge-wrapper.sh
+    environment:
+      TZ: Europe/Berlin
+    plugs:
+      - network
+      - network-bind
+      - removable-media
+      - hardware-observe  # Needed to read system serial number
+
+  # Device ID management script
+  manage-device-id:
+    command: scripts/manage-device-id.sh
+    environment:
+      TZ: Europe/Berlin
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+      - hardware-observe  # Needed to read system serial number
+      # snapd-control removed: Not allowed on ctrlX CORE for security reasons
+
+  # Build information display
+  build-info:
+    command: scripts/show-build-info.sh
+    environment:
+      TZ: Europe/Berlin
+
+  # tedge-agent service
+  tedge-agent:
+    command: scripts/tedge-service-wrapper.sh tedge-agent
+    daemon: simple
+    restart-condition: always
+    environment:
+      TZ: Europe/Berlin
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+    passthrough:
+      restart-delay: 10s
+      after:
+        - setup-directories
+        - mosquitto
+
+  # tedge-mapper for Cumulocity IoT
+  tedge-mapper-c8y:
+    command: scripts/tedge-service-wrapper.sh tedge-mapper c8y
+    daemon: simple
+    restart-condition: on-failure
+    environment:
+      TZ: Europe/Berlin
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+    passthrough:
+      restart-delay: 10s
+      after:
+        - setup-directories
+        - mosquitto
+
+  # tedge-mapper for AWS IoT
+  tedge-mapper-aws:
+    command: scripts/tedge-service-wrapper.sh tedge-mapper aws
+    daemon: simple
+    restart-condition: on-failure
+    environment:
+      TZ: Europe/Berlin
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+    passthrough:
+      restart-delay: 10s
+      after:
+        - setup-directories
+        - mosquitto
+
+  # tedge-mapper for Azure IoT
+  tedge-mapper-az:
+    command: scripts/tedge-service-wrapper.sh tedge-mapper az
+    daemon: simple
+    restart-condition: on-failure
+    environment:
+      TZ: Europe/Berlin
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+    passthrough:
+      restart-delay: 10s
+      after:
+        - setup-directories
+        - mosquitto
+
+  # tedge-watchdog service
+  tedge-watchdog:
+    command: scripts/tedge-service-wrapper.sh tedge-watchdog
+    daemon: simple
+    restart-condition: always
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+    environment:
+      TZ: Europe/Berlin
+      PATH: $SNAP/scripts:$SNAP/usr/local/bin:$PATH
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    passthrough:
+      restart-delay: 15s
+      after:
+        - setup-directories
+        - mosquitto
+        - tedge-agent
+
+  # Plugins
+  c8y-firmware-plugin:
+    command: scripts/tedge-service-wrapper.sh c8y-firmware-plugin
+    plugs:
+      - network
+      - network-bind
+
+  c8y-remote-access-plugin:
+    command: scripts/tedge-service-wrapper.sh c8y-remote-access-plugin
+    plugs:
+      - network
+      - network-bind
+
+  tedge-apt-plugin:
+    command: scripts/tedge-service-wrapper.sh tedge-apt-plugin
+    plugs:
+      - network
+
+  tedge-file-config-plugin:
+    command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
+    plugs:
+      - network
+
+  tedge-file-log-plugin:
+    command: scripts/tedge-service-wrapper.sh tedge-file-log-plugin
+    plugs:
+      - network
+
+  # Mosquitto MQTT Broker (local)
+  mosquitto:
+    command: scripts/mosquitto-wrapper.sh
+    daemon: simple
+    restart-condition: always
+    environment:
+      TZ: Europe/Berlin
+    plugs:
+      - network
+      - network-bind
+    passthrough:
+      restart-delay: 5s
+      after:
+        - setup-directories
+      before:
+        - tedge-agent
+        - tedge-mapper-c8y
+        - tedge-mapper-aws
+        - tedge-mapper-az
+        - tedge-watchdog
+        - tedge-datalayer-bridge
+
+  tedge-datalayer-bridge:
+    command: scripts/tedge-service-wrapper.sh tedge-datalayer-bridge
+    daemon: simple
+    restart-condition: always
+    plugs:
+      - network
+      - datalayer
+    environment:
+      TZ: Europe/Berlin
+      RUST_LOG: info
+    passthrough:
+      after:
+        - setup-directories
+        - mosquitto
+
+  # Configuration Webserver (Rust)
+  webserver:
+    command: scripts/webserver-wrapper.sh
+    daemon: simple
+    restart-condition: always
+    plugs:
+      - network
+      - network-bind
+      - mount-observe
+      - system-observe
+      - hardware-observe  # Needed to read system serial number via DMI
+      - log-observe       # Needed for snapctl logs
+    slots:
+      - package-run
+    environment:
+      TZ: Europe/Berlin
+      RUST_LOG: ${SNAP_RUST_LOG:-info}
+    passthrough:
+      restart-delay: 10s
+      after:
+        - setup-directories
+        - mosquitto
+
+# Hook definitions
+hooks:
+  install:
+    plugs:
+      - hardware-observe  # Needed to read system serial number for device ID
+      - log-observe       # Needed for snapctl logs in webserver
+      - network
+  configure:
+    plugs:
+      - network
+  post-refresh:
+    plugs:
+      - network
+      - hardware-observe
+      - log-observe
+
+# Slot definitions for ctrlX integration
+slots:
+  package-assets:
+    interface: content
+    content: package-assets
+    source:
+      read:
+        - $SNAP/package-assets/thin-edge-io
+  package-run:
+    interface: content
+    content: package-run
+    source:
+      write:
+        - $SNAP_DATA/package-run/thin-edge-io
+
+# Plug definitions
+plugs:
+  datalayer:
+    interface: content
+    content: datalayer
+    target: $SNAP_DATA/.datalayer
+
+
+# Build parts
+parts:
+  thin-edge-io:
+    plugin: nil
+    source: https://github.com/thin-edge/thin-edge.io.git
+    source-type: git
+    source-commit: b1193e94f7532a14af817ee19aa9d7d73d813e6a
+    build-packages:
+      - pkg-config
+      - libssl-dev
+      - libsqlite3-dev
+      - gcc-aarch64-linux-gnu
+      - libssl3
+      - libsqlite3-0
+      - ca-certificates
+      - tzdata
+    override-build: |
+      # Ensure cargo is in PATH
+      export PATH="$HOME/.cargo/bin:$PATH"
+      
+      # Use separate target directory to avoid cache conflicts
+      export CARGO_TARGET_DIR="$CRAFT_PART_BUILD/target"
+      
+      # Determine target architecture for cross-compilation
+      if [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
+        export CARGO_BUILD_TARGET="aarch64-unknown-linux-gnu"
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+        export CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc"
+        export PKG_CONFIG_ALLOW_CROSS=1
+        TARGET_FLAG="--target aarch64-unknown-linux-gnu"
+      else
+        TARGET_FLAG=""
+      fi
+      
+      # Clean to avoid cache issues
+      cargo clean
+      
+      # Build all thin-edge.io binaries in release mode
+      cargo build --release $TARGET_FLAG --bin tedge --bin tedge-p11-server
+      
+      # Create bin directory
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      
+      # Determine output directory based on target
+      if [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
+        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+      else
+        OUTPUT_DIR="target/release"
+      fi
+      
+      # Copy main binaries
+      cp $OUTPUT_DIR/tedge $CRAFT_PART_INSTALL/bin/
+      cp $OUTPUT_DIR/tedge-p11-server $CRAFT_PART_INSTALL/bin/
+      
+      # Create symlinks for multicall binary (tedge acts as all these binaries)
+      # Use -sf to force overwrite existing symlinks on rebuild
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-agent
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-mapper
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-watchdog
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-firmware-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-apt-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-log-plugin
+      
+      # Strip binaries to reduce size
+      aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
+
+  # Konfigurations- und Paket-Assets (zusammengefasst)
+  configs-assets:
+    plugin: dump
+    source: ./configs
+    organize:
+      'fossinfo.json': meta/fossinfo.json
+      'foss-offer.txt': meta/foss-offer.txt
+      'portlist-description.json': meta/portlist-description.json
+      'slotplug-description.json': meta/slotplug-description.json
+      'unixsocket-description.json': meta/unixsocket-description.json
+      'build-info.txt': meta/build-info.txt
+      'i18n/*': meta/i18n/
+      'package-manifest.json': package-assets/${SNAPCRAFT_PROJECT_NAME}/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
+      'caddyfile': package-assets/${SNAPCRAFT_PROJECT_NAME}/caddyfile
+    stage:
+      - meta/*
+      - package-assets/${SNAPCRAFT_PROJECT_NAME}/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
+      - package-assets/${SNAPCRAFT_PROJECT_NAME}/caddyfile
+      - meta/i18n/*
+    override-prime: |
+      craftctl default
+      # mime.types aus dem Paket an die richtige Stelle kopieren
+
+  scripts:
+    plugin: dump
+    source: ./scripts
+    organize:
+      '*': scripts/
+    stage:
+      - scripts/*
+
+  hooks:
+    plugin: dump
+    source: ./snap/hooks
+    organize:
+      '*': snap/hooks/
+
+  mosquitto:
+    plugin: nil
+    stage-packages:
+      - mosquitto
+      - libssl3
+    override-prime: |
+      craftctl default
+      # Create mosquitto config directory
+      mkdir -p $CRAFT_PRIME/etc/mosquitto
+      
+      # Create MINIMAL default config (like official mosquitto snap)
+      cat > $CRAFT_PRIME/etc/mosquitto/default_config.conf << 'EOF'
+      # Minimal mosquitto config for snap (based on official mosquitto snap)
+      persistence true
+      persistence_location /var/snap/thin-edge-io/common/mosquitto/
+      user root
+      listener 1883 127.0.0.1
+      allow_anonymous true
+      EOF
+      
+      # Create full example config for reference
+      cat > $CRAFT_PRIME/etc/mosquitto/mosquitto.conf << 'EOF'
+      # Full mosquitto configuration for thin-edge.io snap
+      # This file is copied to $SNAP_COMMON as mosquitto_example.conf
+      # Create $SNAP_COMMON/mosquitto.conf to customize settings
+      
+      # Run as root (required in snap environment)
+      user root
+      
+      # Listen on localhost only for security
+      listener 1883 127.0.0.1
+      
+      # Allow anonymous connections (internal only)
+      allow_anonymous true
+      
+      # Persistence settings
+      persistence true
+      persistence_location /var/snap/thin-edge-io/common/mosquitto/
+      
+      # Logging
+      log_dest syslog
+      log_type error
+      log_type warning
+      log_type notice
+      
+      # Connection settings
+      max_keepalive 65535
+      max_connections -1
+      EOF
+
+  bridge-service:
+    plugin: nil
+    source: ./bridge-service-rust
+    build-packages:
+      - pkg-config
+      - libssl-dev
+      - gcc-aarch64-linux-gnu
+    override-build: |
+      # Ensure cargo is in PATH
+      export PATH="$HOME/.cargo/bin:$PATH"
+      
+      # Use separate target directory to avoid cache conflicts
+      export CARGO_TARGET_DIR="$CRAFT_PART_BUILD/target"
+      
+      # Determine target architecture for cross-compilation
+      if [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
+        export CARGO_BUILD_TARGET="aarch64-unknown-linux-gnu"
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+        export CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc"
+        export PKG_CONFIG_ALLOW_CROSS=1
+        TARGET_FLAG="--target aarch64-unknown-linux-gnu"
+        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+        STRIP_CMD="aarch64-linux-gnu-strip"
+      else
+        TARGET_FLAG=""
+        OUTPUT_DIR="target/release"
+        STRIP_CMD="strip"
+      fi
+      
+      # Clean to avoid cache issues
+      cargo clean
+      
+      # Build with the host's Rust installation
+      cargo build --release $TARGET_FLAG
+      
+      # Create bin directory
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      
+      # Copy binary
+      cp $OUTPUT_DIR/tedge-datalayer-bridge $CRAFT_PART_INSTALL/bin/
+      
+      # Strip binary to reduce size
+      $STRIP_CMD $CRAFT_PART_INSTALL/bin/tedge-datalayer-bridge
+
+  webserver:
+    plugin: nil
+    source: ./web-server-rust
+    build-packages:
+      - pkg-config
+      - gcc-aarch64-linux-gnu
+    override-build: |
+      # Ensure cargo is in PATH
+      export PATH="$HOME/.cargo/bin:$PATH"
+      
+      # Use separate target directory to avoid cache conflicts
+      export CARGO_TARGET_DIR="$CRAFT_PART_BUILD/target"
+      
+      # Determine target architecture for cross-compilation
+      if [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
+        export CARGO_BUILD_TARGET="aarch64-unknown-linux-gnu"
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+        export CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc"
+        export PKG_CONFIG_ALLOW_CROSS=1
+        TARGET_FLAG="--target aarch64-unknown-linux-gnu"
+        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+        STRIP_CMD="aarch64-linux-gnu-strip"
+      else
+        TARGET_FLAG=""
+        OUTPUT_DIR="target/release"
+        STRIP_CMD="strip"
+      fi
+      
+      # Clean to avoid cache issues
+      cargo clean
+      
+      # Build with the host's Rust installation
+      cargo build --release $TARGET_FLAG
+      
+      # Create bin directory
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      
+      # Copy binary
+      cp $OUTPUT_DIR/tedge-web-config $CRAFT_PART_INSTALL/bin/
+      
+      # Strip binary to reduce size
+      $STRIP_CMD $CRAFT_PART_INSTALL/bin/tedge-web-config
+
+  # Web-Assets und Icons (zusammengefasst)
+  web-assets:
+    plugin: dump
+    source: ./web/www
+    organize:
+      '*': web/www/
+    override-prime: |
+      craftctl default
+      # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
+      cp $CRAFT_PRIME/web/www/icon.png $CRAFT_PRIME/meta/icon.png
+      cp $CRAFT_PRIME/web/www/icon.svg $CRAFT_PRIME/meta/icon.svg
+
+

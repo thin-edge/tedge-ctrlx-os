@@ -1,0 +1,50 @@
+# Open Source Software Notice
+
+## thin-edge.io CTRLX App - FOSS Components
+
+This application contains open-source software components. As per the requirements of their licenses, we provide the following information:
+
+### Main Component
+
+**thin-edge.io v1.7.1**
+- License: Apache License 2.0
+- Source: https://github.com/thin-edge/thin-edge.io
+- Copyright: thin-edge.io community
+
+### How to Obtain Source Code
+
+You can obtain the complete source code for thin-edge.io and all its dependencies in the following ways:
+
+#### Option 1: Download from GitHub
+Visit: https://github.com/thin-edge/thin-edge.io/releases/tag/v1.7.1
+
+#### Option 2: Clone the Repository
+```bash
+git clone https://github.com/thin-edge/thin-edge.io.git
+cd thin-edge.io
+git checkout v1.7.1
+```
+
+#### Option 3: Request from Vendor
+If you prefer, you can request a complete source package by contacting:
+- Email: info@thin-edge.io
+- We will provide a copy of the source code on physical media or electronic transfer for a nominal fee covering our costs.
+
+### Rust Dependencies
+
+This application is built using Rust and includes numerous open-source Rust crates (libraries). 
+All dependencies are listed in the `Cargo.lock` file in the source repository.
+
+Major dependencies include:
+- tokio (MIT License) - Async runtime
+- serde (MIT/Apache-2.0) - Serialization framework
+- rumqttc (Apache-2.0) - MQTT client
+- reqwest (MIT/Apache-2.0) - HTTP client
+- rustls (Apache-2.0/ISC/MIT) - TLS implementation
+- axum (MIT) - Web framework
+- clap (MIT/Apache-2.0) - CLI parsing
+
+### License Texts
+
+The full license texts for Apache-2.0 and MIT licenses can be found at:
+- Apache-2.0: https://www.apache.org/licenses/LICENSE-2.0.txt

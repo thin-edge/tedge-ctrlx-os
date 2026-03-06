@@ -1,0 +1,45 @@
+# Snap build artifacts
+#*.snap needed 
+parts/
+stage/
+prime/
+*.snap-build/
+
+# Snapcraft
+.snapcraft/
+__pycache__/
+
+# Editor files
+.vscode/*
+!.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build directories
+build/
+dist/
+target/
+
+# Auto-generated build info
+configs/build-info.txt
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OS specific
+Thumbs.db
+.directory

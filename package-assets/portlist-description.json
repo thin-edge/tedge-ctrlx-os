@@ -1,0 +1,44 @@
+{
+	"description": "Port configuration for thin-edge.io services",
+	"ports": [
+		{
+			"port": 8888,
+			"protocol": "tcp",
+			"service": "webserver",
+			"description": "Web configuration interface",
+			"direction": "inbound",
+			"security": "internal"
+		},
+		{
+			"port": 8000,
+			"protocol": "tcp",
+			"service": "tedge-agent",
+			"description": "HTTP API for thin-edge.io agent",
+			"direction": "inbound",
+			"security": "internal"
+		},
+		{
+			"port": 8883,
+			"protocol": "tcp",
+			"service": "mqtt-bridge",
+			"description": "MQTT over TLS - Cloud connection",
+			"direction": "outbound",
+			"security": "tls"
+		},
+		{
+			"port": 1883,
+			"protocol": "tcp",
+			"service": "local-mqtt",
+			"description": "Local MQTT broker connection",
+			"direction": "outbound",
+			"security": "internal"
+		},
+		{
+			"port": 443,
+			"protocol": "tcp",
+			"service": "https",
+			"description": "HTTPS connections to cloud platforms"
+		}
+	]
+}
+Siehe configs/portlist-description.json (bitte ggf. in dieses Verzeichnis verschieben, falls Store-Upload gefordert).

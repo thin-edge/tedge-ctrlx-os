@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.boschrexroth.com/ctrlx-automation/ctrlx-core/apps/package-manifest/package-manifest.v1.4.schema.json",
+  "version": "1.7.1",
+  "id": "thin-edge-io",
+  "title": "thin-edge.io IoT Edge Framework",
+  "description": "Open-source cloud-agnostic IoT edge framework for resource-constrained devices",
+  "vendor": "thin-edge.io community",
+  "license": {
+    "name": "Apache-2.0",
+    "title": "Apache License 2.0"
+  },
+  "homepage": "https://thin-edge.io",
+  "repository": "https://github.com/thin-edge/thin-edge.io",
+  "icon": "bosch-ic-cloud",
+  "services": {
+    "proxyMapping": [
+      {
+        "name": "thin-edge-io.web",
+        "url": "/thin-edge-io/",
+        "caddyfile": "./caddyfile"
+      }
+    ]
+  },
+  "menus": {
+    "sidebar": [
+      {
+        "id": "thin-edge-io",
+        "title": "thin-edge.io",
+        "icon": "bosch-ic-cloud",
+        "link": "/thin-edge-io/?token=${bearertoken}",
+        "target": "_blank"
+      }
+    ],
+    "settings": [
+      {
+        "id": "thin-edge-io-settings",
+        "title": "thin-edge.io Configuration",
+        "icon": "bosch-ic-gear",
+        "link": "/thin-edge-io/?token=${bearertoken}",
+        "target": "_blank",
+        "permissions": [
+          "rexroth-device.all.rwx",
+          "thin-edge-io.rwx",
+          "thin-edge-io.rw"
+        ],
+        "items": []
+      }
+    ]
+  },
+  "i18n": {
+    "de-DE": "./i18n/de-DE.json",
+    "en-US": "./i18n/en-US.json"
+  },
+  "scopes": [
+    "rexroth-device.all.rwx",
+    "thin-edge-io.rwx",
+    "thin-edge-io.rw",
+    "thin-edge-io.r"
+  ],
+  "scopes-declaration": [
+    {
+      "identifier": "thin-edge-io.rwx",
+      "name": "Full access to thin-edge.io",
+      "description": "Full read, write and execute permissions for thin-edge.io management"
+    },
+    {
+      "identifier": "thin-edge-io.rw",
+      "name": "Read and write access to thin-edge.io",
+      "description": "Read and write permissions for thin-edge.io configuration"
+    },
+    {
+      "identifier": "thin-edge-io.r",
+      "name": "Read-only access to thin-edge.io",
+      "description": "Read-only permissions for thin-edge.io monitoring"
+    }
+  ]
+}

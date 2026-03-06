@@ -1,0 +1,21 @@
+{
+	"description": "Unix socket configuration for thin-edge.io",
+	"sockets": [
+		{
+			"path": "$SNAP_DATA/tedge/ipc/agent.sock",
+			"service": "tedge-agent",
+			"description": "IPC socket for agent communication",
+			"permissions": "0660"
+		},
+		{
+			"path": "$SNAP_DATA/tedge/ipc/mapper.sock",
+			"service": "tedge-mapper",
+			"description": "IPC socket for mapper communication",
+			"permissions": "0660"
+		}
+	],
+	"notes": [
+		"Unix sockets are used for inter-process communication between thin-edge.io components",
+		"All sockets are created in $SNAP_DATA directory with restricted permissions"
+	]
+}

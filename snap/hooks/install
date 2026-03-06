@@ -1,0 +1,103 @@
+#!/bin/bash
+# thin-edge.io snap install hook
+# Initializes directories and configurations
+
+set -e
+
+echo "=== thin-edge.io snap install hook starting ===" >&2
+
+
+mkdir -p "$SNAP_DATA/package-run"
+chmod 777 "$SNAP_DATA/package-run"
+
+# Create mosquitto directories
+echo "Creating mosquitto directories..." >&2
+mkdir -p "$SNAP_DATA/mosquitto"
+mkdir -p "$SNAP_COMMON/mosquitto"
+mkdir -p "$SNAP_DATA/mosquitto/persistence"
+
+# Copy mosquitto config from snap to writable location
+if [ -f "$SNAP/etc/mosquitto/mosquitto.conf" ]; then
+    echo "Copying mosquitto config..." >&2
+    cp "$SNAP/etc/mosquitto/mosquitto.conf" "$SNAP_DATA/mosquitto/mosquitto.conf"
+fi
+
+# Create tedge directories
+echo "Creating tedge directories..." >&2
+mkdir -p "$SNAP_DATA/tedge"
+mkdir -p "$SNAP_DATA/tedge/device-certs"
+mkdir -p "$SNAP_DATA/tedge/run"
+mkdir -p "$SNAP_DATA/tedge/tmp"
+mkdir -p "$SNAP_DATA/tedge/sm-plugins"
+mkdir -p "$SNAP_DATA/tedge/log-plugins"
+mkdir -p "$SNAP_DATA/tedge/.agent"
+mkdir -p "$SNAP_COMMON/tedge/log"
+mkdir -p "$SNAP_COMMON/tedge/cache"
+
+# CRITICAL FIX: Create lock directory in SNAP_COMMON (persists across updates!)
+echo "Creating lock directory in SNAP_COMMON..." >&2
+mkdir -p "$SNAP_COMMON/tedge/run/lock"
+chmod 777 "$SNAP_COMMON/tedge/run/lock"
+
+# Create symlink from SNAP_DATA to SNAP_COMMON lock directory
+echo "Creating symlink for lock directory..." >&2
+# Remove old directory or symlink (rmdir for empty dir, rm -rf as fallback)
+if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
+  rmdir "$SNAP_DATA/tedge/run/lock" 2>/dev/null || rm -rf "$SNAP_DATA/tedge/run/lock"
+else
+  rm -f "$SNAP_DATA/tedge/run/lock"
+fi
+ln -sf "$SNAP_COMMON/tedge/run/lock" "$SNAP_DATA/tedge/run/lock"
+
+# Set permissions
+echo "Setting permissions..." >&2
+chmod 755 "$SNAP_DATA/mosquitto"
+chmod 755 "$SNAP_COMMON/mosquitto"
+chmod 755 "$SNAP_DATA/tedge"
+chmod 755 "$SNAP_DATA/tedge/run"
+chmod 755 "$SNAP_DATA/tedge/device-certs"
+chmod 777 "$SNAP_DATA/tedge/tmp"
+chmod 777 "$SNAP_COMMON/tedge"
+chmod 777 "$SNAP_COMMON/tedge/log"
+
+# Initialize tedge with custom config directory using BOTH env var AND flag
+echo "Initializing tedge config directory at: $SNAP_DATA/tedge" >&2
+export TEDGE_CONFIG_DIR="$SNAP_DATA/tedge"
+if "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" init 2>&1 | tee -a /tmp/tedge-init.log >&2; then
+    echo "tedge init succeeded" >&2
+else
+    echo "WARNING: tedge init failed, but continuing..." >&2
+fi
+
+# Configure tedge paths for snap environment
+echo "Configuring tedge paths..." >&2
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
+
+# Auto-detect and set device ID from system serial number
+echo "Auto-detecting device ID from system information..." >&2
+
+# Use the new device ID management script
+if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
+    echo "Running device ID management script..." >&2
+    if "$SNAP/scripts/manage-device-id.sh" create 2>&1 | tee -a /tmp/tedge-cert.log >&2; then
+        echo "Device certificate created successfully" >&2
+    else
+        echo "WARNING: Failed to create device certificate automatically" >&2
+        echo "You can manually create it with: snap run thin-edge-io.tedge cert create --device-id <your-id>" >&2
+        echo "Or use the web interface at: https://<your-ctrlx>/thin-edge-io/" >&2
+    fi
+else
+    echo "WARNING: Device ID management script not found" >&2
+fi
+
+echo "Install hook completed successfully" >&2
+echo "thin-edge.io snap installed successfully"
+
+# Auto-connect snap interfaces
+# snapctl connect works from hooks since snapd 2.54
+echo "Connecting snap interfaces..." >&2
+snapctl connect :hardware-observe 2>/dev/null && echo "hardware-observe connected" >&2 || echo "WARNING: could not connect hardware-observe" >&2
+snapctl connect :log-observe 2>/dev/null && echo "log-observe connected" >&2 || echo "WARNING: could not connect log-observe" >&2

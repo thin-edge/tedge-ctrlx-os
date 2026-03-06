@@ -1,0 +1,9 @@
+{
+  "name": "thin-edge-io",
+  "locations": [
+    {
+      "path": "/thin-edge-io/",
+      "upstream": "unix:/var/snap/rexroth-deviceadmin/current/package-run/thin-edge-io/web.sock"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+	"schemaVersion": "1.0.0",
+	"project": {
+		"name": "thin-edge.io",
+		"version": "1.7.1",
+		"description": "Open-source cloud-agnostic IoT edge framework",
+		"homepage": "https://thin-edge.io",
+		"repository": "https://github.com/thin-edge/thin-edge.io"
+	},
+	"components": [
+		{
+			"name": "thin-edge.io",
+			"version": "1.7.1",
+			"license": "Apache-2.0",
+			"licenseText": "Apache License\nVersion 2.0, January 2004\nhttp://www.apache.org/licenses/\n\nSee full license text at: https://www.apache.org/licenses/LICENSE-2.0.txt",
+			"sourcesAvailable": true,
+			"sourcesUrl": "https://github.com/thin-edge/thin-edge.io/archive/refs/tags/v1.7.1.tar.gz"
+		},
+		{
+			"name": "Rust Standard Library",
+			"version": "1.85",
+			"license": "MIT OR Apache-2.0",
+			"licenseText": "Dual licensed under MIT or Apache-2.0",
+			"sourcesAvailable": true,
+			"sourcesUrl": "https://github.com/rust-lang/rust"
+		},
+		{
+			"name": "tokio",
+			"version": "1.44",
+			"license": "MIT",
+			"licenseText": "MIT License - See https://github.com/tokio-rs/tokio/blob/master/LICENSE",
+			"description": "Asynchronous runtime for Rust"
+		},
+		{
+			"name": "serde",
+			"version": "1.0",
+			"license": "MIT OR Apache-2.0",
+			"licenseText": "Dual licensed under MIT or Apache-2.0",
+			"description": "Serialization framework for Rust"
+		},
+		{
+			"name": "rumqttc",
+			"version": "0.25.1",
+			"license": "Apache-2.0",
+			"licenseText": "Apache License 2.0",
+			"description": "MQTT client library"
+		},
+		{
+			"name": "reqwest",
+			"version": "0.12",
+			"license": "MIT OR Apache-2.0",
+			"licenseText": "Dual licensed under MIT or Apache-2.0",
+			"description": "HTTP client library"
+		},
+		{
+			"name": "rustls",
+			"version": "0.21",
+			"license": "Apache-2.0 OR ISC OR MIT",
+			"licenseText": "Apache-2.0/ISC/MIT",
+			"description": "TLS implementation"
+		},
+		{
+			"name": "axum",
+			"version": "0.7",
+			"license": "MIT",
+			"licenseText": "MIT License",
+			"description": "Web framework"
+		},
+		{
+			"name": "clap",
+			"version": "4.5",
+			"license": "MIT OR Apache-2.0",
+			"licenseText": "Dual licensed under MIT or Apache-2.0",
+			"description": "CLI argument parsing"
+		}
+	]
+}

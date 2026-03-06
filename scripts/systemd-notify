@@ -1,0 +1,4 @@
+#!/bin/bash
+# Dummy systemd-notify for snap environment
+# In a snap, systemd notifications are not needed as snapd manages services
+exit 0

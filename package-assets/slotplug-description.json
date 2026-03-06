@@ -1,0 +1,52 @@
+{
+	"description": "Snap interface plugs and slots for thin-edge.io",
+	"plugs": [
+		{
+			"name": "network",
+			"description": "Required for network access to cloud platforms",
+			"interface": "network",
+			"used_by": [
+				"tedge-agent",
+				"tedge-mapper-c8y",
+				"tedge-mapper-aws",
+				"tedge-mapper-az",
+				"tedge-watchdog",
+				"c8y-firmware-plugin",
+				"c8y-remote-access-plugin"
+			]
+		},
+		{
+			"name": "network-bind",
+			"description": "Required to bind network services (HTTP API)",
+			"interface": "network-bind",
+			"used_by": [
+				"tedge-agent",
+				"tedge-mapper-c8y",
+				"tedge-mapper-aws",
+				"tedge-mapper-az",
+				"tedge-watchdog"
+			]
+		},
+		{
+			"name": "system-observe",
+			"description": "Required to monitor system health and resources",
+			"interface": "system-observe",
+			"used_by": [
+				"tedge-agent",
+				"tedge-watchdog"
+			]
+		},
+		{
+			"name": "removable-media",
+			"description": "Optional: Access to external storage for configuration/logs",
+			"interface": "removable-media",
+			"used_by": [
+				"tedge"
+			]
+		}
+	],
+	"slots": [],
+	"notes": [
+		"All plugs follow the principle of least privilege"
+	]
+}
