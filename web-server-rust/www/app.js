@@ -510,8 +510,6 @@ async function loadConfiguration() {
         
         if (config.aws) {
             document.getElementById('aws-url').value = config.aws['aws-url'] || '';
-            document.getElementById('aws-region').value = config.aws.region || '';
-            document.getElementById('aws-account').value = config.aws.account || '';
             document.getElementById('aws-enabled').checked = config.aws.enabled || false;
         }
         
@@ -557,8 +555,6 @@ async function saveC8yConfig() {
 async function saveAwsConfig() {
     const config = {
         'aws-url': document.getElementById('aws-url').value,
-        region: document.getElementById('aws-region').value,
-        account: document.getElementById('aws-account').value,
         enabled: document.getElementById('aws-enabled').checked
     };
     
