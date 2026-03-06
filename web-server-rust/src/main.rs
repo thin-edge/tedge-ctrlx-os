@@ -29,8 +29,6 @@ struct C8yConfig {
 struct AwsConfig {
     #[serde(rename = "aws-url")]
     url: Option<String>,
-    region: Option<String>,
-    account: Option<String>,
     enabled: bool,
 }
 
@@ -74,8 +72,6 @@ impl Default for Config {
             },
             aws: AwsConfig {
                 url: None,
-                region: None,
-                account: None,
                 enabled: false,
             },
             az: AzConfig {
@@ -746,9 +742,6 @@ async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data
     let username = body.username.clone();
     let password = body.password.clone();
     info!("[CERT-UPLOAD] Running: tedge cert upload c8y --user {}", username);
-
-    let cert_path = "/var/snap/thin-edge-io/current/tedge/device-certs/tedge-certificate.pem".to_string();
-    info!("[CERT-UPLOAD] Using cert file: {}", cert_path);
 
     let result = web::block(move || {
         Command::new(&tedge_bin)
@@ -1629,16 +1622,11 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
     let snap_data = env::var("SNAP_DATA").unwrap_or_default();
 
     let result = web::block(move || {
-        let (tedge_bin, mut args): (&str, Vec<&str>) = if is_snap {
-            ("/snap/thin-edge-io/current/bin/tedge", vec![])
+        let tedge_bin = if is_snap {
+            "/snap/thin-edge-io/current/bin/tedge"
         } else {
-            ("tedge", vec![])
+            "tedge"
         };
-
-        if is_snap && !snap_data.is_empty() {
-            args.extend_from_slice(&["--config-dir", &snap_data]);
-            // We need to use a different approach to pass owned strings
-        }
 
         let mut cmd = Command::new(tedge_bin);
         if is_snap && !snap_data.is_empty() {
