@@ -1,73 +1,153 @@
 # thin-edge.io for ctrlX AUTOMATION
 
+[![Version](https://img.shields.io/badge/version-1.7.1-blue)](https://github.com/Cumulocity-IoT/thin-edge-io-app)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![Architecture](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey)](https://github.com/Cumulocity-IoT/thin-edge-io-app)
+
 ## Overview
 
-This is a CTRLX AUTOMATION app package for **thin-edge.io**, the open-source cloud-agnostic IoT edge framework. This app enables ctrlX CORE devices to connect to major cloud IoT platforms including Cumulocity IoT, AWS IoT, and Azure IoT Hub.
+This is a **ctrlX AUTOMATION** snap app that packages [thin-edge.io](https://thin-edge.io) — the open-source, cloud-agnostic IoT edge framework. It enables ctrlX CORE and ctrlX COREvirtual devices to securely connect to major IoT cloud platforms and provides a built-in web UI for configuration and monitoring.
 
 ## Features
 
-- **Multi-Cloud Connectivity**: Connect to Cumulocity IoT, AWS IoT Core, or Azure IoT Hub
-- **Device Management**: Remote device monitoring and management
-- **Software Management**: Over-the-air software updates
-- **Configuration Management**: Remote configuration updates
-- **Log Management**: Centralized log collection and forwarding
-- **Remote Access**: Secure remote access to devices
-- **MQTT Messaging**: Efficient local and cloud messaging
-- **Protocol Translation**: Automatic translation between device and cloud protocols
+- **Multi-Cloud Connectivity** — Cumulocity IoT, AWS IoT Core, Azure IoT Hub
+- **Web-Based Configuration UI** — Browser-accessible dashboard served directly from the device
+- **Device Management** — Remote monitoring, software updates, configuration management
+- **Log Management** — Centralized log collection with live viewer in the web UI
+- **Tedge Configuration Viewer** — Live view of `tedge config list` output in the web UI
+- **Remote Access** — Secure remote access via Cumulocity
+- **MQTT Bridge** — Efficient local and cloud messaging via Mosquitto
+- **ctrlX Data Layer Bridge** — Optional bridge service for ctrlX Data Layer integration
+- **Health Monitoring** — Integrated watchdog service with automatic service recovery
+- **Strict Snap Confinement** — Process isolation, no root privileges required
+
+## Repository Structure
+
+```
+thin-edge-io-app/
+├── snap/
+│   ├── snapcraft.yaml          # Snap build definition
+│   └── hooks/                  # install, configure, post-refresh hooks
+├── web-server-rust/            # Actix-web backend (Rust)
+│   ├── src/main.rs             # REST API server
+│   └── www/                    # Frontend (HTML, JS, CSS)
+├── bridge-service-rust/        # ctrlX Data Layer bridge (Rust)
+├── web/www/                    # Frontend source (includes styles.less)
+├── scripts/                    # Build and runtime helper scripts
+├── configs/                    # App metadata (caddyfile, package-manifest)
+├── package-assets/             # ctrlX Store assets (icons, i18n, proxy config)
+└── docs/                       # Documentation
+```
 
 ## Components
 
-This app includes all thin-edge.io components:
-
-### Core Services
-- **tedge**: Main CLI tool for configuration and management
-- **tedge-agent**: Agent service for software and configuration management
-- **tedge-mapper**: Protocol mappers for c8y/aws/azure
-- **tedge-watchdog**: Health monitoring service
+### Core Services (thin-edge.io v1.7.1)
+| Service | Description |
+|---------|-------------|
+| `tedge` | CLI tool for configuration and management |
+| `tedge-agent` | Main agent service for device operations |
+| `tedge-mapper-c8y` | Protocol mapper for Cumulocity IoT |
+| `tedge-mapper-aws` | Protocol mapper for AWS IoT Core |
+| `tedge-mapper-az` | Protocol mapper for Azure IoT Hub |
+| `tedge-watchdog` | Health monitoring and automatic recovery |
+| `mosquitto` | Local MQTT broker |
 
 ### Plugins
-- **c8y-firmware-plugin**: Firmware management for Cumulocity
-- **c8y-remote-access-plugin**: Remote access via Cumulocity
-- **tedge-apt-plugin**: APT package management
-- **tedge-file-config-plugin**: Configuration file management
-- **tedge-file-log-plugin**: Log file management
+| Plugin | Description |
+|--------|-------------|
+| `c8y-firmware-plugin` | Firmware update management for Cumulocity |
+| `c8y-remote-access-plugin` | Secure remote access via Cumulocity |
+| `tedge-apt-plugin` | APT package management integration |
+| `tedge-file-config-plugin` | Configuration file management |
+| `tedge-file-log-plugin` | Log file collection and forwarding |
+
+### Custom Services
+| Service | Description |
+|---------|-------------|
+| `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar) |
+| `tedge-datalayer-bridge` | ctrlX Data Layer ↔ thin-edge.io bridge |
+
+## Web UI
+
+After installation, the configuration UI is accessible via the ctrlX CORE sidebar under **thin-edge.io**, or directly at:
+
+```
+https://<device-ip>/thin-edge-io/
+```
+
+### UI Sections
+
+- **Status** — Live service status for all thin-edge.io services
+- **Cloud Configuration** — Configure Cumulocity IoT, AWS IoT, or Azure IoT Hub connection
+- **Device Identity** — Manage device ID and X.509 certificates
+- **Connection** — Connect, disconnect, reconnect to cloud platforms; send test messages
+- **Logs** — Live log viewer with selectable service and log level
+- **Tedge Configuration** — Full output of `tedge config list`
+- **System Information** — Build info, snap version, architecture
+
+### Web API (REST)
+
+The web server exposes the following API endpoints under `/api/`:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/status` | Service status for all components |
+| GET | `/config` | Current tedge configuration |
+| POST | `/config/c8y` | Save Cumulocity configuration |
+| POST | `/config/aws` | Save AWS configuration |
+| POST | `/config/az` | Save Azure configuration |
+| POST | `/config/device` | Save device configuration |
+| GET | `/device-id` | Get current device ID |
+| POST | `/device-id` | Set device ID |
+| POST | `/device-id/recreate` | Recreate device certificate |
+| POST | `/device-id/create-auto` | Auto-create certificate from device ID |
+| GET | `/device-id/cert-info` | Show certificate details |
+| POST | `/connect/{cloud}` | Connect to cloud (c8y/aws/az) |
+| POST | `/disconnect/{cloud}` | Disconnect from cloud |
+| POST | `/reconnect/{cloud}` | Reconnect to cloud |
+| POST | `/cert/upload/c8y` | Upload certificate to Cumulocity |
+| POST | `/test-message` | Publish test MQTT message |
+| GET | `/logs` | Fetch service logs |
+| GET | `/tedge-config-list` | Full `tedge config list` output |
+| GET | `/build-info` | Build and version information |
+| GET | `/log-level` | Get current log level |
+| POST | `/log-level` | Set log level |
+| POST | `/restart` | Restart all services |
 
 ## Installation
 
 ### Prerequisites
-- ctrlX CORE or ctrlX COREvirtual with firmware version 1.20 or higher
+
+- ctrlX CORE or ctrlX COREvirtual with **ctrlX OS 1.20 or higher**
 - Network connectivity to your cloud platform
 
 ### Install Steps
 
-1. Build or download the appropriate snap file:
-   - `thin-edge-io_1.7.1_amd64.snap` for ctrlX COREvirtual
-   - `thin-edge-io_1.7.1_arm64.snap` for ctrlX CORE hardware
-   
-   To build: Run `./setup-and-build-all.sh` (see "Building from Source" section)
+1. Build the snap (see [Building from Source](#building-from-source)) or download a release:
+   - `thin-edge-io_1.7.1_amd64.snap` — ctrlX COREvirtual
+   - `thin-edge-io_1.7.1_arm64.snap` — ctrlX CORE hardware
 
-2. Open ctrlX CORE web interface
+2. Open the ctrlX CORE web interface
 
 3. Navigate to **Settings → Apps**
 
 4. Switch to **Service Mode**
 
-5. Click **Install from file**
+5. Click **Install from file** and select the snap file
 
-6. Select the downloaded snap file
-
-7. Switch back to **Operation Mode**
+6. Switch back to **Operation Mode**
 
 ## Configuration
 
-### Initial Setup
+### Via Web UI (Recommended)
 
-After installation, connect via SSH or use the web interface terminal:
+Open `https://<device-ip>/thin-edge-io/` and configure cloud connection, device ID, and certificates directly in the browser.
+
+### Via CLI (SSH / Terminal)
 
 ```bash
-# Configure connection to Cumulocity IoT
+# Configure Cumulocity IoT
 thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
-thin-edge-io.tedge config set device.id your-device-id
 
 # Or configure for AWS IoT
 thin-edge-io.tedge config set aws.url your-endpoint.iot.region.amazonaws.com
@@ -79,108 +159,68 @@ thin-edge-io.tedge config set az.url your-hub.azure-devices.net
 ### Certificate Management
 
 ```bash
-# Create new device certificate
+# Create device certificate
 thin-edge-io.tedge cert create --device-id your-device-id
 
-# Show certificate
+# Show certificate details
 thin-edge-io.tedge cert show
-```
 
-### Connect to Cloud
-
-```bash
-# Connect to Cumulocity IoT
+# Connect to Cumulocity (registers device and uploads cert)
 thin-edge-io.tedge connect c8y
-
-# Or connect to AWS IoT
-thin-edge-io.tedge connect aws
-
-# Or connect to Azure IoT Hub
-thin-edge-io.tedge connect az
 ```
 
-## Usage
+## Building from Source
 
-### Check Status
+### Automated Build (Recommended)
 
 ```bash
-# Check connection status
-thin-edge-io.tedge connect c8y --test
-
-# Check service status via snap
-snap services thin-edge-io
+git clone https://github.com/Cumulocity-IoT/thin-edge-io-app.git
+cd thin-edge-io-app
+./setup-and-build-all.sh
 ```
 
-### Send Measurements
+This script installs all dependencies (Rust toolchain, Snapcraft) and builds snaps for both architectures.
+
+> **Note**: The first build takes 15–30 minutes as it compiles all Rust dependencies from source.
+
+### Manual Build
+
+#### Prerequisites
 
 ```bash
-# Send telemetry data
-tedge mqtt pub te/device/main///m/ '{"temperature": 23.5}'
+# Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup default 1.85
+
+# Snapcraft
+sudo snap install snapcraft --classic
+
+# System dependencies
+sudo apt-get install pkg-config libssl-dev libsqlite3-dev
 ```
 
-### View Logs
+#### Build
 
 ```bash
-# View service logs
-snap logs thin-edge-io.tedge-agent
-snap logs thin-edge-io.tedge-mapper-c8y
-snap logs thin-edge-io.tedge-watchdog
+# ctrlX COREvirtual (amd64)
+./build-snap-amd64.sh
+
+# ctrlX CORE hardware (arm64)
+# build-snap-arm64.sh  (requires arm64 build environment or cross-compilation)
 ```
 
-## Network Requirements
+### Frontend Development
 
-### Outbound Connections
+The frontend source lives in `web/www/` (includes `styles.less`). After editing, sync to the Rust server:
 
-The following outbound connections are required:
-
-| Protocol | Port | Purpose |
-|----------|------|---------|
-| HTTPS | 443 | Cloud platform API access |
-| MQTT/TLS | 8883 | Secure MQTT connections to cloud |
-
-### Local Connections
-
-| Protocol | Port | Purpose |
-|----------|------|---------|
-| HTTP | 8000 | Agent API (internal) |
-| MQTT | 1883 | Local MQTT broker (optional) |
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│           ctrlX CORE Device                  │
-│                                              │
-│  ┌──────────────────────────────────────┐  │
-│  │  thin-edge.io App                     │  │
-│  │                                        │  │
-│  │  ┌─────────────┐   ┌──────────────┐  │  │
-│  │  │ tedge-agent │   │ tedge-mapper │  │  │
-│  │  └─────────────┘   └──────────────┘  │  │
-│  │                                        │  │
-│  │  ┌─────────────┐   ┌──────────────┐  │  │
-│  │  │  Plugins    │   │   watchdog   │  │  │
-│  │  └─────────────┘   └──────────────┘  │  │
-│  └──────────────────────────────────────┘  │
-│                  ↕                          │
-│         MQTT / HTTP / IPC                   │
-└─────────────────────────────────────────────┘
-                  ↕
-          Internet (TLS)
-                  ↕
-┌─────────────────────────────────────────────┐
-│        Cloud IoT Platform                    │
-│   (Cumulocity / AWS / Azure)                │
-└─────────────────────────────────────────────┘
+```bash
+cp web/www/app.js web/www/index.html web/www/styles.css web-server-rust/www/
 ```
 
-## Security
-
-- All cloud connections use TLS encryption
-- Certificate-based device authentication
-- Snap confinement for process isolation
-- Minimal required permissions (network, network-bind, system-observe)
-- No root privileges required
+> **Warning**: A CSS formatter may replace `var(--brand-primary)` with hardcoded hex values. After formatter runs, verify with:
+> ```bash
+> grep -n "86efac\|4ade80\|FDC000" web-server-rust/www/styles.css
+> ```
 
 ## Troubleshooting
 
@@ -190,134 +230,73 @@ The following outbound connections are required:
 # Test cloud connectivity
 thin-edge-io.tedge connect c8y --test
 
+# Show current configuration
+thin-edge-io.tedge config list
+
 # Check certificate
 thin-edge-io.tedge cert show
-
-# Verify configuration
-thin-edge-io.tedge config list
 ```
 
 ### Service Not Starting
 
 ```bash
-# Check service logs
+# View logs (follow)
 snap logs thin-edge-io.tedge-agent -f
+snap logs thin-edge-io.webserver -f
 
-# Restart services
+# Restart all services
 snap restart thin-edge-io
 ```
 
-### High Resource Usage
+### Directory / Permission Issues
 
-```bash
-# Check resource usage
-snap info thin-edge-io
+The snap uses `$SNAP_DATA` (per-revision path) for all runtime data. After a snap update, paths are re-configured automatically via the `post-refresh` hook:
 
-# View running processes
-ps aux | grep tedge
+```
+$SNAP_DATA/tedge/run/        → tedge run.path
+$SNAP_DATA/tedge/tmp/        → tedge tmp.path
+$SNAP_DATA/tedge/log-plugins/
+$SNAP_DATA/tedge/sm-plugins/
+$SNAP_DATA/tedge/.agent/
 ```
 
-## Performance
+## Network Requirements
 
-### Resource Requirements
+| Direction | Protocol | Port | Purpose |
+|-----------|----------|------|---------|
+| Outbound | HTTPS | 443 | Cloud platform REST API |
+| Outbound | MQTT/TLS | 8883 | Secure cloud MQTT |
+| Local | HTTP | 8000 | Web UI (proxied via ctrlX caddy) |
+| Local | MQTT | 1883 | Local broker (internal) |
 
-- **RAM**: ~50-100 MB (depending on active mappers)
-- **CPU**: <5% on idle, <20% during active data transfer
-- **Storage**: ~100 MB for app, additional space for logs/cache
-- **Network**: Minimal bandwidth, optimized MQTT protocol
+## Security
 
-### Scalability
+- All cloud connections use **TLS 1.2+**
+- **Certificate-based** device authentication (X.509)
+- **Strict snap confinement** — process isolation, no root required
+- **ctrlX Bearer Token** authentication for web UI access
+- Role-based scopes: `thin-edge-io.rwx`, `thin-edge-io.rw`, `thin-edge-io.r`
 
-- Handles 1000+ measurements per minute
-- Supports multiple simultaneous mapper connections
-- Efficient message batching and compression
+## Resource Usage
 
-## Building from Source
-
-### Automated Setup and Build (Recommended)
-
-Use the automated script to install all dependencies and build both architectures:
-
-```bash
-./setup-and-build-all.sh
-```
-
-This script will:
-- Install Rust toolchain (if not present)
-- Install Snapcraft (if not present)
-- Install build dependencies
-- Build snap for amd64 (ctrlX COREvirtual)
-- Build snap for arm64 (ctrlX CORE hardware)
-
-**Note**: First build takes 15-30 minutes as it downloads and compiles all Rust dependencies.
-
-### Manual Build (Advanced)
-
-#### Prerequisites
-
-```bash
-# Install Rust toolchain
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup default 1.85
-
-# Install snapcraft
-sudo snap install snapcraft --classic
-
-# Install build dependencies
-sudo apt-get install pkg-config libssl-dev libsqlite3-dev
-```
-
-#### Build Commands
-
-```bash
-# For ctrlX COREvirtual (amd64)
-./build-snap-amd64.sh
-
-# For ctrlX CORE hardware (arm64)
-./build-snap-arm64.sh
-```
-
-#### Build Output
-
-After successful build, snap files will be created in the current directory:
-- `thin-edge-io_1.7.1_amd64.snap` - For ctrlX COREvirtual
-- `thin-edge-io_1.7.1_arm64.snap` - For ctrlX CORE hardware
+| Resource | Typical |
+|----------|---------|
+| RAM | ~50–100 MB (depending on active mappers) |
+| CPU | <5% idle, <20% during active data transfer |
+| Storage | ~100 MB for app + logs/cache |
 
 ## License
 
-This app packages thin-edge.io, which is licensed under **Apache License 2.0**.
+This app packages **thin-edge.io**, licensed under the **Apache License 2.0**.
 
-All included open-source components are properly attributed. See `configs/fossinfo.json` and `configs/foss-offer.txt` for complete license information.
+All included open-source components are documented in [`package-assets/fossinfo.json`](package-assets/fossinfo.json) and [`package-assets/foss-offer.txt`](package-assets/foss-offer.txt).
 
-## Support
+## Links
 
-- **Documentation**: https://thin-edge.github.io/thin-edge.io/
-- **GitHub**: https://github.com/thin-edge/thin-edge.io
-- **Discord**: https://discord.com/invite/sVX3B8nj5d
-- **Email**: info@thin-edge.io
-
-## Version
-
-- **App Version**: 1.7.1
-- **thin-edge.io Version**: 1.7.1
-- **Base**: Ubuntu Core 24
-- **Architectures**: amd64, arm64
-
-## Changelog
-
-### Version 1.7.1 (2026-02-12)
-- Initial CTRLX AUTOMATION release
-- All core components included
-- Support for Cumulocity, AWS, and Azure
-- Complete plugin suite
-- Health monitoring and watchdog
-- Full snap confinement
-
-## Known Limitations
-
-- Direct ctrlX Data Layer integration not yet implemented
-- Web UI integration pending
-- Some advanced network features may require manual configuration
+- **thin-edge.io Docs**: https://thin-edge.github.io/thin-edge.io/
+- **thin-edge.io GitHub**: https://github.com/thin-edge/thin-edge.io
+- **This App Repository**: https://github.com/Cumulocity-IoT/thin-edge-io-app
+- **Discord Community**: https://discord.com/invite/sVX3B8nj5d
 
 ## Roadmap
 
