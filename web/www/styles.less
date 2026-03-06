@@ -691,6 +691,7 @@ footer {
   --header-text-color:          @dark-header-text;
   --header-border-color:        @dark-header-border;
   --brand-primary:              @dark-brand-primary;
+  --brand-primary-hover:        #4ade80;
   --brand-complementary:        @dark-brand-complementary;
   --brand-dark:                 @dark-brand-dark;
   --c8y-palette-blue-80:        @dark-blue-80;
@@ -727,7 +728,7 @@ footer {
       border-color: @dark-gray-60;
 
       &:focus {
-        border-color: @dark-brand-primary;
+        border-color: var(--brand-primary);
         box-shadow:   0 0 0 3px rgba(96,165,250,.2);
       }
     }
@@ -737,26 +738,26 @@ footer {
     color: @dark-gray-40;
 
     &.active {
-      color:               @dark-brand-primary;
-      border-bottom-color: @dark-brand-primary;
+      color:               var(--brand-primary);
+      border-bottom-color: var(--brand-primary);
     }
   }
 
   .btn-primary {
-    background:   @dark-brand-primary;
-    border-color: @dark-brand-primary;
+    background:   var(--brand-primary);
+    border-color: var(--brand-primary);
     color:        #0f172a;
 
     &:hover {
-      background:   #4ade80;
-      border-color: #4ade80;
+      background:   var(--brand-primary-hover);
+      border-color: var(--brand-primary-hover);
       color:        #0f172a;
     }
   }
 
   .help-text {
     background:   @dark-blue-80;
-    border-color: @dark-brand-primary;
+    border-color: var(--brand-primary);
   }
 
   .device-id-value {
@@ -926,6 +927,11 @@ footer {
 }
 [data-color="yellow"][data-theme="dark"] {
   --brand-primary:       #FDC000;
+  --brand-primary-hover: #f59e0b;
   --brand-dark:          #fef0aa;
   --brand-light:         #3f3500;
+  .btn-primary {
+    background: #FDC000; border-color: #FDC000; color: #000;
+    &:hover { background: #f59e0b; border-color: #f59e0b; color: #000; }
+  }
 }

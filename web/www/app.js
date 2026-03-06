@@ -510,8 +510,6 @@ async function loadConfiguration() {
         
         if (config.aws) {
             document.getElementById('aws-url').value = config.aws['aws-url'] || '';
-            document.getElementById('aws-region').value = config.aws.region || '';
-            document.getElementById('aws-account').value = config.aws.account || '';
             document.getElementById('aws-enabled').checked = config.aws.enabled || false;
         }
         
@@ -557,8 +555,6 @@ async function saveC8yConfig() {
 async function saveAwsConfig() {
     const config = {
         'aws-url': document.getElementById('aws-url').value,
-        region: document.getElementById('aws-region').value,
-        account: document.getElementById('aws-account').value,
         enabled: document.getElementById('aws-enabled').checked
     };
     
@@ -928,36 +924,6 @@ async function loadCertDetailsInline() {
             inline.style.flexDirection = 'column';
         }
     } catch (_) {}
-}
-
-// Show certificate details via tedge cert show
-async function showCertificateDetails() {
-    const viewer = document.getElementById('log-viewer');
-    if (viewer) viewer.textContent = t('device.cert_details') + ' ...';
-    try {
-        const response = await fetch('api/device-id/cert-info');
-        let data = {};
-        const text = await response.text();
-        try { data = JSON.parse(text); } catch (_) {}
-
-        const msg = data.details || data.error ||
-            (response.status === 408 ? 'Request timed out — tedge cert show took too long.' : `Server error (${response.status})`);
-
-        if (viewer) {
-            viewer.textContent = msg;
-            const sec = document.getElementById('sec-logs');
-            if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        if (!response.ok || data.success === false) {
-            showNotification(data.error || `Error ${response.status}`, 'error');
-        } else {
-            showNotification(t('notify.cert_details_ok'), 'success');
-        }
-    } catch (error) {
-        console.error('Error fetching certificate details:', error);
-        showNotification(t('notify.cert_details_err'), 'error');
-    }
 }
 
 // Connect cloud via tedge connect <cloud>
