@@ -1,5 +1,5 @@
 # Snap build artifacts
-#*.snap needed 
+*.snap 
 parts/
 stage/
 prime/
