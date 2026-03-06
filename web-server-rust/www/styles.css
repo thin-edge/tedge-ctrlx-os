@@ -563,6 +563,7 @@ footer a:hover {
   --header-text-color: #e2e8f0;
   --header-border-color: rgba(0, 0, 0, 0.3);
   --brand-primary: #86efac;
+  --brand-primary-hover: #4ade80;
   --brand-complementary: #cbd5e1;
   --brand-dark: #d1fae5;
   --c8y-palette-blue-80: #1e3a5f;
@@ -595,29 +596,29 @@ footer a:hover {
 }
 [data-theme="dark"] .form-group input[type="text"]:focus,
 [data-theme="dark"] .form-group input[type="password"]:focus {
-  border-color: #86efac;
+  border-color: var(--brand-primary);
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
 [data-theme="dark"] .tab {
   color: #94a3b8;
 }
 [data-theme="dark"] .tab.active {
-  color: #86efac;
-  border-bottom-color: #86efac;
+  color: var(--brand-primary);
+  border-bottom-color: var(--brand-primary);
 }
 [data-theme="dark"] .btn-primary {
-  background: #86efac;
-  border-color: #86efac;
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
   color: #0f172a;
 }
 [data-theme="dark"] .btn-primary:hover {
-  background: #4ade80;
-  border-color: #4ade80;
+  background: var(--brand-primary-hover);
+  border-color: var(--brand-primary-hover);
   color: #0f172a;
 }
 [data-theme="dark"] .help-text {
   background: #1e3a5f;
-  border-color: #86efac;
+  border-color: var(--brand-primary);
 }
 [data-theme="dark"] .device-id-value {
   background: #2d3748;
@@ -815,6 +816,17 @@ footer a:hover {
 }
 [data-color="yellow"][data-theme="dark"] {
   --brand-primary: #FDC000;
+  --brand-primary-hover: #f59e0b;
   --brand-dark: #fef0aa;
   --brand-light: #3f3500;
+}
+[data-color="yellow"][data-theme="dark"] .btn-primary {
+  background: #FDC000;
+  border-color: #FDC000;
+  color: #000;
+}
+[data-color="yellow"][data-theme="dark"] .btn-primary:hover {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #000;
 }
