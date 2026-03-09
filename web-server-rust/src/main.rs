@@ -89,9 +89,65 @@ struct ServiceStatus {
     agent: String,
     bridge: String,
     watchdog: String,
+    mapper_c8y: String,
+    mapper_aws: String,
+    mapper_az: String,
     c8y: String,
     aws: String,
     az: String,
+}
+
+/// Check actual mosquitto bridge connection state via $SYS topic.
+/// Returns "running" (bridge up), "stopped" (bridge down), "inactive" (not configured),
+/// or "unknown" (configured but state undetermined, e.g. mosquitto just restarted).
+async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> &'static str {
+    // Step 1: check if bridge config exists at all
+    let bridge_conf = format!("{}/tedge/mosquitto-conf/{}-bridge.conf", snap_data, cloud);
+    if !std::path::Path::new(&bridge_conf).exists() {
+        return "inactive";
+    }
+
+    let bridge_name = match cloud {
+        "c8y" => "edge_to_c8y",
+        "aws" => "edge_to_aws",
+        "az"  => "edge_to_az",
+        _     => return "unknown",
+    };
+
+    // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state
+    if std::path::Path::new(&sub_bin).exists() {
+        let topic = format!("$SYS/broker/connection/{}/state", bridge_name);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            tokio::process::Command::new(&sub_bin)
+                .args(["-h", "127.0.0.1", "-p", "1883", "-t", &topic, "-C", "1", "-W", "2"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .output(),
+        ).await;
+
+        return match result {
+            Ok(Ok(out)) if !out.stdout.is_empty() => match out.stdout.first() {
+                Some(&b'1') => "running",
+                Some(&b'0') => "stopped",
+                _            => "unknown",
+            },
+            _ => "unknown",
+        };
+    }
+
+    // Step 3: fallback (mosquitto_sub not yet in snap) — use mapper snapctl status as proxy
+    // bridge.conf exists → connect was run. If mapper is active → assume bridge is up.
+    let mapper_svc = match cloud {
+        "c8y" => "thin-edge-io.tedge-mapper-c8y",
+        "aws" => "thin-edge-io.tedge-mapper-aws",
+        "az"  => "thin-edge-io.tedge-mapper-az",
+        _     => return "unknown",
+    };
+    match std::process::Command::new("snapctl").args(["services", mapper_svc]).output() {
+        Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+        _ => "stopped",
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,6 +346,9 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         agent: "unknown".to_string(),
         bridge: "unknown".to_string(),
         watchdog: "unknown".to_string(),
+        mapper_c8y: "unknown".to_string(),
+        mapper_aws: "unknown".to_string(),
+        mapper_az: "unknown".to_string(),
         c8y: "unknown".to_string(),
         aws: "unknown".to_string(),
         az: "unknown".to_string(),
@@ -312,7 +371,7 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         };
         // Like check_process but returns "inactive" (neutral) instead of "stopped" (error)
         // for optional services that may not be started yet
-        let check_optional = |name: &str| -> &'static str {
+        let _check_optional = |name: &str| -> &'static str {
             if let Ok(entries) = std::fs::read_dir("/proc") {
                 for entry in entries.flatten() {
                     let comm_path = entry.path().join("comm");
@@ -340,12 +399,39 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
                 _ => "inactive",
             }
         }.to_string();
-        status.c8y = check_process("tedge-mapper-c8y").to_string();
-        status.aws = check_process("tedge-mapper-aws").to_string();
-        status.az = check_process("tedge-mapper-az").to_string();
 
-        info!("[STATUS] mosquitto={} agent={} bridge={} watchdog={} c8y={} aws={} az={}",
-            status.mosquitto, status.agent, status.bridge, status.watchdog, status.c8y, status.aws, status.az);
+        // Mapper process checks via snapctl (column 2)
+        // /proc/comm truncates to 15 chars: "tedge-mapper-c8y" → "tedge-mapper-c8" → check_process fails
+        let check_snapctl = |svc: &str| -> &'static str {
+            let full = format!("thin-edge-io.{}", svc);
+            match std::process::Command::new("snapctl").args(["services", &full]).output() {
+                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+                _ => "stopped",
+            }
+        };
+        status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
+        status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
+        status.mapper_az  = check_snapctl("tedge-mapper-az").to_string();
+
+        // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)
+        // Uses mosquitto_sub; runs all 3 in parallel to avoid cumulative timeout
+        let snap_dir = env::var("SNAP").unwrap_or_default();
+        let snap_data_dir = env::var("SNAP_DATA").unwrap_or_else(|_| "/etc/tedge/..".to_string());
+        let sub_bin = format!("{}/usr/bin/mosquitto_sub", snap_dir);
+
+        let (c8y_conn, aws_conn, az_conn) = tokio::join!(
+            check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "c8y"),
+            check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "aws"),
+            check_bridge_state(sub_bin,          snap_data_dir,         "az"),
+        );
+        status.c8y = c8y_conn.to_string();
+        status.aws = aws_conn.to_string();
+        status.az  = az_conn.to_string();
+
+        info!("[STATUS] mosquitto={} agent={} bridge={} watchdog={} mapper_c8y={} mapper_aws={} mapper_az={} c8y={} aws={} az={}",
+            status.mosquitto, status.agent, status.bridge, status.watchdog,
+            status.mapper_c8y, status.mapper_aws, status.mapper_az,
+            status.c8y, status.aws, status.az);
     }
 
     Ok(HttpResponse::Ok().json(status))
@@ -1067,7 +1153,7 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     let (topic, payload) = match body.msg_type.as_str() {
         "measurement" => (
             "te/device/main///m/test".to_string(),
-            format!(r#"{{"temperature":{{"value":{:.1},"unit":"°C"}},"time":"{}"}}"#,
+            format!(r#"{{"temperature":{:.1},"time":"{}"}}"#,
                 20.0 + (now_secs % 10) as f64,
                 chrono_like_ts(now_secs),
             ),

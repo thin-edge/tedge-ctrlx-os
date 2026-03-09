@@ -15,6 +15,7 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
+        'status.mappers':      'Mapper',
         'status.clouds':       'Cloud-Verbindungen',
         'status.loading':      '⚪ Lädt...',
         'status.running':      '🟢 Läuft',
@@ -23,7 +24,7 @@ const I18N = {
         'status.unknown':      '⚪ Unbekannt',
         'status.refresh':      'Status aktualisieren',
         // Cloud config
-        'cloud.save':          'Konfiguration speichern',
+        'cloud.save':          'Speichern',
         'cloud.save_short':    'Speichern',
         'cloud.c8y_mapper':    'Cumulocity IoT Mapper aktivieren',
         'cloud.aws_mapper':    'AWS IoT Mapper aktivieren',
@@ -37,10 +38,10 @@ const I18N = {
         'device.cert_status':  'Zertifikatsstatus:',
         'device.upload_status':'Upload-Status:',
         'device.save':         'Speichern',
-        'device.renew_cert':   'Zertifikat erneuern',
-        'device.update_cert':  'Zertifikat aktualisieren',
-        'device.create_cert':  'Zertifikat erstellen',
-        'device.upload_cert':  'Zertifikat hochladen',
+        'device.renew_cert':   'Erneuern',
+        'device.update_cert':  'Aktualisieren',
+        'device.create_cert':  'Erstellen',
+        'device.upload_cert':  'Hochladen',
         'device.cert_unknown': '⚪ Unbekannt',
         'device.not_uploaded': '⚪ Noch nicht hochgeladen',
         'device.cert_active':  '🟢 Aktiv',
@@ -163,6 +164,7 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
+        'status.mappers':      'Mappers',
         'status.clouds':       'Cloud Connections',
         'status.loading':      '⚪ Loading...',
         'status.running':      '🟢 Running',
@@ -171,7 +173,7 @@ const I18N = {
         'status.unknown':      '⚪ Unknown',
         'status.refresh':      'Refresh Status',
         // Cloud config
-        'cloud.save':          'Save Configuration',
+        'cloud.save':          'Save',
         'cloud.save_short':    'Save',
         'cloud.c8y_mapper':    'Enable Cumulocity IoT Mapper',
         'cloud.aws_mapper':    'Enable AWS IoT Mapper',
@@ -185,10 +187,10 @@ const I18N = {
         'device.cert_status':  'Certificate Status:',
         'device.upload_status':'Upload Status:',
         'device.save':         'Save',
-        'device.renew_cert':   'Renew Certificate',
-        'device.update_cert':  'Update Certificate',
-        'device.create_cert':  'Create Certificate',
-        'device.upload_cert':  'Upload Certificate',
+        'device.renew_cert':   'Renew',
+        'device.update_cert':  'Update',
+        'device.create_cert':  'Create',
+        'device.upload_cert':  'Upload',
         'device.cert_unknown': '⚪ Unknown',
         'device.not_uploaded': '⚪ Not yet uploaded',
         'device.cert_active':  '🟢 Active',
@@ -333,11 +335,13 @@ function applyI18n() {
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         el.title = t(el.getAttribute('data-i18n-title'));
     });
-    // Dynamic: status badges already get their text via updateStatusBadge()
-    // but we re-set the loading placeholders that haven't loaded yet:
-    document.querySelectorAll('.status.unknown').forEach(el => {
-        el.textContent = t('status.loading');
-    });
+    // Re-translate all status badges (running/stopped/inactive/unknown)
+    document.querySelectorAll('.status.running').forEach(el => { el.textContent = t('status.running'); });
+    document.querySelectorAll('.status.stopped').forEach(el => { el.textContent = t('status.stopped'); });
+    document.querySelectorAll('.status.inactive').forEach(el => { el.textContent = t('status.inactive'); });
+    document.querySelectorAll('.status.unknown').forEach(el => { el.textContent = t('status.loading'); });
+    // "unknown" from server (can't determine) → show as "unknown" text
+    document.querySelectorAll('[id$="-status"].status.unknown').forEach(el => { el.textContent = t('status.unknown'); });
     // Log viewer placeholder
     const lv = document.getElementById('log-viewer');
     if (lv && lv.textContent.trim() === '' || (lv && (lv.textContent.includes('Klicke') || lv.textContent.includes('Click')))) {
@@ -444,6 +448,9 @@ async function loadStatus() {
         updateStatusBadge('agent-status', data.agent || 'unknown');
         updateStatusBadge('bridge-status', data.bridge || 'unknown');
         updateStatusBadge('watchdog-status', data.watchdog || 'unknown');
+        updateStatusBadge('mapper-c8y-status', data.mapper_c8y || 'unknown');
+        updateStatusBadge('mapper-aws-status', data.mapper_aws || 'unknown');
+        updateStatusBadge('mapper-az-status', data.mapper_az || 'unknown');
         updateStatusBadge('c8y-status', data.c8y || 'unknown');
         updateStatusBadge('aws-status', data.aws || 'unknown');
         updateStatusBadge('az-status', data.az || 'unknown');

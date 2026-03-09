@@ -425,7 +425,7 @@ main {
   gap: 10px;
 }
 .label {
-  min-width: 140px;
+  min-width: 120px;
   font-size: 13px;
   color: var(--c8y-palette-gray-40);
 }
