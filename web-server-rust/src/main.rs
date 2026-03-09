@@ -13,6 +13,8 @@ use std::time::Duration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
     id: String,
+    #[serde(default)]
+    name: String,
     #[serde(rename = "type", default)]
     device_type: String,
 }
@@ -63,6 +65,7 @@ impl Default for Config {
         Config {
             device: DeviceConfig {
                 id: String::new(),
+                name: String::new(),
                 device_type: "ctrlX-CORE".to_string(),
             },
             c8y: C8yConfig {
@@ -218,7 +221,7 @@ impl AppState {
 
     fn save_config(&self, config: &Config) -> io::Result<()> {
         info!("[CONFIG-SAVE] Saving configuration to: {:?}", self.config_path);
-        info!("[CONFIG-SAVE] Device ID: {}, Type: {}", config.device.id, config.device.device_type);
+        info!("[CONFIG-SAVE] Device ID: {}, Name: {}, Type: {}", config.device.id, config.device.name, config.device.device_type);
         info!("[CONFIG-SAVE] C8y enabled: {}, AWS enabled: {}, Azure enabled: {}", 
               config.c8y.enabled, config.aws.enabled, config.az.enabled);
         
@@ -336,7 +339,7 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole) {
 
 // API Handlers
 
-async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
+async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role) = extract_user_info(&req);
     
     if !role.can_read() {
@@ -433,6 +436,23 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         status.c8y = c8y_conn.to_string();
         status.aws = aws_conn.to_string();
         status.az  = az_conn.to_string();
+
+        // Auto-record cert upload when c8y bridge is running (cert was accepted by C8y = it's trusted)
+        if c8y_conn == "running" {
+            let mut config = data.config.lock().unwrap();
+            if config.cert_upload.as_ref().map(|u| !u.uploaded).unwrap_or(true) {
+                let ts = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs()).unwrap_or(0);
+                config.cert_upload = Some(CertUploadStatus {
+                    uploaded: true,
+                    timestamp: Some(ts.to_string()),
+                    cloud: Some("c8y".to_string()),
+                });
+                let _ = data.save_config(&config);
+                info!("[STATUS] Auto-recorded cert_upload (c8y bridge running)");
+            }
+        }
 
         info!("[STATUS] mosquitto={} agent={} bridge={} watchdog={} mapper_c8y={} mapper_aws={} mapper_az={} c8y={} aws={} az={}",
             status.mosquitto, status.agent, status.bridge, status.watchdog,
@@ -1278,43 +1298,51 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
         })));
     }
     
-    let is_snap = env::var("SNAP").is_ok();
-    
-    if !is_snap {
-        warn!("[DEVICE-ID] Not in snap environment");
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": "Device ID management only available in snap environment"
-        })));
-    }
+    // In snap mode the script lives in $SNAP/scripts/; in local dev try the workspace scripts/ dir.
+    let script_path = {
+        let snap_path = env::var("SNAP").ok()
+            .map(|s| PathBuf::from(s).join("scripts/manage-device-id.sh"));
+        let local_path = std::env::current_exe().ok()
+            .and_then(|p| p.ancestors().nth(4).map(|a| a.join("scripts/manage-device-id.sh")));
+        let hardcoded = PathBuf::from("/home/ubuntu/thin-edge-io-app/scripts/manage-device-id.sh");
 
-    let snap = env::var("SNAP").unwrap_or_default();
-    let script_path = PathBuf::from(&snap).join("scripts/manage-device-id.sh");
-    info!("[DEVICE-ID] Using script: {:?}", script_path);
+        [snap_path, local_path, Some(hardcoded)]
+            .into_iter()
+            .flatten()
+            .find(|p| p.exists())
+    };
 
-    let script_path_clone = script_path.clone();
-    let (system_serial, current) = web::block(move || {
-        let serial = Command::new(&script_path_clone)
-            .arg("get-serial")
-            .output()
-            .ok()
-            .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+    let (system_serial, current) = if let Some(script_path) = script_path {
+        info!("[DEVICE-ID] Using script: {:?}", script_path);
+        let script_path_clone = script_path.clone();
+        web::block(move || {
+            let serial = Command::new(&script_path_clone)
+                .arg("get-serial")
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
 
-        // get-current exits 1 when no certificate → return empty string so JS falls back to system_serial
-        let current = Command::new(&script_path)
-            .arg("get-current")
-            .output()
-            .ok()
-            .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
-            .map(|s| s.trim().to_string())
-            .unwrap_or_default();
+            // get-current exits 1 when no certificate → returns empty string
+            let current = Command::new(&script_path)
+                .arg("get-current")
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
 
-        (serial, current)
-    }).await.unwrap_or_else(|_| ("unknown".to_string(), "not-set".to_string()));
+            (serial, current)
+        }).await.unwrap_or_else(|_| ("unknown".to_string(), String::new()))
+    } else {
+        warn!("[DEVICE-ID] manage-device-id.sh not found – returning empty device info");
+        ("unknown".to_string(), String::new())
+    };
 
-    let has_certificate = std::path::Path::new("/var/snap/thin-edge-io/current/tedge/device-certs/tedge-certificate.pem").exists();
+    // Derive has_certificate from the script result: get-current returns non-empty CN only if cert exists.
+    // This avoids a hardcoded snap path and works in both snap and local-dev mode.
+    let has_certificate = !current.is_empty();
     info!("[DEVICE-ID] Serial: {}, Current: {}, Has cert: {}", system_serial, current, has_certificate);
     
     Ok(HttpResponse::Ok().json(DeviceIdInfo {

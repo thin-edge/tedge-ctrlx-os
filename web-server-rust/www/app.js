@@ -22,7 +22,7 @@ const I18N = {
         'status.stopped':      '🔴 Gestoppt',
         'status.inactive':     '⚫ Inaktiv',
         'status.unknown':      '⚪ Unbekannt',
-        'status.refresh':      'Status aktualisieren',
+        'status.refresh':      'aktualisieren',
         // Cloud config
         'cloud.save':          'Speichern',
         'cloud.save_short':    'Speichern',
@@ -171,7 +171,7 @@ const I18N = {
         'status.stopped':      '🔴 Stopped',
         'status.inactive':     '⚫ Inactive',
         'status.unknown':      '⚪ Unknown',
-        'status.refresh':      'Refresh Status',
+        'status.refresh':      'Refresh',
         // Cloud config
         'cloud.save':          'Save',
         'cloud.save_short':    'Save',
@@ -347,10 +347,16 @@ function applyI18n() {
     if (lv && lv.textContent.trim() === '' || (lv && (lv.textContent.includes('Klicke') || lv.textContent.includes('Click')))) {
         lv.textContent = t('logs.placeholder');
     }
-    // cert-upload-status: only if it shows the default "not uploaded" text
+    // cert-upload-status: retranslate only if showing the default "not uploaded" text
     const cu = document.getElementById('cert-upload-status');
-    if (cu && (cu.textContent.includes('Noch nicht') || cu.textContent.includes('Not yet'))) {
-        cu.textContent = t('device.not_uploaded');
+    if (cu) {
+        if (cu.textContent.includes('Noch nicht') || cu.textContent.includes('Not yet')) {
+            cu.textContent = t('device.not_uploaded');
+        }
+        // Retranslate uploaded state via data attributes set by updateCertUploadStatusDisplay
+        const cloud = cu.dataset.uploadCloud;
+        const ts    = cu.dataset.uploadTs;
+        if (cloud) cu.textContent = t('cert.uploaded_to', cloud, ts ? ' (' + new Date(parseInt(ts) * 1000).toLocaleString() + ')' : '');
     }
 }
 // ─────────────────────────────────────────────────────────────────────
@@ -488,9 +494,13 @@ function updateCertUploadStatusDisplay(certUpload) {
         }
         el.textContent = t('cert.uploaded_to', cloud, timeStr);
         el.style.color = 'var(--brand-primary, #53cd61)';
+        el.dataset.uploadCloud = cloud;
+        el.dataset.uploadTs    = certUpload.timestamp || '';
     } else {
         el.textContent = t('device.not_uploaded');
         el.style.color = '';
+        delete el.dataset.uploadCloud;
+        delete el.dataset.uploadTs;
     }
 }
 
@@ -511,6 +521,11 @@ async function loadConfiguration() {
             const deviceIdField = document.getElementById('device-id');
             if (deviceIdField && !deviceIdField.value && config.device.id) {
                 deviceIdField.value = config.device.id;
+            }
+            // Pre-fill device name (cert CN) from saved config if not already set by loadDeviceIdInfo
+            const cnField = document.getElementById('cert-common-name');
+            if (cnField && !cnField.value && config.device.name) {
+                cnField.value = config.device.name;
             }
         }
         
@@ -616,7 +631,8 @@ async function saveAzConfig() {
 // Save device configuration
 async function saveDeviceConfig() {
     const config = {
-        id: document.getElementById('device-id').value
+        id: document.getElementById('device-id').value,
+        name: (document.getElementById('cert-common-name') || {}).value || ''
     };
     
     try {
