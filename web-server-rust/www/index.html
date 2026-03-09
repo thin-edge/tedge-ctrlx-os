@@ -262,7 +262,7 @@
                 <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:14px;">
                     <div class="form-group" style="margin:0">
                         <label for="log-service-select" data-i18n="logs.service">Service</label>
-                        <select id="log-service-select" style="padding:6px 10px; border:1px solid var(--c8y-palette-gray-60); border-radius:4px; font-size:14px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10); font-family:var(--c8y-font-family-base);">
+                        <select id="log-service-select" onchange="updateLogLevelDropdown()" style="padding:6px 10px; border:1px solid var(--c8y-palette-gray-60); border-radius:4px; font-size:14px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10); font-family:var(--c8y-font-family-base);">
                             <option value="tedge-agent">tedge-agent</option>
                             <option value="tedge-mapper-c8y">tedge-mapper-c8y</option>
                             <option value="tedge-mapper-aws">tedge-mapper-aws</option>
