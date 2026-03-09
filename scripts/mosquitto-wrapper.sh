@@ -45,8 +45,9 @@ BRIDGE_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
 
 # Always start from scratch so stale include_dir entries don't remain
 {
-    # Base settings: persistence and listener (used when tedge-mosquitto.conf is absent)
-    cat "$CONFIG_FILE"
+    # Base settings: filter out any existing include_dir lines to prevent duplicates
+    # (e.g. old $SNAP_COMMON/mosquitto.conf may already contain one)
+    grep -v "^include_dir" "$CONFIG_FILE"
     echo ""
     echo "# Settings and bridge configs written by tedge"
     if [ -d "$BRIDGE_CONF_DIR" ]; then

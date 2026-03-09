@@ -1053,6 +1053,11 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     } else {
         "tedge".to_string()
     };
+    let tedge_config_dir = if is_snap {
+        format!("{}/tedge", env::var("SNAP_DATA").unwrap_or_default())
+    } else {
+        "/etc/tedge".to_string()
+    };
 
     let now_secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1092,7 +1097,7 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     let payload_display = payload.clone();
     let result = web::block(move || {
         Command::new(&tedge_bin)
-            .args(&["mqtt", "pub", &topic, &payload])
+            .args(&["--config-dir", &tedge_config_dir, "mqtt", "pub", &topic, &payload])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
