@@ -114,36 +114,42 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
         _     => return "unknown",
     };
 
-    // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state
-    if std::path::Path::new(&sub_bin).exists() {
-        let topic = format!("$SYS/broker/connection/{}/state", bridge_name);
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            tokio::process::Command::new(&sub_bin)
-                .args(["-h", "127.0.0.1", "-p", "1883", "-t", &topic, "-C", "1", "-W", "2"])
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .output(),
-        ).await;
-
-        return match result {
-            Ok(Ok(out)) if !out.stdout.is_empty() => match out.stdout.first() {
-                Some(&b'1') => "running",
-                Some(&b'0') => "stopped",
-                _            => "unknown",
-            },
-            _ => "unknown",
-        };
-    }
-
-    // Step 3: fallback (mosquitto_sub not yet in snap) — use mapper snapctl status as proxy
-    // bridge.conf exists → connect was run. If mapper is active → assume bridge is up.
+    // mapper service name (used both as fallback and as proxy for bridge state)
     let mapper_svc = match cloud {
         "c8y" => "thin-edge-io.tedge-mapper-c8y",
         "aws" => "thin-edge-io.tedge-mapper-aws",
         "az"  => "thin-edge-io.tedge-mapper-az",
         _     => return "unknown",
     };
+
+    // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state.
+    // Note: $SYS topics are only published at sys_interval (default 10s) or on state change.
+    // If mosquitto_sub times out or returns an ambiguous result, fall through to Step 3.
+    if std::path::Path::new(&sub_bin).exists() {
+        let topic = format!("$SYS/broker/connection/{}/state", bridge_name);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(4),
+            tokio::process::Command::new(&sub_bin)
+                .args(["-h", "127.0.0.1", "-p", "1883", "-t", &topic, "-C", "1", "-W", "3"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .output(),
+        ).await;
+
+        match result {
+            Ok(Ok(out)) if !out.stdout.is_empty() => match out.stdout.first() {
+                Some(&b'1') => return "running",
+                Some(&b'0') => return "stopped",
+                // ambiguous → fall through to snapctl fallback below
+                _ => {}
+            },
+            // timeout or error → fall through to snapctl fallback below
+            _ => {}
+        }
+    }
+
+    // Step 3: fallback — use mapper snapctl status as proxy.
+    // bridge.conf exists → tedge connect was run. Active mapper ≈ bridge is up.
     match std::process::Command::new("snapctl").args(["services", mapper_svc]).output() {
         Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
         _ => "stopped",
