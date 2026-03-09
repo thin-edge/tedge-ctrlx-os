@@ -69,6 +69,9 @@ apps:
     command: scripts/tedge-wrapper.sh
     environment:
       TZ: Europe/Berlin
+      # $SNAP/scripts must be first so our dummy systemd-notify is found before
+      # the system binary (which is blocked by AppArmor in strict confinement)
+      PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
     plugs:
       - network
       - network-bind
@@ -163,8 +166,12 @@ apps:
         - mosquitto
 
   # tedge-watchdog service
+  # Uses watchdog-wrapper.sh instead of the tedge-watchdog binary directly.
+  # The binary relies on /lib/systemd/system/*.service files (unavailable in snap)
+  # and a real sd_notify socket (not present in strict confinement).
+  # The wrapper implements the same logic: MQTT health checks + snapctl restart.
   tedge-watchdog:
-    command: scripts/tedge-service-wrapper.sh tedge-watchdog
+    command: scripts/watchdog-wrapper.sh
     daemon: simple
     restart-condition: always
     plugs:
@@ -173,7 +180,6 @@ apps:
       - system-observe
     environment:
       TZ: Europe/Berlin
-      PATH: $SNAP/scripts:$SNAP/usr/local/bin:$PATH
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
     passthrough:
       restart-delay: 15s

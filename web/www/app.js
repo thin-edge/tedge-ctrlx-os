@@ -421,6 +421,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 window.addEventListener('DOMContentLoaded', () => {
     loadStatus();
     loadConfiguration();
+    updateLogLevelDropdown();
 });
 
 // Load service status
@@ -651,6 +652,25 @@ async function loadLogs() {
         viewer.scrollTop = viewer.scrollHeight;
     } catch (error) {
         viewer.textContent = t('logs.load_error', error.message);
+    }
+}
+
+// Fetch all log levels from system.toml and update the dropdown for the currently selected service
+async function updateLogLevelDropdown() {
+    const service = document.getElementById('log-service-select').value;
+    try {
+        const response = await fetch('api/log-level');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.levels && data.levels[service]) {
+            const levelSelect = document.getElementById('log-level-select');
+            levelSelect.value = data.levels[service];
+        } else {
+            // No entry in system.toml for this service → default is info
+            document.getElementById('log-level-select').value = 'info';
+        }
+    } catch (_) {
+        // silently ignore – dropdown keeps its current value
     }
 }
 

@@ -3,6 +3,10 @@
 
 export TEDGE_CONFIG_DIR="$SNAP_DATA/tedge"
 
+# Ensure our dummy systemd-notify is found before the system binary
+# (the system binary is blocked by AppArmor in strict snap confinement)
+export PATH="$SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH"
+
 # Log build information at service start
 if [ -f "$SNAP/meta/build-info.txt" ]; then
     BUILD_VERSION=$(head -n 1 "$SNAP/meta/build-info.txt")
@@ -46,5 +50,7 @@ mkdir -p "$SNAP_COMMON/tedge/log"
 BINARY_NAME="$1"
 shift
 
-exec "$SNAP/bin/$BINARY_NAME" --config-dir "$TEDGE_CONFIG_DIR" "$@"
-exec "$@" 2>&1 | tee -a "$SNAP_DATA/service.log"
+# Pipe stdout+stderr to the service-specific log file (append) and
+# keep a copy going to the snapd journal (stdout of this wrapper).
+LOG_FILE="$SNAP_COMMON/tedge/log/${BINARY_NAME}.log"
+exec "$SNAP/bin/$BINARY_NAME" --config-dir "$TEDGE_CONFIG_DIR" "$@" 2>&1 | tee -a "$LOG_FILE"

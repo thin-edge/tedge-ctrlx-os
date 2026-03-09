@@ -329,7 +329,17 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         status.mosquitto = check_process("mosquitto").to_string();
         status.agent = check_process("tedge-agent").to_string();
         status.bridge = check_process("tedge-datalayer").to_string(); // /proc/comm truncates to 15 chars
-        status.watchdog = check_optional("tedge-watchdog").to_string();
+        // watchdog-wrapper.sh is a bash script → /proc/comm shows "bash", not "tedge-watchdog"
+        // Use snapctl services to reliably detect the running state instead
+        status.watchdog = {
+            let out = std::process::Command::new("snapctl")
+                .args(["services", "thin-edge-io.tedge-watchdog"])
+                .output();
+            match out {
+                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+                _ => "inactive",
+            }
+        }.to_string();
         status.c8y = check_process("tedge-mapper-c8y").to_string();
         status.aws = check_process("tedge-mapper-aws").to_string();
         status.az = check_process("tedge-mapper-az").to_string();
