@@ -53,8 +53,8 @@
             <!-- Status Section -->
             <section id="sec-status" class="card">
                 <h2 data-i18n="section.status">Connection Status</h2>
-                <div style="display:flex; gap:24px; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:200px;">
+                <div class="status-columns">
+                    <div class="status-col">
                         <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--c8y-palette-gray-40,#999); margin-bottom:8px;" data-i18n="status.services">Services</div>
                         <div class="status-grid">
                             <div class="status-item">
@@ -75,9 +75,27 @@
                             </div>
                         </div>
                     </div>
-                    <div style="width:1px; background:var(--c8y-palette-gray-80); flex-shrink:0;"></div>
-                    <div style="flex:1; min-width:200px;">
-                        <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--c8y-palette-gray-40,#999); margin-bottom:8px;" data-i18n="status.clouds">Cloud Connections</div>
+                    <div class="status-divider"></div>
+                    <div class="status-col">
+                            <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--c8y-palette-gray-40,#999); margin-bottom:8px;" data-i18n="status.mappers">Tedge Mapper</div>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="label">Mapper C8Y:</span>
+                                <span id="c8y-mapper-status" class="status unknown">⚪ Loading...</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Mapper AWS:</span>
+                                <span id="aws-mapper-status" class="status unknown">⚪ Loading...</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Mapper Azure:</span>
+                                <span id="az-mapper-status" class="status unknown">⚪ Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="status-divider"></div>
+                    <div class="status-col">
+                        <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--c8y-palette-gray-40,#999); margin-bottom:8px;" data-i18n="status.clouds">Cloud</div>
                         <div class="status-grid">
                             <div class="status-item">
                                 <span class="label">Cumulocity IoT:</span>

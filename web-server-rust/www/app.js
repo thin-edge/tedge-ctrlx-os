@@ -15,7 +15,8 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
-        'status.clouds':       'Cloud-Verbindungen',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Lädt...',
         'status.running':      '🟢 Läuft',
         'status.stopped':      '🔴 Gestoppt',
@@ -205,7 +206,8 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
-        'status.clouds':       'Cloud Connections',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Loading...',
         'status.running':      '🟢 Running',
         'status.stopped':      '🔴 Stopped',

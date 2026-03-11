@@ -15,7 +15,8 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
-        'status.clouds':       'Cloud-Verbindungen',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Lädt...',
         'status.running':      '🟢 Läuft',
         'status.stopped':      '🔴 Gestoppt',
@@ -205,7 +206,8 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
-        'status.clouds':       'Cloud Connections',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Loading...',
         'status.running':      '🟢 Running',
         'status.stopped':      '🔴 Stopped',
@@ -527,6 +529,13 @@ async function loadStatus() {
         updateStatusBadge('agent-status', data.agent || 'unknown');
         updateStatusBadge('bridge-status', data.bridge || 'unknown');
         updateStatusBadge('watchdog-status', data.watchdog || 'unknown');
+        // Mapper-Status ergänzen
+        updateStatusBadge('c8y-mapper-status', data.c8y || 'unknown');
+        updateStatusBadge('aws-mapper-status', data.aws || 'unknown');
+        updateStatusBadge('az-mapper-status', data.az || 'unknown');
+        updateStatusBadge('c8y-status', data.c8y || 'unknown');
+        updateStatusBadge('aws-status', data.aws || 'unknown');
+        updateStatusBadge('az-status', data.az || 'unknown');
         updateStatusBadge('c8y-status', data.c8y || 'unknown');
         updateStatusBadge('aws-status', data.aws || 'unknown');
         updateStatusBadge('az-status', data.az || 'unknown');
@@ -1404,7 +1413,7 @@ async function browseDatalayer(pathOverride) {
             const absolutePath = nodePathRaw.includes('/') ? nodePathRaw : fullPath;
 
             const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-bottom:1px solid var(--c8y-palette-gray-70,#333);';
+            row.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-bottom:1px solid var(--c8y-palette-gray-70,#444);';
             row.innerHTML = `<span style="flex:1;font-family:monospace;font-size:12px;">${absolutePath}</span>
                              <button class="btn btn-outline-secondary btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
                                      onclick="browseDatalayer('${absolutePath}')">▶</button>

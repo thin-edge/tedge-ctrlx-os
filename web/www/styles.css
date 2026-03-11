@@ -1,3 +1,58 @@
+/* Status-Block: 3 Spalten nebeneinander */
+.status-columns {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  justify-content: space-between;
+  align-items: stretch;
+  width: 100%;
+}
+.status-col {
+  flex: 1 1 0;
+  min-width: 180px;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+.status-divider {
+  width: 1px;
+  background: var(--c8y-palette-gray-80, #e8ebed);
+  margin: 0 0.5em;
+  flex-shrink: 0;
+}
+.status-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.status-item .label {
+  min-width: 110px;
+  color: var(--c8y-palette-gray-50, #8B96A0);
+  font-weight: 500;
+}
+.status {
+  font-weight: 600;
+  font-size: 14px;
+}
+@media (max-width: 900px) {
+  .status-columns {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .status-divider {
+    display: none;
+  }
+  .status-col {
+    padding: 0;
+  }
+}
 :root {
   --brand-primary: #53cd61;
   --brand-complementary: #a8b3b5;
