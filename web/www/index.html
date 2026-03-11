@@ -309,6 +309,128 @@
                     <div><strong data-i18n="sysinfo.arch">Architecture:</strong> <span id="arch">-</span></div>
                 </div>
             </section>
+
+            <!-- ctrlX Datalayer -->
+            <section id="sec-datalayer" class="card">
+                <h2 data-i18n="section.datalayer">ctrlX Datenpunkte (Datalayer)</h2>
+
+                <!-- Status row -->
+                <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px; flex-wrap:wrap;">
+                    <span id="dl-status-badge" style="font-weight:600;">⚪ <span data-i18n="status.loading">Lädt…</span></span>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadDatalayerStatus()" data-i18n="datalayer.refresh">Status aktualisieren</button>
+                </div>
+
+                <!-- Connection config -->
+                <details id="dl-config-details">
+                    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;" data-i18n="datalayer.connection_settings">Verbindungseinstellungen</summary>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+                        <div>
+                            <label data-i18n="datalayer.enabled">Aktiviert</label>
+                            <input type="checkbox" id="dl-enabled" style="margin-left:8px;">
+                        </div>
+                        <div>
+                            <label data-i18n="datalayer.base_url">Basis-URL:</label>
+                            <input type="text" id="dl-base-url" class="form-control form-control-sm" placeholder="https://localhost">
+                        </div>
+                        <div>
+                            <label data-i18n="datalayer.username">Benutzername:</label>
+                            <input type="text" id="dl-username" class="form-control form-control-sm" placeholder="boschrexroth" autocomplete="username">
+                        </div>
+                        <div>
+                            <label data-i18n="datalayer.password">Passwort:</label>
+                            <input type="password" id="dl-password" class="form-control form-control-sm" placeholder="leer = unverändert" autocomplete="current-password">
+                        </div>
+                        <div>
+                            <label data-i18n="datalayer.poll_interval">Poll-Intervall (ms):</label>
+                            <input type="number" id="dl-poll-interval" class="form-control form-control-sm" value="5000" min="500">
+                        </div>
+                        <div>
+                            <label data-i18n="datalayer.accept_invalid_certs">Ungültige TLS-Certs akzeptieren</label>
+                            <input type="checkbox" id="dl-accept-invalid-certs" checked style="margin-left:8px;">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <button class="btn btn-primary btn-sm" onclick="saveDatalayerConfig()" data-i18n="datalayer.save_config">Verbindung speichern</button>
+                    </div>
+                </details>
+
+                <!-- Node Browser -->
+                <details id="dl-browser-details" style="margin-top:14px;">
+                    <summary style="cursor:pointer; font-weight:600; margin-bottom:10px;" data-i18n="datalayer.node_browser">Knoten-Browser</summary>
+                    <div style="display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+                        <input type="text" id="dl-browse-path" class="form-control form-control-sm" style="max-width:360px;"
+                               placeholder="z.B. plc/app/Application" data-i18n-placeholder="datalayer.browse_placeholder">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="browseDatalayer()" data-i18n="datalayer.browse_btn">Durchsuchen</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="datalayerUp()" data-i18n="datalayer.up_btn">↑ Übergeordnet</button>
+                        <button class="btn btn-success btn-sm" id="dl-add-mapping-btn" onclick="addDatalayerMappingFromBrowser()" style="display:none;" data-i18n="datalayer.add_mapping">+ Mapping hinzufügen</button>
+                    </div>
+                    <div id="dl-node-list" style="margin-top:10px; max-height:220px; overflow-y:auto; border:1px solid var(--c8y-palette-gray-70,#444); border-radius:4px; padding:4px;">
+                        <div style="color:#888; padding:8px;" data-i18n="datalayer.browser_hint">Pfad eingeben und „Durchsuchen" klicken.</div>
+                    </div>
+                    <div id="dl-node-value" style="margin-top:6px; font-family:monospace; font-size:12px; color:var(--c8y-palette-gray-20,#ccc);"></div>
+                </details>
+
+                <!-- Mapping Table -->
+                <div style="margin-top:18px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                        <strong data-i18n="datalayer.mappings_title">Datenpunkt-Mappings</strong>
+                        <button class="btn btn-success btn-sm" onclick="showAddMappingForm()" data-i18n="datalayer.add_mapping_btn">+ Mapping</button>
+                    </div>
+
+                    <!-- Add mapping form (hidden by default) -->
+                    <div id="dl-add-form" style="display:none; background:var(--c8y-palette-gray-90,#1e2a38); border-radius:6px; padding:12px; margin-bottom:12px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                            <div>
+                                <label style="font-size:12px;" data-i18n="datalayer.map_dl_path">Datalayer-Pfad:</label>
+                                <input type="text" id="dl-map-path" class="form-control form-control-sm" placeholder="plc/app/.../Variable">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;" data-i18n="datalayer.map_tedge_topic">tedge MQTT Topic:</label>
+                                <input type="text" id="dl-map-topic" class="form-control form-control-sm" placeholder="te/device/main///m/plc">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;" data-i18n="datalayer.map_transform">Transform:</label>
+                                <select id="dl-map-transform" class="form-control form-control-sm">
+                                    <option value="measurement" data-i18n="datalayer.transform_measurement">Measurement</option>
+                                    <option value="raw" data-i18n="datalayer.transform_raw">Raw</option>
+                                    <option value="event" data-i18n="datalayer.transform_event">Event</option>
+                                    <option value="alarm" data-i18n="datalayer.transform_alarm">Alarm</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;" data-i18n="datalayer.map_field_name">Feldname (optional):</label>
+                                <input type="text" id="dl-map-field" class="form-control form-control-sm" placeholder="Automatisch aus Pfad">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;" data-i18n="datalayer.map_unit">Einheit (optional):</label>
+                                <input type="text" id="dl-map-unit" class="form-control form-control-sm" placeholder="°C, bar, …">
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-primary btn-sm" onclick="addDatalayerMapping()" data-i18n="datalayer.save_mapping">Speichern</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="hideAddMappingForm()" data-i18n="datalayer.cancel">Abbrechen</button>
+                        </div>
+                    </div>
+
+                    <div id="dl-mapping-table" style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--c8y-palette-gray-70,#444);">
+                                    <th style="text-align:left; padding:6px 8px;" data-i18n="datalayer.col_path">Datalayer-Pfad</th>
+                                    <th style="text-align:left; padding:6px 8px;" data-i18n="datalayer.col_topic">tedge Topic</th>
+                                    <th style="text-align:left; padding:6px 8px;" data-i18n="datalayer.col_transform">Transform</th>
+                                    <th style="text-align:left; padding:6px 8px;" data-i18n="datalayer.col_field">Feld</th>
+                                    <th style="text-align:left; padding:6px 8px;" data-i18n="datalayer.col_enabled">Aktiv</th>
+                                    <th style="padding:6px 8px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="dl-mapping-tbody">
+                                <tr><td colspan="6" style="text-align:center; padding:16px; color:#888;" data-i18n="datalayer.no_mappings">Keine Mappings konfiguriert.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 

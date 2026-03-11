@@ -1,209 +1,191 @@
+mod datalayer;
+
 use anyhow::{Context, Result};
-use log::{debug, error, info, warn};
+use datalayer::{run_datalayer_loop, DatalayerEngine};
+use futures::StreamExt;
+use log::{debug, info};
 use paho_mqtt as mqtt;
 use serde_json::Value;
 use std::env;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
-/// thin-edge.io to ctrlX Datalayer Bridge
-/// 
-/// Bridges MQTT messages from thin-edge.io to ctrlX Datalayer
-/// Note: Full Datalayer integration requires ctrlX Datalayer SDK (future)
+// ── Bridge struct ─────────────────────────────────────────────────────────────
+
 struct TedgeDatalayerBridge {
     mqtt_host: String,
     mqtt_port: u16,
-    mqtt_client: Option<mqtt::Client>,
-    datalayer_enabled: bool,
     stats_messages_received: u64,
 }
 
 impl TedgeDatalayerBridge {
     fn new() -> Self {
-        let datalayer_enabled = env::var("SNAP").is_ok();
-        
         Self {
             mqtt_host: "localhost".to_string(),
             mqtt_port: 1883,
-            mqtt_client: None,
-            datalayer_enabled,
             stats_messages_received: 0,
         }
     }
 
-    /// Setup MQTT connection to thin-edge.io broker
-    fn setup_mqtt(&mut self) -> Result<()> {
-        info!("Initializing MQTT client...");
-        
+    async fn setup_mqtt(&self) -> Result<mqtt::AsyncClient> {
+        info!("[BRIDGE] Initializing async MQTT client...");
         let broker = format!("tcp://{}:{}", self.mqtt_host, self.mqtt_port);
-        
         let create_opts = mqtt::CreateOptionsBuilder::new()
             .server_uri(&broker)
             .client_id("tedge-datalayer-bridge")
             .finalize();
-            
-        let cli = mqtt::Client::new(create_opts)
-            .context("Failed to create MQTT client")?;
-        
+        let cli = mqtt::AsyncClient::new(create_opts)
+            .context("Failed to create async MQTT client")?;
         let conn_opts = mqtt::ConnectOptionsBuilder::new()
             .keep_alive_interval(Duration::from_secs(20))
             .clean_session(true)
+            .automatic_reconnect(Duration::from_secs(1), Duration::from_secs(30))
             .finalize();
-            
-        info!("Connecting to MQTT broker: {}", broker);
+        info!("[BRIDGE] Connecting to MQTT broker: {}", broker);
         cli.connect(conn_opts)
+            .await
             .context("Failed to connect to MQTT broker")?;
-            
-        info!("MQTT connected successfully");
-        
-        // Subscribe to thin-edge.io topics
+        info!("[BRIDGE] MQTT connected successfully");
         let topics = vec![
+            "te/+/+/+/+/m/+",
+            "te/+/+/+/+/e/+",
+            "te/+/+/+/+/a/+/+",
             "tedge/measurements",
             "tedge/measurements/+",
             "tedge/events/+",
             "tedge/alarms/+/+",
             "tedge/health/+",
-            "c8y/#",
-            "aws/#",
-            "az/#",
-            "tedge/#",
         ];
-        
         let qos = vec![0; topics.len()];
-        
         cli.subscribe_many(&topics, &qos)
+            .await
             .context("Failed to subscribe to topics")?;
-            
         for topic in &topics {
-            info!("Subscribed to MQTT topic: {}", topic);
+            info!("[BRIDGE] Subscribed to MQTT topic: {}", topic);
         }
-        
-        self.mqtt_client = Some(cli);
-        
-        Ok(())
+        Ok(cli)
     }
 
-    /// Process MQTT message - log and optionally forward to Datalayer
     fn process_message(&mut self, msg: &mqtt::Message) {
         self.stats_messages_received += 1;
-        
         let topic = msg.topic();
         let payload = msg.payload_str();
-        
-        // Log message (truncate if too long)
-        let payload_preview = if payload.len() > 200 {
+        let preview = if payload.len() > 200 {
             format!("{}...", &payload[..200])
         } else {
             payload.to_string()
         };
-        
-        debug!("MQTT [{}]: {}", topic, payload_preview);
-        
-        // Try to parse as JSON for better logging
+        debug!("[BRIDGE] MQTT [{}]: {}", topic, preview);
         if let Ok(data) = serde_json::from_str::<Value>(&payload) {
-            if data.is_object() && data.as_object().unwrap().len() < 10 {
-                info!("MQTT [{}]: {}", topic, serde_json::to_string_pretty(&data).unwrap_or_default());
+            if data.is_object() && data.as_object().map(|o| o.len()).unwrap_or(0) < 10 {
+                info!(
+                    "[BRIDGE] MQTT [{}]: {}",
+                    topic,
+                    serde_json::to_string_pretty(&data).unwrap_or_default()
+                );
             }
-        }
-        
-        // TODO: Forward to Datalayer when ctrlX Datalayer SDK is available
-        if self.datalayer_enabled {
-            debug!("Datalayer forwarding not yet implemented");
         }
     }
 
-    /// Print statistics
     fn print_statistics(&self) {
-        info!("Statistics: {} messages received", self.stats_messages_received);
-    }
-
-    /// Main run loop
-    fn run(&mut self, shutdown: Arc<AtomicBool>) -> Result<()> {
-        info!("Starting thin-edge.io to ctrlX Datalayer Bridge");
-        info!("Datalayer integration: {}", 
-            if self.datalayer_enabled { "ENABLED" } else { "DISABLED (MQTT-only mode)" }
+        info!(
+            "[BRIDGE] Statistics: {} MQTT messages received",
+            self.stats_messages_received
         );
-        
-        self.setup_mqtt()?;
-        
-        info!("Bridge is running");
-        
-        let cli = self.mqtt_client.as_ref().unwrap();
-        let rx = cli.start_consuming();
-        
-        let mut last_stats = std::time::Instant::now();
-        let stats_interval = Duration::from_secs(60);
-        
-        loop {
-            if shutdown.load(Ordering::Relaxed) {
-                info!("Shutdown requested");
-                break;
-            }
-            
-            // Check for messages with timeout
-            match rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(Some(msg)) => {
-                    self.process_message(&msg);
-                }
-                Ok(None) => {
-                    warn!("MQTT disconnected, will reconnect...");
-                    break;
-                }
-                Err(_) => {
-                    // Timeout, check shutdown flag
-                }
-            }
-            
-            // Print statistics periodically
-            if last_stats.elapsed() >= stats_interval {
-                self.print_statistics();
-                last_stats = std::time::Instant::now();
-            }
-        }
-        
-        // Cleanup
-        if let Some(cli) = &self.mqtt_client {
-            info!("Disconnecting from MQTT...");
-            let _ = cli.disconnect(None);
-        }
-        
-        info!("Bridge stopped");
-        Ok(())
     }
 }
 
+// ── Entrypoint ────────────────────────────────────────────────────────────────
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logger
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .init();
-    
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     info!("==============================================================================");
     info!("thin-edge.io to ctrlX Datalayer Bridge (Rust)");
-    info!("Version: 1.0.0");
+    info!("Version: 1.1.0");
     info!("==============================================================================");
-    
-    // Setup signal handler
+
+    let is_snap = env::var("SNAP").is_ok();
+    let config_path: PathBuf = if is_snap {
+        let snap_data =
+            env::var("SNAP_DATA").unwrap_or_else(|_| "/var/snap/thin-edge-io/current".to_string());
+        PathBuf::from(snap_data).join("datalayer-mappings.json")
+    } else {
+        PathBuf::from("/tmp/datalayer-mappings.json")
+    };
+    info!("[BRIDGE] Datalayer config path: {:?}", config_path);
+
     let shutdown = Arc::new(AtomicBool::new(false));
     let shutdown_clone = shutdown.clone();
-    
     ctrlc::set_handler(move || {
-        info!("Received shutdown signal");
+        info!("[BRIDGE] Received shutdown signal");
         shutdown_clone.store(true, Ordering::Relaxed);
-    }).context("Failed to set signal handler")?;
-    
-    // Create and run bridge
+    })
+    .context("Failed to set signal handler")?;
+
     let mut bridge = TedgeDatalayerBridge::new();
-    
-    match bridge.run(shutdown) {
-        Ok(_) => {
-            info!("Bridge terminated successfully");
-            Ok(())
+    let mut async_client = bridge.setup_mqtt().await?;
+    // Get the message stream BEFORE moving the client into the Arc
+    let mut msg_stream = async_client.get_stream(100);
+    let async_client_arc = Arc::new(Mutex::new(Some(async_client)));
+    let async_client_for_dl = async_client_arc.clone();
+
+    let dl_engine = DatalayerEngine::new(config_path);
+    let enabled = dl_engine.is_enabled();
+    let shutdown_dl = shutdown.clone();
+    let dl_handle = tokio::spawn(async move {
+        run_datalayer_loop(dl_engine, async_client_for_dl, shutdown_dl).await;
+    });
+
+    if enabled {
+        info!("[BRIDGE] Datalayer polling ENABLED");
+    } else {
+        info!("[BRIDGE] Datalayer polling DISABLED (configure via web UI)");
+    }
+
+    info!("[BRIDGE] Running, waiting for MQTT messages...");
+    let mut last_stats = std::time::Instant::now();
+    let stats_interval = Duration::from_secs(60);
+
+    loop {
+        tokio::select! {
+            msg_opt = msg_stream.next() => {
+                match msg_opt {
+                    Some(Some(msg)) => bridge.process_message(&msg),
+                    Some(None) => {
+                        // Disconnected
+                        info!("[BRIDGE] MQTT stream ended (disconnected)");
+                    }
+                    None => break,
+                }
+            }
+            _ = tokio::time::sleep(Duration::from_millis(200)) => {
+                if shutdown.load(Ordering::Relaxed) {
+                    info!("[BRIDGE] Shutdown requested");
+                    break;
+                }
+                if last_stats.elapsed() >= stats_interval {
+                    bridge.print_statistics();
+                    last_stats = std::time::Instant::now();
+                }
+            }
         }
-        Err(e) => {
-            error!("Bridge error: {:#}", e);
-            Err(e)
+        if shutdown.load(Ordering::Relaxed) {
+            break;
         }
     }
+
+    {
+        let guard = async_client_arc.lock().await;
+        if let Some(cli) = guard.as_ref() {
+            info!("[BRIDGE] Disconnecting from MQTT...");
+            let _ = cli.disconnect(None).await;
+        }
+    }
+    let _ = tokio::time::timeout(Duration::from_secs(3), dl_handle).await;
+    info!("[BRIDGE] Bridge stopped");
+    Ok(())
 }

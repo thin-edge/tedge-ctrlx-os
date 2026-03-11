@@ -147,6 +147,50 @@ const I18N = {
         'cert.created':             (cn) => `Zertifikat erstellt mit CN: ${cn}`,
         'cert.renewed':             (cn) => `Zertifikat erneuert mit CN: ${cn}`,
         'cert.create_err':          'Fehler beim Erstellen des Zertifikats',
+        // Datalayer section
+        'section.datalayer':             'ctrlX Datenpunkte (Datalayer)',
+        'datalayer.refresh':             'Status aktualisieren',
+        'datalayer.connection_settings': 'Verbindungseinstellungen',
+        'datalayer.enabled':             'Aktiviert',
+        'datalayer.base_url':            'Basis-URL:',
+        'datalayer.poll_interval':       'Poll-Intervall (ms):',
+        'datalayer.username':            'Benutzername:',
+        'datalayer.password':            'Passwort:',
+        'datalayer.accept_invalid_certs':'Ungültige TLS-Zertifikate akzeptieren',
+        'datalayer.save_config':         'Verbindung speichern',
+        'datalayer.node_browser':        'Knoten-Browser',
+        'datalayer.browse_placeholder':  'z.B. plc/app/Application',
+        'datalayer.browse_btn':          'Durchsuchen',
+        'datalayer.up_btn':              '↑ Übergeordnet',
+        'datalayer.add_mapping':         '+ Mapping hinzufügen',
+        'datalayer.browser_hint':        'Pfad eingeben und „Durchsuchen" klicken.',
+        'datalayer.mappings_title':      'Datenpunkt-Mappings',
+        'datalayer.add_mapping_btn':     '+ Mapping',
+        'datalayer.map_dl_path':         'Datalayer-Pfad:',
+        'datalayer.map_tedge_topic':     'tedge MQTT Topic:',
+        'datalayer.map_transform':       'Transform:',
+        'datalayer.map_field_name':      'Feldname (optional):',
+        'datalayer.map_unit':            'Einheit (optional):',
+        'datalayer.save_mapping':        'Speichern',
+        'datalayer.cancel':              'Abbrechen',
+        'datalayer.col_path':            'Datalayer-Pfad',
+        'datalayer.col_topic':           'tedge Topic',
+        'datalayer.col_transform':       'Transform',
+        'datalayer.col_field':           'Feld',
+        'datalayer.col_enabled':         'Aktiv',
+        'datalayer.no_mappings':         'Keine Mappings konfiguriert.',
+        'datalayer.transform_measurement': 'Measurement',
+        'datalayer.transform_raw':       'Raw',
+        'datalayer.transform_event':     'Event',
+        'datalayer.transform_alarm':     'Alarm',
+        'datalayer.status_noauth':       '🟡 Verbunden – kein Token / Auth-Fehler',
+        'datalayer.status_unreachable':  'Nicht erreichbar',
+        'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
+        'notify.dl_mapping_added':       'Mapping hinzugefügt',
+        'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
+        'notify.dl_mapping_deleted':     'Mapping gelöscht',
+        'notify.dl_mapping_del_err':     'Fehler beim Löschen des Mappings',
+        'notify.dl_path_required':       'Bitte Datalayer-Pfad und tedge-Topic eingeben',
     },
     en: {
         // Header
@@ -293,6 +337,50 @@ const I18N = {
         'cert.created':             (cn) => `Certificate created with CN: ${cn}`,
         'cert.renewed':             (cn) => `Certificate renewed with CN: ${cn}`,
         'cert.create_err':          'Error creating certificate',
+        // Datalayer section
+        'section.datalayer':             'ctrlX Data Points (Datalayer)',
+        'datalayer.refresh':             'Refresh Status',
+        'datalayer.connection_settings': 'Connection Settings',
+        'datalayer.enabled':             'Enabled',
+        'datalayer.base_url':            'Base URL:',
+        'datalayer.poll_interval':       'Poll interval (ms):',
+        'datalayer.username':            'Username:',
+        'datalayer.password':            'Password:',
+        'datalayer.accept_invalid_certs':'Accept invalid TLS certificates',
+        'datalayer.save_config':         'Save Connection',
+        'datalayer.node_browser':        'Node Browser',
+        'datalayer.browse_placeholder':  'e.g. plc/app/Application',
+        'datalayer.browse_btn':          'Browse',
+        'datalayer.up_btn':              '↑ Parent',
+        'datalayer.add_mapping':         '+ Add Mapping',
+        'datalayer.browser_hint':        'Enter a path and click "Browse".',
+        'datalayer.mappings_title':      'Data Point Mappings',
+        'datalayer.add_mapping_btn':     '+ Mapping',
+        'datalayer.map_dl_path':         'Datalayer Path:',
+        'datalayer.map_tedge_topic':     'tedge MQTT Topic:',
+        'datalayer.map_transform':       'Transform:',
+        'datalayer.map_field_name':      'Field name (optional):',
+        'datalayer.map_unit':            'Unit (optional):',
+        'datalayer.save_mapping':        'Save',
+        'datalayer.cancel':              'Cancel',
+        'datalayer.col_path':            'Datalayer Path',
+        'datalayer.col_topic':           'tedge Topic',
+        'datalayer.col_transform':       'Transform',
+        'datalayer.col_field':           'Field',
+        'datalayer.col_enabled':         'Active',
+        'datalayer.no_mappings':         'No mappings configured.',
+        'datalayer.transform_measurement': 'Measurement',
+        'datalayer.transform_raw':       'Raw',
+        'datalayer.transform_event':     'Event',
+        'datalayer.transform_alarm':     'Alarm',
+        'datalayer.status_noauth':       '🟡 Reachable – missing token / auth error',
+        'datalayer.status_unreachable':  'Not reachable',
+        'notify.dl_config_err':          'Error saving datalayer configuration',
+        'notify.dl_mapping_added':       'Mapping added',
+        'notify.dl_mapping_add_err':     'Error adding mapping',
+        'notify.dl_mapping_deleted':     'Mapping deleted',
+        'notify.dl_mapping_del_err':     'Error deleting mapping',
+        'notify.dl_path_required':       'Please enter Datalayer path and tedge topic',
     }
 };
 
@@ -1196,3 +1284,327 @@ async function loadBuildInfo() {
     }
 }
 
+// ── ctrlX Datalayer ──────────────────────────────────────────────────────────
+
+let _dlMappings = [];        // in-memory copy of current mappings
+let _dlCurrentPath = '';     // active browse path
+let _dlSelectedPath = '';    // path selected in browser (for quick-add)
+
+/** Load and display Datalayer connection status */
+async function loadDatalayerStatus() {
+    const badge = document.getElementById('dl-status-badge');
+    if (!badge) return;
+    badge.textContent = '⚪ ' + t('status.loading');
+    try {
+        const r = await fetch('api/datalayer/status');
+        if (!r.ok) { badge.textContent = '⚪ ' + t('status.unknown'); return; }
+        const d = await r.json();
+        if (!d.enabled) {
+            badge.textContent = '⚫ ' + t('status.inactive');
+        } else if (d.connected) {
+            badge.textContent = `🟢 ${t('status.running')} (${d.active_mappings}/${d.mapping_count} Mappings)`;
+        } else if (d.http_status === 401 || d.http_status === 403) {
+            badge.textContent = '🟡 ' + t('datalayer.status_noauth');
+        } else if (d.http_status != null) {
+            badge.textContent = `🔴 HTTP ${d.http_status}`;
+        } else if (d.connect_error) {
+            badge.textContent = '🔴 ' + t('datalayer.status_unreachable');
+        } else {
+            badge.textContent = '🔴 ' + t('status.stopped');
+        }
+    } catch (e) {
+        badge.textContent = '⚪ ' + t('status.unknown');
+    }
+}
+
+/** Load Datalayer config into the settings form */
+async function loadDatalayerConfig() {
+    try {
+        const r = await fetch('api/datalayer/config');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = (id) => document.getElementById(id);
+        if (el('dl-enabled'))              el('dl-enabled').checked = !!d.enabled;
+        if (el('dl-base-url'))             el('dl-base-url').value = d.base_url || '';
+        if (el('dl-username'))             el('dl-username').value = d.username === '***' ? '' : (d.username || '');
+        if (el('dl-password'))             el('dl-password').value = '';
+        if (el('dl-poll-interval'))        el('dl-poll-interval').value = d.poll_interval_ms || 5000;
+        if (el('dl-accept-invalid-certs')) el('dl-accept-invalid-certs').checked = d.accept_invalid_certs !== false;
+    } catch (e) {
+        console.warn('Could not load datalayer config:', e);
+    }
+}
+
+/** Save Datalayer connection config */
+async function saveDatalayerConfig() {
+    const el = (id) => document.getElementById(id);
+    const body = {
+        enabled:             (el('dl-enabled') && el('dl-enabled').checked) || false,
+        base_url:            (el('dl-base-url') && el('dl-base-url').value.trim()) || '',
+        username:            (el('dl-username') && el('dl-username').value.trim()) || '',
+        password:            (el('dl-password') && el('dl-password').value) || '',
+        poll_interval_ms:    parseInt((el('dl-poll-interval') && el('dl-poll-interval').value) || '5000', 10),
+        accept_invalid_certs:(el('dl-accept-invalid-certs') && el('dl-accept-invalid-certs').checked) !== false,
+    };
+    try {
+        const r = await fetch('api/datalayer/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(t('notify.dl_config_saved'), 'success');
+            loadDatalayerStatus();
+        } else {
+            showNotification(d.error || t('notify.dl_config_err'), 'error');
+        }
+    } catch (e) {
+        showNotification(t('notify.dl_config_err'), 'error');
+    }
+}
+
+/** Browse Datalayer nodes */
+async function browseDatalayer(pathOverride) {
+    const pathInput = document.getElementById('dl-browse-path');
+    const path = pathOverride !== undefined ? pathOverride : (pathInput ? pathInput.value.trim() : '');
+    _dlCurrentPath = path;
+    if (pathInput) pathInput.value = path;
+
+    const list = document.getElementById('dl-node-list');
+    if (!list) return;
+    list.innerHTML = '<div style="color:#888;padding:8px;">Lädt…</div>';
+
+    try {
+        const r = await fetch('api/datalayer/browse?path=' + encodeURIComponent(path));
+        const d = await r.json();
+
+        if (!r.ok || d.error) {
+            list.innerHTML = `<div style="color:red;padding:8px;">${d.error || 'Fehler'}</div>`;
+            return;
+        }
+
+        // Normalise response: value array of strings or objects
+        let items = [];
+        if (Array.isArray(d)) items = d;
+        else if (Array.isArray(d.value)) items = d.value;
+
+        if (items.length === 0) {
+            list.innerHTML = '<div style="color:#888;padding:8px;">Keine Knoten gefunden.</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        items.forEach(item => {
+            const nodePathRaw = typeof item === 'string' ? item : (item.path || item);
+            // Strip base prefix for display
+            const displayName = nodePathRaw.replace(/^.*\//, '') || nodePathRaw;
+            const fullPath = path ? (path.replace(/\/$/, '') + '/' + nodePathRaw.replace(/^.*\//, '')) : nodePathRaw;
+            // Use full path directly if item is absolute
+            const absolutePath = nodePathRaw.includes('/') ? nodePathRaw : fullPath;
+
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-bottom:1px solid var(--c8y-palette-gray-70,#333);';
+            row.innerHTML = `<span style="flex:1;font-family:monospace;font-size:12px;">${absolutePath}</span>
+                             <button class="btn btn-outline-secondary btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
+                                     onclick="browseDatalayer('${absolutePath}')">▶</button>
+                             <button class="btn btn-outline-secondary btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
+                                     onclick="readDatalayerNode('${absolutePath}')">📖</button>
+                             <button class="btn btn-success btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
+                                     onclick="prefillMappingPath('${absolutePath}')">+</button>`;
+            list.appendChild(row);
+        });
+
+        // Show add-mapping button
+        const addBtn = document.getElementById('dl-add-mapping-btn');
+        if (addBtn) addBtn.style.display = 'inline-flex';
+
+    } catch (e) {
+        list.innerHTML = `<div style="color:red;padding:8px;">${e.message}</div>`;
+    }
+}
+
+/** Navigate up one level in the Datalayer tree */
+function datalayerUp() {
+    const parts = _dlCurrentPath.replace(/\/$/, '').split('/');
+    parts.pop();
+    browseDatalayer(parts.join('/'));
+}
+
+/** Read a single Datalayer node value */
+async function readDatalayerNode(path) {
+    const valueEl = document.getElementById('dl-node-value');
+    if (!valueEl) return;
+    valueEl.textContent = 'Lädt…';
+    try {
+        const r = await fetch('api/datalayer/node?path=' + encodeURIComponent(path));
+        const d = await r.json();
+        if (d.error) { valueEl.textContent = 'Fehler: ' + d.error; return; }
+        valueEl.textContent = path + ' = ' + JSON.stringify(d.value) + (d.type ? ' [' + d.type + ']' : '');
+    } catch (e) {
+        valueEl.textContent = 'Fehler: ' + e.message;
+    }
+}
+
+/** Pre-fill the add-mapping form from browser selection */
+function prefillMappingPath(path) {
+    _dlSelectedPath = path;
+    const pathInput = document.getElementById('dl-map-path');
+    if (pathInput) pathInput.value = path;
+    // Auto-suggest topic from last segment
+    const topicInput = document.getElementById('dl-map-topic');
+    if (topicInput && !topicInput.value) {
+        const seg = path.replace(/\/$/, '').split('/').pop() || 'value';
+        topicInput.value = 'te/device/main///m/plc';
+    }
+    showAddMappingForm();
+}
+
+/** Quick-add mapping using the currently selected browser path */
+function addDatalayerMappingFromBrowser() {
+    if (_dlSelectedPath) {
+        prefillMappingPath(_dlSelectedPath);
+    } else {
+        showAddMappingForm();
+    }
+}
+
+function showAddMappingForm() {
+    const form = document.getElementById('dl-add-form');
+    if (form) form.style.display = 'block';
+}
+
+function hideAddMappingForm() {
+    const form = document.getElementById('dl-add-form');
+    if (form) form.style.display = 'none';
+    // Clear fields
+    ['dl-map-path','dl-map-topic','dl-map-field','dl-map-unit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+/** Add one mapping via API */
+async function addDatalayerMapping() {
+    const el = (id) => document.getElementById(id);
+    const path  = el('dl-map-path')  && el('dl-map-path').value.trim();
+    const topic = el('dl-map-topic') && el('dl-map-topic').value.trim();
+    if (!path || !topic) {
+        showNotification(t('notify.dl_path_required'), 'warning');
+        return;
+    }
+    const body = {
+        datalayer_path: path,
+        tedge_topic:    topic,
+        transform:      (el('dl-map-transform') && el('dl-map-transform').value) || 'measurement',
+        field_name:     (el('dl-map-field')  && el('dl-map-field').value.trim())  || null,
+        unit:           (el('dl-map-unit')   && el('dl-map-unit').value.trim())   || null,
+    };
+    try {
+        const r = await fetch('api/datalayer/mappings/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_added'), 'success');
+            hideAddMappingForm();
+            loadDatalayerMappings();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_add_err'), 'error');
+        }
+    } catch (e) {
+        showNotification(t('notify.dl_mapping_add_err'), 'error');
+    }
+}
+
+/** Delete a mapping */
+async function deleteDatalayerMapping(id) {
+    try {
+        const r = await fetch('api/datalayer/mappings/' + encodeURIComponent(id), { method: 'DELETE' });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_deleted'), 'success');
+            loadDatalayerMappings();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
+        }
+    } catch (e) {
+        showNotification(t('notify.dl_mapping_del_err'), 'error');
+    }
+}
+
+/** Toggle enabled state of a mapping inline */
+async function toggleDatalayerMapping(id, enabled) {
+    // Find & update locally, then POST all mappings
+    const updated = _dlMappings.map(m => m.id === id ? { ...m, enabled } : m);
+    try {
+        const r = await fetch('api/datalayer/mappings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mappings: updated })
+        });
+        const d = await r.json();
+        if (d.success) {
+            _dlMappings = updated;
+            renderDatalayerMappings();
+        }
+    } catch (e) {
+        console.warn('toggle mapping failed:', e);
+    }
+}
+
+/** Load mappings from API and render table */
+async function loadDatalayerMappings() {
+    try {
+        const r = await fetch('api/datalayer/mappings');
+        if (!r.ok) return;
+        const d = await r.json();
+        _dlMappings = d.mappings || [];
+        renderDatalayerMappings();
+    } catch (e) {
+        console.warn('Could not load datalayer mappings:', e);
+    }
+}
+
+/** Render the mappings table */
+function renderDatalayerMappings() {
+    const tbody = document.getElementById('dl-mapping-tbody');
+    if (!tbody) return;
+    if (_dlMappings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:#888;">${t('datalayer.no_mappings')}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = _dlMappings.map(m => `
+        <tr style="border-bottom:1px solid var(--c8y-palette-gray-70,#444);">
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.datalayer_path}">${m.datalayer_path}</td>
+            <td style="padding:6px 8px;font-family:monospace;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.tedge_topic}">${m.tedge_topic}</td>
+            <td style="padding:6px 8px;font-size:12px;">${m.transform || 'measurement'}</td>
+            <td style="padding:6px 8px;font-size:12px;">${m.field_name || '<em style="color:#888;">auto</em>'}</td>
+            <td style="padding:6px 8px;text-align:center;">
+                <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+            </td>
+            <td style="padding:6px 8px;text-align:right;">
+                <button class="btn btn-outline-secondary btn-sm" style="padding:1px 8px;font-size:11px;"
+                        onclick="deleteDatalayerMapping('${m.id}')">🗑</button>
+            </td>
+        </tr>`).join('');
+}
+
+// ── Init extension ────────────────────────────────────────────────────────────
+// Called from the DOMContentLoaded event already wired in the HTML.
+// We hook into the existing init by appending to window.onload or calling directly.
+(function initDatalayer() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _initDatalayerUI);
+    } else {
+        _initDatalayerUI();
+    }
+})();
+
+function _initDatalayerUI() {
+    loadDatalayerStatus();
+    loadDatalayerConfig();
+    loadDatalayerMappings();
+}
