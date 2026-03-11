@@ -46,8 +46,8 @@ layout:
     bind: $SNAP_DATA/tedge/log-plugins
   /usr/share/tedge/sm-plugins:
     bind: $SNAP_DATA/tedge/sm-plugins
-  /lib/systemd/system/tedge-watchdog.service:
-    bind-file: $SNAP/lib/systemd/system/tedge-watchdog.service
+  #/lib/systemd/system/tedge-watchdog.service:
+  #  bind-file: $SNAP/lib/systemd/system/tedge-watchdog.service
 
 architectures:
   - build-on: [amd64]
