@@ -2166,9 +2166,25 @@ async fn browse_datalayer(
         )
     };
 
+    // Bearer-Token aus dem Request-Header extrahieren (Proxy-Token hat Priorität)
+
+    // Bearer-Token aus X-Auth-Token oder Authorization Header extrahieren (X-Auth-Token hat Priorität)
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+        })
+        .map(|s| s.to_string());
+
     let (http_client, token) = dl_client_and_token(&cfg).await;
     let mut req_builder = http_client.get(&url);
-    if let Some(t) = token {
+    // Priorität: Proxy-Token > gespeicherter Token
+    if let Some(t) = bearer_token.or(token) {
         req_builder = req_builder.bearer_auth(t);
     }
 
@@ -2206,6 +2222,21 @@ async fn read_datalayer_node(
             .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
     }
 
+    // Bearer-Token aus dem Request-Header extrahieren (Proxy-Token hat Priorität)
+
+    // Bearer-Token aus X-Auth-Token oder Authorization Header extrahieren (X-Auth-Token hat Priorität)
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+        })
+        .map(|s| s.to_string());
+
     let (http_client, token) = dl_client_and_token(&cfg).await;
 
     let path = query.path.trim_matches('/');
@@ -2216,7 +2247,8 @@ async fn read_datalayer_node(
     );
 
     let mut req_builder = http_client.get(&url);
-    if let Some(t) = token {
+    // Priorität: Proxy-Token > gespeicherter Token
+    if let Some(t) = bearer_token.or(token) {
         req_builder = req_builder.bearer_auth(t);
     }
 
@@ -2258,7 +2290,22 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
         })));
     }
 
-    // Quick connectivity check with auto-auth
+    // Bearer-Token aus dem Request-Header extrahieren (Proxy-Token hat Priorität)
+
+    // Bearer-Token aus X-Auth-Token oder Authorization Header extrahieren (X-Auth-Token hat Priorität)
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+        })
+        .map(|s| s.to_string());
+
+    // Quick connectivity check mit Token-Priorität
     let (http_client, token) = dl_client_and_token(&cfg).await;
 
     let url = format!(
@@ -2266,7 +2313,8 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
         cfg.base_url.trim_end_matches('/')
     );
     let mut req_builder = http_client.get(&url);
-    if let Some(t) = token {
+    // Priorität: Proxy-Token > gespeicherter Token
+    if let Some(t) = bearer_token.or(token) {
         req_builder = req_builder.bearer_auth(t);
     }
 
