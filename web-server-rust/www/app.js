@@ -1526,7 +1526,6 @@ function renderDatalayerMappings() {
         `;
     }).join('');
 
-    // WICHTIG: Sobald das HTML im DOM ist, müssen wir die Übersetzer-Funktion triggern!
     applyI18n();
 }
 
