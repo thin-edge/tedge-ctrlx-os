@@ -188,6 +188,14 @@ const I18N = {
         'datalayer.status_unreachable':  'Nicht erreichbar',
         'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
         'datalayer.token_static':        'Statisches Token (Optional)',
+        'datalayer.path_placeholder':    'z.B. plc/app/Application',
+        'datalayer.auto_hint':           'Automatisch aus Pfad',
+        'datalayer.path':                 'Datalayer-Pfad',
+        'datalayer.transform':           'Transform',
+        'datalayer.unit':                'Einheit (optional)',
+        'datalayer.topic':               'tedge MQTT Topic',
+        'datalayer.field':               'Feldname',
+        'datalayer.password_hint':       'Nur für Basis-Auth. Wenn Token verwendet wird, kann dieses Feld leer bleiben.',
         'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
         'notify.dl_mapping_added':       'Mapping hinzugefügt',
         'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
@@ -381,6 +389,14 @@ const I18N = {
         'datalayer.status_unreachable':  'Not reachable',
         'datalayer.token_hint':          'If left empty, the current login token will be used.',
         'datalayer.token_static':        'Static Token (Optional)',
+        'datalayer.path_placeholder':    'e.g. plc/app/Application',
+        'datalayer.auto_hint':           'Automatically from path',
+        'datalayer.path': 'Datalayer Path',
+        'datalayer.transform': 'Transform',
+        'datalayer.unit': 'Unit (optional)',
+        'datalayer.topic': 'tedge MQTT Topic',
+        'datalayer.field': 'Field name',
+        'datalayer.password_hint':       'Just for basic auth. If using token, this can be left empty.',
         'notify.dl_config_err':          'Error saving datalayer configuration',
         'notify.dl_mapping_added':       'Mapping added',
         'notify.dl_mapping_add_err':     'Error adding mapping',
@@ -1348,24 +1364,34 @@ async function loadBuildInfo() {
 
 // ── ctrlX Datalayer ──────────────────────────────────────────────────────────
 
-let _dlMappings = [];        // in-memory copy of current mappings
-let _dlCurrentPath = '';     // active browse path
-let _dlSelectedPath = '';    // path selected in browser (for quick-add)
+let _dlMappings = [];        // In-Memory Kopie der Mappings
 
-/** Load and display Datalayer connection status */
+/** 1. Initialisierung beim Laden */
+function _initDatalayerUI() {
+    loadDatalayerStatus();
+    loadDatalayerConfig();
+    loadDatalayerMappings();
+    
+    // Formular initial verstecken
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+
+    // Zwinge das System, die Texte JETZT zu übersetzen
+    // Ein minimales Timeout hilft, falls der Browser noch mit dem DOM beschäftigt ist
+    setTimeout(() => {
+        applyI18n(); 
+    }, 50);
+}
+
+/** 2. Status laden (Zwei-Punkte-Logik) */
 async function loadDatalayerStatus() {
     const badge = document.getElementById('dl-status-badge');
     if (!badge) return;
     badge.textContent = '⚪ ' + t('status.loading');
     
     try {
-        // Nutze fetchWithAuth statt fetch, um den Authorization-Header mitschicken
-        const r = await fetchWithAuth('api/datalayer/status'); 
-        
-        if (!r.ok) { 
-            badge.textContent = '⚪ ' + t('status.unknown'); 
-            return; 
-        }
+        const r = await fetchWithAuth('api/datalayer/status');
+        if (!r.ok) { badge.textContent = '⚪ ' + t('status.unknown'); return; }
         
         const d = await r.json();
         if (!d.enabled) {
@@ -1373,203 +1399,80 @@ async function loadDatalayerStatus() {
         } else if (d.connected) {
             badge.textContent = `🟢 ${t('status.running')} (${d.active_mappings}/${d.mapping_count} Mappings)`;
         } else if (r.status === 401 || r.status === 403) {
-            // Hier nutzen wir den HTTP-Status des Requests direkt
             badge.textContent = '🟡 ' + t('datalayer.status_noauth');
-        } else if (d.http_status != null) {
-            badge.textContent = `🔴 HTTP ${d.http_status}`;
-        } else if (d.connect_error) {
-            badge.textContent = '🔴 ' + t('datalayer.status_unreachable');
         } else {
             badge.textContent = '🔴 ' + t('status.stopped');
         }
     } catch (e) {
-        console.error("Datalayer Status Error:", e);
         badge.textContent = '⚪ ' + t('status.unknown');
     }
 }
 
-/** Load Datalayer config into the settings form */
-async function loadDatalayerConfig() {
-    try {
-        const r = await fetch('api/datalayer/config');
-        if (!r.ok) return;
-        const d = await r.json();
-        const el = (id) => document.getElementById(id);
-        if (el('dl-enabled'))              el('dl-enabled').checked = !!d.enabled;
-        if (el('dl-base-url'))             el('dl-base-url').value = d.base_url || '';
-        if (el('dl-username'))             el('dl-username').value = d.username === '***' ? '' : (d.username || '');
-        if (el('dl-password'))             el('dl-password').value = '';
-        if (el('dl-poll-interval'))        el('dl-poll-interval').value = d.poll_interval_ms || 5000;
-        if (el('dl-accept-invalid-certs')) el('dl-accept-invalid-certs').checked = d.accept_invalid_certs !== false;
-    } catch (e) {
-        console.warn('Could not load datalayer config:', e);
-    }
+/** 3. Mapping aus dem Browser vorbereiten (Add to mapping) */
+function prepareMapping(path) {
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'block';
+
+    const pathInput = document.getElementById('dl-mapping-path');
+    const fieldInput = document.getElementById('dl-mapping-field');
+    const unitInput = document.getElementById('dl-mapping-unit');
+    
+    // Pfad setzen
+    pathInput.value = path;
+    
+    // Feldname automatisch extrahieren (letztes Element des Pfades)
+    const lastPart = path.split('/').pop();
+    fieldInput.value = lastPart;
+    unitInput.value = ''; // Einheit leeren
+
+    // Topic Prefix setzen
+    updateTopicPrefix();
+    
+    pathInput.scrollIntoView({ behavior: 'smooth' });
 }
 
-/** Save Datalayer connection config */
-async function saveDatalayerConfig() {
-    const el = (id) => document.getElementById(id);
+/** 4. Topic automatisch basierend auf Transform setzen */
+function updateTopicPrefix() {
+    const transform = document.getElementById('dl-mapping-transform').value;
+    const topicInput = document.getElementById('dl-mapping-topic');
+    const path = document.getElementById('dl-mapping-path').value;
     
+    const lastPart = path.split('/').pop() || "value";
+    let base = "te/device/main///";
+    
+    if (transform === 'Measurement') base += "m/plc/";
+    else if (transform === 'Event') base += "e/plc/";
+    else if (transform === 'Alarm') base += "a/plc/";
+
+    topicInput.value = base + lastPart;
+}
+
+/** 5. Neues Mapping speichern */
+async function saveNewMapping() {
     const body = {
-        enabled:             (el('dl-enabled') && el('dl-enabled').checked) || false,
-        baseUrl:             (el('dl-base-url') && el('dl-base-url').value.trim()) || '',
-        username:            (el('dl-username') && el('dl-username').value.trim()) || '',
-        password:            (el('dl-password') && el('dl-password').value) || '',
-        pollIntervalMs:      parseInt((el('dl-poll-interval') && el('dl-poll-interval').value) || '5000', 10),
-        acceptInvalidCerts:  (el('dl-accept-invalid-certs') && el('dl-accept-invalid-certs').checked) !== false,
-        // FIX: Nimm das Token aus dem sessionStorage, wenn kein UI-Feld da ist
-        token:               (el('dl-token') ? el('dl-token').value.trim() : (sessionStorage.getItem('ctrlx_token') || ''))
+        datalayer_path: document.getElementById('dl-mapping-path').value.trim(),
+        tedge_topic:    document.getElementById('dl-mapping-topic').value.trim(),
+        transform:      document.getElementById('dl-mapping-transform').value,
+        field_name:     document.getElementById('dl-mapping-field').value.trim() || null,
+        unit:           document.getElementById('dl-mapping-unit').value.trim() || null
     };
 
-    try {
-        const r = await fetchWithAuth('api/datalayer/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        
-        const d = await r.json();
-        if (d.success) {
-            showNotification(t('notify.dl_config_saved'), 'success');
-            loadDatalayerStatus();
-        } else {
-            showNotification(d.error || t('notify.dl_config_err'), 'error');
-        }
-    } catch (e) {
-        showNotification(t('notify.dl_config_err'), 'error');
-    }
-}
-
-/** Browse Datalayer nodes */
-/** Browse ctrlX Datalayer nodes */
-async function browseDatalayer() {
-    let path = document.getElementById('dl-browse-path').value.trim();
-    
-    // Säuberung: Führende/abschließende Slashes entfernen
-    // Ein "/" wird zu einem leeren String (Root-Abfrage)
-    if (path === '/') path = '';
-    path = path.replace(/^\/+|\/+$/g, ''); 
-
-    const listContainer = document.getElementById('dl-node-list');
-    listContainer.innerHTML = '<div class="node-empty-hint">Lade...</div>';
-
-    try {
-        const r = await fetchWithAuth(`api/datalayer/browse?path=${encodeURIComponent(path)}`);
-        const data = await r.json();
-
-        if (r.status === 401) {
-            listContainer.innerHTML = '<div class="node-empty-hint" style="color:red">Nicht autorisiert (401). Bitte Seite neu laden.</div>';
-            return;
-        }
-
-        // ... Rest der Logik (nodes.forEach etc.) wie zuvor besprochen
-    } catch (e) {
-        listContainer.innerHTML = `<div class="node-empty-hint" style="color:red">Fehler: ${e.message}</div>`;
-    }
-}
-
-/** Hilfsfunktion: Pfad setzen und direkt weitersuchen */
-function setBrowsePath(path) {
-    document.getElementById('dl-browse-path').value = path;
-    browseDatalayer();
-}
-
-/** Hilfsfunktion: Eine Ebene nach oben springen */
-function datalayerUp() {
-    const input = document.getElementById('dl-browse-path');
-    let parts = input.value.split('/').filter(p => p.length > 0);
-    parts.pop();
-    input.value = parts.join('/');
-    browseDatalayer();
-}
-
-/** Mapping-Vorbereitung (öffnet z.B. das Modal oder füllt Felder) */
-function prepareMapping(path) {
-    // Hier kannst du z.B. das Mapping-Modal öffnen und den Pfad vorbefüllen
-    showNotification(`Pfad ausgewählt: ${path}`, 'info');
-    // Beispiel: document.getElementById('new-mapping-path').value = path;
-}
-
-/** Read a single Datalayer node value */
-async function readDatalayerNode(path) {
-    const valueEl = document.getElementById('dl-node-value');
-    if (!valueEl) return;
-    valueEl.textContent = 'Lädt…';
-    try {
-        const r = await fetch('api/datalayer/node?path=' + encodeURIComponent(path));
-        const d = await r.json();
-        if (d.error) { valueEl.textContent = 'Fehler: ' + d.error; return; }
-        valueEl.textContent = path + ' = ' + JSON.stringify(d.value) + (d.type ? ' [' + d.type + ']' : '');
-    } catch (e) {
-        valueEl.textContent = 'Fehler: ' + e.message;
-    }
-}
-
-/** Pre-fill the add-mapping form from browser selection */
-function prefillMappingPath(path) {
-    _dlSelectedPath = path;
-    const pathInput = document.getElementById('dl-map-path');
-    if (pathInput) pathInput.value = path;
-    // Auto-suggest topic from last segment
-    const topicInput = document.getElementById('dl-map-topic');
-    if (topicInput && !topicInput.value) {
-        const seg = path.replace(/\/$/, '').split('/').pop() || 'value';
-        topicInput.value = 'te/device/main///m/plc';
-    }
-    showAddMappingForm();
-}
-
-/** Quick-add mapping using the currently selected browser path */
-function addDatalayerMappingFromBrowser() {
-    if (_dlSelectedPath) {
-        prefillMappingPath(_dlSelectedPath);
-    } else {
-        showAddMappingForm();
-    }
-}
-
-function showAddMappingForm() {
-    const form = document.getElementById('dl-add-form');
-    if (form) form.style.display = 'block';
-}
-
-function hideAddMappingForm() {
-    const form = document.getElementById('dl-add-form');
-    if (form) form.style.display = 'none';
-    // Clear fields
-    ['dl-map-path','dl-map-topic','dl-map-field','dl-map-unit'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-}
-
-/** Add one mapping via API */
-async function addDatalayerMapping() {
-    const el = (id) => document.getElementById(id);
-    const path  = el('dl-map-path')  && el('dl-map-path').value.trim();
-    const topic = el('dl-map-topic') && el('dl-map-topic').value.trim();
-    if (!path || !topic) {
+    if (!body.datalayer_path || !body.tedge_topic) {
         showNotification(t('notify.dl_path_required'), 'warning');
         return;
     }
-    const body = {
-        datalayer_path: path,
-        tedge_topic:    topic,
-        transform:      (el('dl-map-transform') && el('dl-map-transform').value) || 'measurement',
-        field_name:     (el('dl-map-field')  && el('dl-map-field').value.trim())  || null,
-        unit:           (el('dl-map-unit')   && el('dl-map-unit').value.trim())   || null,
-    };
+
     try {
-        const r = await fetch('api/datalayer/mappings/add', {
+        const r = await fetchWithAuth('api/datalayer/mappings/add', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         const d = await r.json();
         if (d.success) {
             showNotification(t('notify.dl_mapping_added'), 'success');
-            hideAddMappingForm();
-            loadDatalayerMappings();
+            cancelMapping(); // Formular leeren und schließen
+            loadDatalayerMappings(); // Tabelle neu laden
+            loadDatalayerStatus();   // Status (Zähler) aktualisieren
         } else {
             showNotification(d.error || t('notify.dl_mapping_add_err'), 'error');
         }
@@ -1578,82 +1481,115 @@ async function addDatalayerMapping() {
     }
 }
 
-/** Delete a mapping */
+/** 6. Mapping-Formular abbrechen / leeren */
+function cancelMapping() {
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+    
+    ['dl-mapping-path','dl-mapping-topic','dl-mapping-field','dl-mapping-unit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+/** 7. Tabelle rendern (Fix für 'undefined') */
+function renderDatalayerMappings() {
+    const tbody = document.getElementById('dl-mapping-table-body');
+    if (!tbody) return;
+
+    if (_dlMappings.length === 0) {
+        // Hier nutzen wir t() direkt für den Text
+        tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint">${t('datalayer.no_mappings')}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = _dlMappings.map(m => {
+        const p = m.path || m.datalayer_path || '';
+        const t_topic = m.topic || m.tedge_topic || '';
+        
+        return `
+            <tr class="mapping-row">
+                <td class="cell-path" title="${p}">${p}</td>
+                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                <td><span class="transform-badge ${m.transform.toLowerCase()}">${m.transform}</span></td>
+                <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
+                <td class="text-center">
+                    <label class="c8y-switch">
+                        <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                        <span></span>
+                    </label>
+                </td>
+                <td class="text-right">
+                    <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // WICHTIG: Sobald das HTML im DOM ist, müssen wir die Übersetzer-Funktion triggern!
+    applyI18n();
+}
+
+/** Deine Init-Funktion mit Sicherheits-Update */
+function _initDatalayerUI() {
+    loadDatalayerStatus();
+    loadDatalayerConfig();
+    loadDatalayerMappings();
+    
+    // Formular initial verstecken
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+
+    // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
+    // (wie die Save/Cancel Buttons) im DOM bereit sind
+    setTimeout(() => {
+        applyI18n();
+    }, 150);
+}
+
+/** 8. Mapping löschen */
 async function deleteDatalayerMapping(id) {
+    if (!confirm(t('common.confirm_delete') || 'Mapping löschen?')) return;
+    
     try {
-        const r = await fetch('api/datalayer/mappings/' + encodeURIComponent(id), { method: 'DELETE' });
+        const r = await fetchWithAuth(`api/datalayer/mappings/${encodeURIComponent(id)}`, { method: 'DELETE' });
         const d = await r.json();
         if (d.success) {
             showNotification(t('notify.dl_mapping_deleted'), 'success');
             loadDatalayerMappings();
-        } else {
-            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
         }
     } catch (e) {
         showNotification(t('notify.dl_mapping_del_err'), 'error');
     }
 }
 
-/** Toggle enabled state of a mapping inline */
+/** 9. Mapping umschalten (Aktiv/Inaktiv) */
 async function toggleDatalayerMapping(id, enabled) {
-    // Find & update locally, then POST all mappings
     const updated = _dlMappings.map(m => m.id === id ? { ...m, enabled } : m);
     try {
-        const r = await fetch('api/datalayer/mappings', {
+        const r = await fetchWithAuth('api/datalayer/mappings', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mappings: updated })
         });
-        const d = await r.json();
-        if (d.success) {
+        if (r.ok) {
             _dlMappings = updated;
             renderDatalayerMappings();
+            loadDatalayerStatus();
         }
-    } catch (e) {
-        console.warn('toggle mapping failed:', e);
-    }
+    } catch (e) { console.warn('Toggle failed', e); }
 }
 
-/** Load mappings from API and render table */
+/** 10. Mappings vom Server laden */
 async function loadDatalayerMappings() {
     try {
-        const r = await fetch('api/datalayer/mappings');
-        if (!r.ok) return;
+        const r = await fetchWithAuth('api/datalayer/mappings');
         const d = await r.json();
         _dlMappings = d.mappings || [];
         renderDatalayerMappings();
-    } catch (e) {
-        console.warn('Could not load datalayer mappings:', e);
-    }
+    } catch (e) { console.error("Load Mappings Error:", e); }
 }
 
-/** Render the mappings table */
-function renderDatalayerMappings() {
-    const tbody = document.getElementById('dl-mapping-tbody');
-    if (!tbody) return;
-    if (_dlMappings.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:#888;">${t('datalayer.no_mappings')}</td></tr>`;
-        return;
-    }
-    tbody.innerHTML = _dlMappings.map(m => `
-        <tr style="border-bottom:1px solid var(--c8y-palette-gray-70,#444);">
-            <td style="padding:6px 8px;font-family:monospace;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.datalayer_path}">${m.datalayer_path}</td>
-            <td style="padding:6px 8px;font-family:monospace;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.tedge_topic}">${m.tedge_topic}</td>
-            <td style="padding:6px 8px;font-size:12px;">${m.transform || 'measurement'}</td>
-            <td style="padding:6px 8px;font-size:12px;">${m.field_name || '<em style="color:#888;">auto</em>'}</td>
-            <td style="padding:6px 8px;text-align:center;">
-                <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
-            </td>
-            <td style="padding:6px 8px;text-align:right;">
-                <button class="btn btn-outline-secondary btn-sm" style="padding:1px 8px;font-size:11px;"
-                        onclick="deleteDatalayerMapping('${m.id}')">🗑</button>
-            </td>
-        </tr>`).join('');
-}
-
-// ── Init extension ────────────────────────────────────────────────────────────
-// Called from the DOMContentLoaded event already wired in the HTML.
-// We hook into the existing init by appending to window.onload or calling directly.
+// Hilfs-Init (am Ende der Datei lassen)
 (function initDatalayer() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _initDatalayerUI);
@@ -1661,10 +1597,3 @@ function renderDatalayerMappings() {
         _initDatalayerUI();
     }
 })();
-
-function _initDatalayerUI() {
-    loadDatalayerStatus();
-    loadDatalayerConfig();
-    loadDatalayerMappings();
-}
-

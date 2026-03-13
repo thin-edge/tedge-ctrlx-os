@@ -1,3 +1,28 @@
+// Vereinheitlichte Form-Feld-Styles für .form-control
+.form-control {
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  font-size: @font-size-base;
+  font-family: @font-family-base;
+  border: 1px solid @gray-60;
+  border-radius: @border-radius-base;
+  background: @palette-high;
+  color: @gray-10;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    outline: none;
+    border-color: @brand-primary;
+    box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
+  }
+}
+
+.form-control-sm {
+  font-size: 13px;
+  padding: 5px 8px;
+  max-width: 320px;
+}
 // ============================================================
 //  thin-edge.io UI — basierend auf @c8y/style v1023 Design Tokens
 //  Quelle: https://www.npmjs.com/package/@c8y/style
@@ -960,6 +985,7 @@ footer {
         .status-divider { display: none; }
     }
 }
+
 /* Node Browser Styles */
 .node-browser-container {
     margin-top: 14px;
@@ -1014,4 +1040,178 @@ footer {
     color: #888;
     padding: 12px;
     font-style: italic;
+}
+/* Button im Node Browser */
+.node-item .btn-add-mapping {
+    background-color: var(--c8y-palette-gray-80);
+    color: var(--c8y-palette-gray-20);
+    border: 1px solid var(--c8y-palette-gray-60);
+    font-size: 11px;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    font-weight: 600;
+
+    &:hover {
+        background-color: var(--brand-primary);
+        color: white;
+    }
+}
+
+/* Gesamte Schriftart für Datalayer-Block vereinheitlichen */
+.node-browser-container, .card-inner-block {
+    font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
+    
+    label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--c8y-palette-gray-40);
+        margin-bottom: 4px;
+    }
+/* Einheitliche Schriftarten und Abstände */
+#dl-mapping-section {
+    font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
+    
+    label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--c8y-palette-gray-40, #999);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+    }
+
+    .form-control {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--c8y-palette-gray-80, #444);
+        color: white;
+        &:focus { border-color: var(--brand-primary); }
+    }
+}
+
+/* Transform Badges */
+.transform-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    &.measurement { background: #00ef8b; color: #000; }
+    &.event { background: #00bfff; color: #000; }
+    &.alarm { background: #ff4d4d; color: #fff; }
+}
+
+/* Mapping Tabelle & Badges */
+.mapping-row {
+    border-bottom: 1px solid var(--c8y-palette-gray-80, #444);
+    
+    &:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    td {
+        padding: 12px 8px;
+        vertical-align: middle;
+        font-size: 13px;
+        color: var(--c8y-palette-gray-20, #ccc);
+    }
+
+    /* Monospace für technische Pfade */
+    .cell-path, .cell-topic {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 11px;
+        max-width: 250px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* Die Transform-Badges */
+.transform-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+
+    &.measurement {
+        color: #00ef8b;
+        background: rgba(0, 239, 139, 0.1);
+        border-color: rgba(0, 239, 139, 0.3);
+    }
+
+    &.event {
+        color: #00bfff;
+        background: rgba(0, 191, 255, 0.1);
+        border-color: rgba(0, 191, 255, 0.3);
+    }
+
+    &.alarm {
+        color: #ff4d4d;
+        background: rgba(255, 77, 77, 0.1);
+        border-color: rgba(255, 77, 77, 0.3);
+    }
+
+    /* Fallback für Raw oder andere */
+    &.raw {
+        color: var(--c8y-palette-gray-40);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: var(--c8y-palette-gray-70);
+    }
+}
+
+/* Delete Button in der Tabelle */
+.btn-delete {
+    background: transparent;
+    border: 1px solid var(--c8y-palette-gray-70);
+    color: var(--c8y-palette-gray-40);
+    border-radius: 4px;
+    padding: 2px 8px;
+    transition: all 0.2s;
+
+    &:hover {
+        border-color: #ff4d4d;
+        color: #ff4d4d;
+        background: rgba(255, 77, 77, 0.1);
+    }
+}
+
+/* Text-Muted für "auto" Anzeige */
+.text-muted {
+    color: var(--c8y-palette-gray-50, #888);
+    font-style: italic;
+}
+
+/* Globaler Look für Formularfelder im Datalayer-Block */
+/* Massive Korrektur für die widerspenstigen Felder */
+#dl-poll-interval, 
+#dl-mapping-transform,
+#dl-mapping-section select,
+.card-inner-block input[type="number"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid #444 !important;
+    color: #ccc !important;
+    appearance: none !important; // Killt nativen Look
+    -webkit-appearance: none;
+    border-radius: 4px;
+    height: 32px;
+    padding: 4px 8px;
+}
+
+/* Pfeil für das Dropdown wieder einbauen, da appearance:none ihn entfernt */
+#dl-mapping-transform {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ccc' d='M10.3 3.3L6 7.6 1.7 3.3 0.3 4.7l5.7 5.7 5.7-5.7z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 10px !important;
+    padding-right: 30px !important;
+}
+
+/* Die kleinen Spinner-Pfeile im Poll-Intervall invertieren */
+#dl-poll-interval::-webkit-inner-spin-button {
+    filter: invert(1);
+    opacity: 0.5;
+}
 }
