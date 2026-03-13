@@ -1,3 +1,8 @@
+.c8y-table {
+  border-top: 2px solid var(--c8y-palette-gray-60);
+  border-bottom: 2px solid var(--c8y-palette-gray-60);
+  border-radius: 0;
+}
 // Vereinheitlichte Form-Feld-Styles für .form-control
 .form-control {
   width: 100%;
@@ -1101,18 +1106,16 @@ footer {
 
 /* Mapping Tabelle & Badges */
 .mapping-row {
-    border-bottom: 1px solid var(--c8y-palette-gray-80, #444);
-    
-    &:hover {
-        background: rgba(255, 255, 255, 0.03);
+    .cell-path, .cell-topic {
+        font-family: 'Roboto Mono', Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: var(--brand-primary);
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-
-    td {
-        padding: 12px 8px;
-        vertical-align: middle;
-        font-size: 13px;
-        color: var(--c8y-palette-gray-20, #ccc);
-    }
+}
 
     /* Monospace für technische Pfade */
     .cell-path, .cell-topic {
@@ -1127,39 +1130,16 @@ footer {
 
 /* Die Transform-Badges */
 .transform-badge {
-    display: inline-block;
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: 4px;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border: 1px solid transparent;
-
-    &.measurement {
-        color: #00ef8b;
-        background: rgba(0, 239, 139, 0.1);
-        border-color: rgba(0, 239, 139, 0.3);
-    }
-
-    &.event {
-        color: #00bfff;
-        background: rgba(0, 191, 255, 0.1);
-        border-color: rgba(0, 191, 255, 0.3);
-    }
-
-    &.alarm {
-        color: #ff4d4d;
-        background: rgba(255, 77, 77, 0.1);
-        border-color: rgba(255, 77, 77, 0.3);
-    }
-
-    /* Fallback für Raw oder andere */
-    &.raw {
-        color: var(--c8y-palette-gray-40);
-        background: rgba(255, 255, 255, 0.05);
-        border-color: var(--c8y-palette-gray-70);
-    }
+    display: inline-block;
+    
+    &.measurement { color: #00ef8b; background: rgba(0, 239, 139, 0.1); border: 1px solid rgba(0, 239, 139, 0.2); }
+    &.event { color: #00bfff; background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.2); }
+    &.alarm { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); border: 1px solid rgba(255, 77, 77, 0.2); }
 }
 
 /* Delete Button in der Tabelle */
@@ -1176,42 +1156,107 @@ footer {
         color: #ff4d4d;
         background: rgba(255, 77, 77, 0.1);
     }
-}
+  }
+  .btn-delete {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .btn-delete svg {
+    display: block;
+    stroke: #FDC000;
+  }
+  .c8y-table th {
+    font-weight: 700;
+    font-size: 15px;
+    padding: 10px 8px;
+    background: var(--c8y-palette-gray-80);
+    border-bottom: 2px solid var(--c8y-palette-gray-60);
+  }
+  .c8y-table td {
+    padding: 10px 8px;
+    font-size: 14px;
+    border-bottom: 2px solid var(--c8y-palette-gray-60);
+  }
+  .c8y-table tr:last-child td {
+    border-bottom: none;
+  }
+  .c8y-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+
 
 /* Text-Muted für "auto" Anzeige */
 .text-muted {
     color: var(--c8y-palette-gray-50, #888);
     font-style: italic;
 }
+/* --- Datalayer UI Refinement --- */
 
-/* Globaler Look für Formularfelder im Datalayer-Block */
-/* Massive Korrektur für die widerspenstigen Felder */
-#dl-poll-interval, 
-#dl-mapping-transform,
-#dl-mapping-section select,
-.card-inner-block input[type="number"] {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid #444 !important;
-    color: #ccc !important;
-    appearance: none !important; // Killt nativen Look
-    -webkit-appearance: none;
-    border-radius: 4px;
-    height: 32px;
-    padding: 4px 8px;
+/* Die Tabelle schöner machen */
+.mapping-row {
+    .cell-path, .cell-topic {
+        font-family: 'Roboto Mono', Menlo, Monaco, Consolas, monospace !important;
+        font-size: 11px !important;
+        color: var(--brand-primary) !important;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .transform-badge {
+        padding: 2px 8px !important;
+        border-radius: 4px !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        display: inline-block;
+        
+        &.measurement { 
+            color: #00ef8b !important; 
+            background: rgba(0, 239, 139, 0.1) !important; 
+            border: 1px solid rgba(0, 239, 139, 0.3) !important; 
+        }
+        &.event { 
+            color: #00bfff !important; 
+            background: rgba(0, 191, 255, 0.1) !important; 
+            border: 1px solid rgba(0, 191, 255, 0.3) !important; 
+        }
+        &.alarm { 
+            color: #ff4d4d !important; 
+            background: rgba(255, 77, 77, 0.1) !important; 
+            border: 1px solid rgba(255, 77, 77, 0.3) !important; 
+        }
+    }
+}
+/* Der Lösch-Button */
+.btn-delete {
+    background: transparent;
+    border: none;
+    color: var(--c8y-palette-gray-40);
+    cursor: pointer;
+    transition: color 0.2s;
+    &:hover { color: #ff4d4d; }
+
+    &:hover {
+        color: #ff4d4d; /* Sanftes Rot beim Hover */
+        background: rgba(255, 77, 77, 0.1);
+        border-color: rgba(255, 77, 77, 0.2);
+    }
 }
 
-/* Pfeil für das Dropdown wieder einbauen, da appearance:none ihn entfernt */
-#dl-mapping-transform {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ccc' d='M10.3 3.3L6 7.6 1.7 3.3 0.3 4.7l5.7 5.7 5.7-5.7z'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 10px center !important;
-    background-size: 10px !important;
-    padding-right: 30px !important;
-}
-
-/* Die kleinen Spinner-Pfeile im Poll-Intervall invertieren */
-#dl-poll-interval::-webkit-inner-spin-button {
-    filter: invert(1);
-    opacity: 0.5;
-}
+/* Fokus-Rahmen für das Bearbeitungs-Formular */
+#dl-mapping-section {
+    border: 1px solid var(--brand-primary);
+    box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
+    transition: all 0.3s ease;
 }

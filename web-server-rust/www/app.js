@@ -158,44 +158,31 @@ const I18N = {
         'datalayer.username':            'Benutzername:',
         'datalayer.password':            'Passwort:',
         'datalayer.accept_invalid_certs':'Ungültige TLS-Zertifikate akzeptieren',
-        'datalayer.save_config':         'Verbindung speichern',
         'datalayer.node_browser':        'Knoten-Browser',
         'datalayer.browse_placeholder':  'z.B. plc/app/Application',
-        'datalayer.browse_btn':          'Durchsuchen',
-        'datalayer.up_btn':              '↑ Übergeordnet',
-        'datalayer.add_mapping':         '+ Mapping hinzufügen',
         'datalayer.browser_hint':        'Pfad eingeben und „Durchsuchen" klicken.',
         'datalayer.mappings_title':      'Datenpunkt-Mappings',
         'datalayer.add_mapping_btn':     '+ Mapping',
-        'datalayer.map_dl_path':         'Datalayer-Pfad:',
-        'datalayer.map_tedge_topic':     'tedge MQTT Topic:',
-        'datalayer.map_transform':       'Transform:',
-        'datalayer.map_field_name':      'Feldname (optional):',
-        'datalayer.map_unit':            'Einheit (optional):',
-        'datalayer.save_mapping':        'Speichern',
-        'datalayer.cancel':              'Abbrechen',
+        'datalayer.path':                'Datalayer-Pfad',
+        'datalayer.transform':           'Transform',
+        'datalayer.unit':                'Einheit (optional)',
+        'datalayer.topic':               'tedge MQTT Topic',
+        'datalayer.field':               'Feldname',
+        'datalayer.auto_hint':           'Automatisch aus Pfad',
+        'datalayer.password_hint':       'Nur für Basis-Auth. Wenn Token verwendet wird, kann dieses Feld leer bleiben.',
+        'datalayer.no_mappings':         'Keine Mappings konfiguriert.',
+        'datalayer.status_noauth':       '🟡 Verbunden – kein Token / Auth-Fehler',
+        'datalayer.status_unreachable':  'Nicht erreichbar',
+        'datalayer.token_static':        'Statisches Token (Optional)',
+        'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
+        // Spalten für die Tabelle (werden in renderDatalayerMappings verwendet)
         'datalayer.col_path':            'Datalayer-Pfad',
         'datalayer.col_topic':           'tedge Topic',
         'datalayer.col_transform':       'Transform',
         'datalayer.col_field':           'Feld',
         'datalayer.col_enabled':         'Aktiv',
-        'datalayer.no_mappings':         'Keine Mappings konfiguriert.',
-        'datalayer.transform_measurement': 'Measurement',
-        'datalayer.transform_raw':       'Raw',
-        'datalayer.transform_event':     'Event',
-        'datalayer.transform_alarm':     'Alarm',
-        'datalayer.status_noauth':       '🟡 Verbunden – kein Token / Auth-Fehler',
-        'datalayer.status_unreachable':  'Nicht erreichbar',
-        'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
-        'datalayer.token_static':        'Statisches Token (Optional)',
-        'datalayer.path_placeholder':    'z.B. plc/app/Application',
-        'datalayer.auto_hint':           'Automatisch aus Pfad',
-        'datalayer.path':                 'Datalayer-Pfad',
-        'datalayer.transform':           'Transform',
-        'datalayer.unit':                'Einheit (optional)',
-        'datalayer.topic':               'tedge MQTT Topic',
-        'datalayer.field':               'Feldname',
-        'datalayer.password_hint':       'Nur für Basis-Auth. Wenn Token verwendet wird, kann dieses Feld leer bleiben.',
+        'datalayer.confirm_delete':      'Möchten Sie dieses Mapping wirklich löschen?',
+        'datalayer.delete_title':        'Mapping löschen',
         'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
         'notify.dl_mapping_added':       'Mapping hinzugefügt',
         'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
@@ -349,7 +336,7 @@ const I18N = {
         'cert.created':             (cn) => `Certificate created with CN: ${cn}`,
         'cert.renewed':             (cn) => `Certificate renewed with CN: ${cn}`,
         'cert.create_err':          'Error creating certificate',
-        // Datalayer section
+// Datalayer section
         'section.datalayer':             'ctrlX Data Points (Datalayer)',
         'datalayer.refresh':             'Refresh Status',
         'datalayer.connection_settings': 'Connection Settings',
@@ -359,44 +346,37 @@ const I18N = {
         'datalayer.username':            'Username:',
         'datalayer.password':            'Password:',
         'datalayer.accept_invalid_certs':'Accept invalid TLS certificates',
-        'datalayer.save_config':         'Save Connection',
         'datalayer.node_browser':        'Node Browser',
         'datalayer.browse_placeholder':  'e.g. plc/app/Application',
-        'datalayer.browse_btn':          'Browse',
-        'datalayer.up_btn':              '↑ Parent',
-        'datalayer.add_mapping':         '+ Add Mapping',
         'datalayer.browser_hint':        'Enter a path and click "Browse".',
         'datalayer.mappings_title':      'Data Point Mappings',
         'datalayer.add_mapping_btn':     '+ Mapping',
-        'datalayer.map_dl_path':         'Datalayer Path:',
-        'datalayer.map_tedge_topic':     'tedge MQTT Topic:',
-        'datalayer.map_transform':       'Transform:',
-        'datalayer.map_field_name':      'Field name (optional):',
-        'datalayer.map_unit':            'Unit (optional):',
-        'datalayer.save_mapping':        'Save',
-        'datalayer.cancel':              'Cancel',
+        'datalayer.path':                'Datalayer Path',
+        'datalayer.transform':           'Transform',
+        'datalayer.unit':                'Unit (optional)',
+        'datalayer.topic':               'tedge MQTT Topic',
+        'datalayer.field':               'Field Name',
+        'datalayer.auto_hint':           'Automatically from path',
+        'datalayer.password_hint':       'Just for basic auth. If using token, this can be left empty.',
+        'datalayer.no_mappings':         'No mappings configured.',
+        'datalayer.status_noauth':       '🟡 Reachable – missing token / auth error',
+        'datalayer.status_unreachable':  'Not reachable',
+        'datalayer.token_static':        'Static Token (Optional)',
+        'datalayer.token_hint':          'If left empty, the current login token will be used.',
+        // Table columns
         'datalayer.col_path':            'Datalayer Path',
         'datalayer.col_topic':           'tedge Topic',
         'datalayer.col_transform':       'Transform',
         'datalayer.col_field':           'Field',
         'datalayer.col_enabled':         'Active',
-        'datalayer.no_mappings':         'No mappings configured.',
+        // Transform types
         'datalayer.transform_measurement': 'Measurement',
         'datalayer.transform_raw':       'Raw',
         'datalayer.transform_event':     'Event',
         'datalayer.transform_alarm':     'Alarm',
-        'datalayer.status_noauth':       '🟡 Reachable – missing token / auth error',
-        'datalayer.status_unreachable':  'Not reachable',
-        'datalayer.token_hint':          'If left empty, the current login token will be used.',
-        'datalayer.token_static':        'Static Token (Optional)',
-        'datalayer.path_placeholder':    'e.g. plc/app/Application',
-        'datalayer.auto_hint':           'Automatically from path',
-        'datalayer.path': 'Datalayer Path',
-        'datalayer.transform': 'Transform',
-        'datalayer.unit': 'Unit (optional)',
-        'datalayer.topic': 'tedge MQTT Topic',
-        'datalayer.field': 'Field name',
-        'datalayer.password_hint':       'Just for basic auth. If using token, this can be left empty.',
+        'datalayer.confirm_delete':      'Do you really want to delete this mapping?',
+        'datalayer.delete_title':        'Delete Mapping',
+        // Notifications
         'notify.dl_config_err':          'Error saving datalayer configuration',
         'notify.dl_mapping_added':       'Mapping added',
         'notify.dl_mapping_add_err':     'Error adding mapping',
@@ -1416,7 +1396,7 @@ function prepareMapping(path) {
     const pathInput = document.getElementById('dl-mapping-path');
     const fieldInput = document.getElementById('dl-mapping-field');
     const unitInput = document.getElementById('dl-mapping-unit');
-    
+    applyI18n();
     // Pfad setzen
     pathInput.value = path;
     
@@ -1498,20 +1478,22 @@ function renderDatalayerMappings() {
     if (!tbody) return;
 
     if (_dlMappings.length === 0) {
-        // Hier nutzen wir t() direkt für den Text
-        tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint">${t('datalayer.no_mappings')}</td></tr>`;
+        // Hinweis über alle 7 Spalten spannen
+        tbody.innerHTML = `<tr><td colspan="7" class="node-empty-hint" style="text-align:center; padding:20px;">${t('datalayer.no_mappings')}</td></tr>`;
         return;
     }
 
     tbody.innerHTML = _dlMappings.map(m => {
         const p = m.path || m.datalayer_path || '';
         const t_topic = m.topic || m.tedge_topic || '';
+        const trans = m.transform || 'Measurement';
         
         return `
             <tr class="mapping-row">
                 <td class="cell-path" title="${p}">${p}</td>
                 <td class="cell-topic" title="${t_topic}">${t_topic}</td>
-                <td><span class="transform-badge ${m.transform.toLowerCase()}">${m.transform}</span></td>
+                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                <td>${m.unit || '<em class="text-muted">-</em>'}</td>
                 <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
                 <td class="text-center">
                     <label class="c8y-switch">
@@ -1528,6 +1510,7 @@ function renderDatalayerMappings() {
 
     applyI18n();
 }
+
 
 /** Deine Init-Funktion mit Sicherheits-Update */
 function _initDatalayerUI() {
@@ -1589,10 +1572,82 @@ async function loadDatalayerMappings() {
 }
 
 // Hilfs-Init (am Ende der Datei lassen)
-(function initDatalayer() {
+function initDatalayer() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _initDatalayerUI);
     } else {
         _initDatalayerUI();
     }
-})();
+}
+/** Rendert die Mapping-Tabelle am Ende der Sektion */
+/** Löscht ein Mapping nach Sicherheitsabfrage */
+async function deleteDatalayerMapping(id) {
+    // Sicherheitsabfrage anzeigen
+    if (!confirm(t('datalayer.confirm_delete'))) {
+        return;
+    }
+
+    try {
+        const r = await fetchWithAuth(`api/datalayer/mappings/${encodeURIComponent(id)}`, { 
+            method: 'DELETE' 
+        });
+        
+        const d = await r.json();
+        
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_deleted'), 'success');
+            
+            // 1. Lokale Liste aktualisieren
+            _dlMappings = _dlMappings.filter(m => m.id !== id);
+            
+            // 2. Tabelle sofort neu zeichnen
+            renderDatalayerMappings();
+            
+            // 3. Status (Mapping-Zähler) oben aktualisieren
+            loadDatalayerStatus();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
+        }
+    } catch (e) {
+        console.error("Delete Error:", e);
+        showNotification(t('notify.dl_mapping_del_err'), 'error');
+    }
+}
+function renderDatalayerMappings() {
+    const tbody = document.getElementById('dl-mapping-table-body');
+    if (!tbody) return;
+
+    if (_dlMappings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="node-empty-hint" style="text-align:center; padding:20px;">${t('datalayer.no_mappings')}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = _dlMappings.map(m => {
+        const p = m.path || m.datalayer_path || '';
+        const t_topic = m.topic || m.tedge_topic || '';
+        const trans = m.transform || 'Measurement';
+        
+        return `
+            <tr class="mapping-row">
+                <td class="cell-path" title="${p}">${p}</td>
+                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                <td>${m.unit || '<em class="text-muted">-</em>'}</td>
+                <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
+                <td class="text-center">
+                    <label class="c8y-switch">
+                        <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                        <span></span>
+                    </label>
+                </td>
+                <td class="text-right">
+                    <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Übersetzungen auf die neu erzeugten Tooltips anwenden
+    applyI18n();
+}
+;
