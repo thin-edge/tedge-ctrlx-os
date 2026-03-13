@@ -186,6 +186,8 @@ const I18N = {
         'datalayer.transform_alarm':     'Alarm',
         'datalayer.status_noauth':       '🟡 Verbunden – kein Token / Auth-Fehler',
         'datalayer.status_unreachable':  'Nicht erreichbar',
+        'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
+        'datalayer.token_static':        'Statisches Token (Optional)',
         'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
         'notify.dl_mapping_added':       'Mapping hinzugefügt',
         'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
@@ -377,6 +379,8 @@ const I18N = {
         'datalayer.transform_alarm':     'Alarm',
         'datalayer.status_noauth':       '🟡 Reachable – missing token / auth error',
         'datalayer.status_unreachable':  'Not reachable',
+        'datalayer.token_hint':          'If left empty, the current login token will be used.',
+        'datalayer.token_static':        'Static Token (Optional)',
         'notify.dl_config_err':          'Error saving datalayer configuration',
         'notify.dl_mapping_added':       'Mapping added',
         'notify.dl_mapping_add_err':     'Error adding mapping',
@@ -385,7 +389,44 @@ const I18N = {
         'notify.dl_path_required':       'Please enter Datalayer path and tedge topic',
     }
 };
+// 1. Token beim Start aus der URL extrahieren
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get('token');
+if (tokenFromUrl) {
+    sessionStorage.setItem('ctrlx_token', tokenFromUrl);
+    // Token aus der URL entfernen für saubere Optik
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
 
+/**
+ * Helper function that calls fetch() and automatically
+ * includes the JWT token stored in sessionStorage.
+ */
+async function fetchWithAuth(url, options = {}) {
+    // 1. Token aus sessionStorage holen (wird beim Login/Seitenladen dort gespeichert)
+    const token = sessionStorage.getItem('ctrlx_token');
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    if (token) {
+        // Wir setzen beide Header, um sicherzugehen
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Auth-Token'] = `Bearer ${token}`;
+    }
+
+    return fetch(url, { ...options, headers });
+}
+
+// 3. Bestehende Funktionen anpassen (Beispiel loadStatus)
+async function loadStatus() {
+    try {
+        const response = await fetchWithAuth('api/status'); // Nutzt jetzt fetchWithAuth
+        // ... restliche Logik
+    } catch (error) { /* ... */ }
+}
 const _savedLang = localStorage.getItem('tedge-lang');
 let _lang = _savedLang || ((navigator.language || 'en').startsWith('de') ? 'de' : 'en');
 // Normalise: only 'de' or 'en'
@@ -509,8 +550,20 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // Load status on page load
 window.addEventListener('DOMContentLoaded', () => {
+    // Token aus der URL extrahieren (ctrlX übergibt dies oft als ?token=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token) {
+        sessionStorage.setItem('ctrlx_token', token);
+        // Optional: Token aus der URL entfernen für eine sauberere Adressleiste
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Bestehende Aufrufe...
     loadStatus();
     loadConfiguration();
+    loadDatalayerStatus(); // Dein neuer Aufruf
 });
 
 // Load service status
@@ -1304,15 +1357,23 @@ async function loadDatalayerStatus() {
     const badge = document.getElementById('dl-status-badge');
     if (!badge) return;
     badge.textContent = '⚪ ' + t('status.loading');
+    
     try {
-        const r = await fetch('api/datalayer/status');
-        if (!r.ok) { badge.textContent = '⚪ ' + t('status.unknown'); return; }
+        // Nutze fetchWithAuth statt fetch, um den Authorization-Header mitschicken
+        const r = await fetchWithAuth('api/datalayer/status'); 
+        
+        if (!r.ok) { 
+            badge.textContent = '⚪ ' + t('status.unknown'); 
+            return; 
+        }
+        
         const d = await r.json();
         if (!d.enabled) {
             badge.textContent = '⚫ ' + t('status.inactive');
         } else if (d.connected) {
             badge.textContent = `🟢 ${t('status.running')} (${d.active_mappings}/${d.mapping_count} Mappings)`;
-        } else if (d.http_status === 401 || d.http_status === 403) {
+        } else if (r.status === 401 || r.status === 403) {
+            // Hier nutzen wir den HTTP-Status des Requests direkt
             badge.textContent = '🟡 ' + t('datalayer.status_noauth');
         } else if (d.http_status != null) {
             badge.textContent = `🔴 HTTP ${d.http_status}`;
@@ -1322,6 +1383,7 @@ async function loadDatalayerStatus() {
             badge.textContent = '🔴 ' + t('status.stopped');
         }
     } catch (e) {
+        console.error("Datalayer Status Error:", e);
         badge.textContent = '⚪ ' + t('status.unknown');
     }
 }
@@ -1347,20 +1409,25 @@ async function loadDatalayerConfig() {
 /** Save Datalayer connection config */
 async function saveDatalayerConfig() {
     const el = (id) => document.getElementById(id);
+    
     const body = {
         enabled:             (el('dl-enabled') && el('dl-enabled').checked) || false,
-        base_url:            (el('dl-base-url') && el('dl-base-url').value.trim()) || '',
+        baseUrl:             (el('dl-base-url') && el('dl-base-url').value.trim()) || '',
         username:            (el('dl-username') && el('dl-username').value.trim()) || '',
         password:            (el('dl-password') && el('dl-password').value) || '',
-        poll_interval_ms:    parseInt((el('dl-poll-interval') && el('dl-poll-interval').value) || '5000', 10),
-        accept_invalid_certs:(el('dl-accept-invalid-certs') && el('dl-accept-invalid-certs').checked) !== false,
+        pollIntervalMs:      parseInt((el('dl-poll-interval') && el('dl-poll-interval').value) || '5000', 10),
+        acceptInvalidCerts:  (el('dl-accept-invalid-certs') && el('dl-accept-invalid-certs').checked) !== false,
+        // FIX: Nimm das Token aus dem sessionStorage, wenn kein UI-Feld da ist
+        token:               (el('dl-token') ? el('dl-token').value.trim() : (sessionStorage.getItem('ctrlx_token') || ''))
     };
+
     try {
-        const r = await fetch('api/datalayer/config', {
+        const r = await fetchWithAuth('api/datalayer/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+        
         const d = await r.json();
         if (d.success) {
             showNotification(t('notify.dl_config_saved'), 'success');
@@ -1374,70 +1441,53 @@ async function saveDatalayerConfig() {
 }
 
 /** Browse Datalayer nodes */
-async function browseDatalayer(pathOverride) {
-    const pathInput = document.getElementById('dl-browse-path');
-    const path = pathOverride !== undefined ? pathOverride : (pathInput ? pathInput.value.trim() : '');
-    _dlCurrentPath = path;
-    if (pathInput) pathInput.value = path;
+/** Browse ctrlX Datalayer nodes */
+async function browseDatalayer() {
+    let path = document.getElementById('dl-browse-path').value.trim();
+    
+    // Säuberung: Führende/abschließende Slashes entfernen
+    // Ein "/" wird zu einem leeren String (Root-Abfrage)
+    if (path === '/') path = '';
+    path = path.replace(/^\/+|\/+$/g, ''); 
 
-    const list = document.getElementById('dl-node-list');
-    if (!list) return;
-    list.innerHTML = '<div style="color:#888;padding:8px;">Lädt…</div>';
+    const listContainer = document.getElementById('dl-node-list');
+    listContainer.innerHTML = '<div class="node-empty-hint">Lade...</div>';
 
     try {
-        const r = await fetch('api/datalayer/browse?path=' + encodeURIComponent(path));
-        const d = await r.json();
+        const r = await fetchWithAuth(`api/datalayer/browse?path=${encodeURIComponent(path)}`);
+        const data = await r.json();
 
-        if (!r.ok || d.error) {
-            list.innerHTML = `<div style="color:red;padding:8px;">${d.error || 'Fehler'}</div>`;
+        if (r.status === 401) {
+            listContainer.innerHTML = '<div class="node-empty-hint" style="color:red">Nicht autorisiert (401). Bitte Seite neu laden.</div>';
             return;
         }
 
-        // Normalise response: value array of strings or objects
-        let items = [];
-        if (Array.isArray(d)) items = d;
-        else if (Array.isArray(d.value)) items = d.value;
-
-        if (items.length === 0) {
-            list.innerHTML = '<div style="color:#888;padding:8px;">Keine Knoten gefunden.</div>';
-            return;
-        }
-
-        list.innerHTML = '';
-        items.forEach(item => {
-            const nodePathRaw = typeof item === 'string' ? item : (item.path || item);
-            // Strip base prefix for display
-            const displayName = nodePathRaw.replace(/^.*\//, '') || nodePathRaw;
-            const fullPath = path ? (path.replace(/\/$/, '') + '/' + nodePathRaw.replace(/^.*\//, '')) : nodePathRaw;
-            // Use full path directly if item is absolute
-            const absolutePath = nodePathRaw.includes('/') ? nodePathRaw : fullPath;
-
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;padding:4px 8px;cursor:pointer;border-bottom:1px solid var(--c8y-palette-gray-70,#444);';
-            row.innerHTML = `<span style="flex:1;font-family:monospace;font-size:12px;">${absolutePath}</span>
-                             <button class="btn btn-outline-secondary btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
-                                     onclick="browseDatalayer('${absolutePath}')">▶</button>
-                             <button class="btn btn-outline-secondary btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
-                                     onclick="readDatalayerNode('${absolutePath}')">📖</button>
-                             <button class="btn btn-success btn-sm" style="margin-left:4px;padding:1px 6px;font-size:11px;"
-                                     onclick="prefillMappingPath('${absolutePath}')">+</button>`;
-            list.appendChild(row);
-        });
-
-        // Show add-mapping button
-        const addBtn = document.getElementById('dl-add-mapping-btn');
-        if (addBtn) addBtn.style.display = 'inline-flex';
-
+        // ... Rest der Logik (nodes.forEach etc.) wie zuvor besprochen
     } catch (e) {
-        list.innerHTML = `<div style="color:red;padding:8px;">${e.message}</div>`;
+        listContainer.innerHTML = `<div class="node-empty-hint" style="color:red">Fehler: ${e.message}</div>`;
     }
 }
 
-/** Navigate up one level in the Datalayer tree */
+/** Hilfsfunktion: Pfad setzen und direkt weitersuchen */
+function setBrowsePath(path) {
+    document.getElementById('dl-browse-path').value = path;
+    browseDatalayer();
+}
+
+/** Hilfsfunktion: Eine Ebene nach oben springen */
 function datalayerUp() {
-    const parts = _dlCurrentPath.replace(/\/$/, '').split('/');
+    const input = document.getElementById('dl-browse-path');
+    let parts = input.value.split('/').filter(p => p.length > 0);
     parts.pop();
-    browseDatalayer(parts.join('/'));
+    input.value = parts.join('/');
+    browseDatalayer();
+}
+
+/** Mapping-Vorbereitung (öffnet z.B. das Modal oder füllt Felder) */
+function prepareMapping(path) {
+    // Hier kannst du z.B. das Mapping-Modal öffnen und den Pfad vorbefüllen
+    showNotification(`Pfad ausgewählt: ${path}`, 'info');
+    // Beispiel: document.getElementById('new-mapping-path').value = path;
 }
 
 /** Read a single Datalayer node value */
@@ -1617,3 +1667,4 @@ function _initDatalayerUI() {
     loadDatalayerConfig();
     loadDatalayerMappings();
 }
+

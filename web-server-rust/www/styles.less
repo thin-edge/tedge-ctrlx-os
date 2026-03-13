@@ -935,3 +935,83 @@ footer {
     &:hover { background: #f59e0b; border-color: #f59e0b; color: #000; }
   }
 }
+// ── Connection Status Spalten-Layout ──────────────────────────
+.status-columns {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+
+    .status-col {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .status-divider {
+        width: 1px;
+        background: rgba(255, 255, 255, 0.1);
+        align-self: stretch;
+    }
+}
+/* Responsive für kleine Bildschirme */
+@media (max-width: 768px) {
+    .status-columns {
+        flex-direction: column;
+        .status-divider { display: none; }
+    }
+}
+/* Node Browser Styles */
+.node-browser-container {
+    margin-top: 14px;
+    summary {
+        cursor: pointer;
+        font-weight: 600;
+        margin-bottom: 10px;
+        &:hover { color: var(--brand-primary, #007bff); }
+    }
+}
+
+.node-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    input { flex: 1; max-width: 360px; }
+}
+
+.node-list-box {
+    margin-top: 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--c8y-palette-gray-70, #444);
+    border-radius: 4px;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.05);
+
+    .node-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        
+        &:last-child { border-bottom: none; }
+        &:hover { background: rgba(255, 255, 255, 0.05); }
+
+        .node-name {
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 13px;
+            color: var(--c8y-palette-gray-20, #ccc);
+            flex: 1;
+            &:hover { color: var(--brand-primary); text-decoration: underline; }
+        }
+    }
+}
+
+.node-empty-hint {
+    color: #888;
+    padding: 12px;
+    font-style: italic;
+}

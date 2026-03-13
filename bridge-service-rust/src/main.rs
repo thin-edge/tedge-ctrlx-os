@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use serde::{Serialize, Deserialize};
 
 // ── Bridge struct ─────────────────────────────────────────────────────────────
 
@@ -188,4 +189,44 @@ async fn main() -> Result<()> {
     let _ = tokio::time::timeout(Duration::from_secs(3), dl_handle).await;
     info!("[BRIDGE] Bridge stopped");
     Ok(())
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatalayerMapping {
+    pub id: String,
+    #[serde(alias = "datalayer_path")]
+    pub path: String,
+    #[serde(alias = "tedge_topic")]
+    pub topic: String,
+    pub transform: String,
+    pub field_name: Option<String>,
+    pub unit: Option<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+fn default_true() -> bool { true }
+fn default_poll_interval() -> u32 { 5000 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatalayerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+
+    #[serde(rename = "baseUrl", default)] // Mappt "baseUrl" aus JSON auf "base_url" in Rust
+    pub base_url: String,
+
+    #[serde(rename = "pollIntervalMs", default = "default_poll_interval")]
+    pub poll_interval_ms: u32,
+
+    #[serde(default)]
+    pub mappings: Vec<DatalayerMapping>,
+
+    // WICHTIG: Option verwenden, damit "null" im JSON erlaubt ist!
+    pub username: Option<String>, 
+    pub password: Option<String>,
+    pub token: Option<String>,
+
+    #[serde(rename = "acceptInvalidCerts", default)]
+    pub accept_invalid_certs: bool,
 }
