@@ -1,6 +1,6 @@
 use actix_files::Files;
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -109,10 +110,11 @@ struct SetDeviceIdRequest {
 struct AppState {
     config: Mutex<Config>,
     config_path: PathBuf,
+    datalayer_config_path: PathBuf,
 }
 
 impl AppState {
-    fn new(config_path: PathBuf) -> Self {
+    fn new(config_path: PathBuf, datalayer_config_path: PathBuf) -> Self {
         info!("[INIT] Loading configuration from: {:?}", config_path);
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
@@ -123,9 +125,24 @@ impl AppState {
                 warn!("[INIT] Failed to write initial config file: {}", e);
             }
         }
+
+        // Datalayer-Konfigurationsdatei mit Defaults anlegen, falls sie fehlt
+        if !datalayer_config_path.exists() {
+            info!("[INIT] Creating initial datalayer config at: {:?}", datalayer_config_path);
+            let default_dl = DatalayerConfig::default_internal();
+            if let Some(parent) = datalayer_config_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&datalayer_config_path, serde_json::to_string_pretty(&default_dl).unwrap()) {
+                Ok(_) => info!("[INIT] Datalayer config written with defaults."),
+                Err(e) => warn!("[INIT] Failed to write datalayer config: {}", e),
+            }
+        }
+
         AppState {
             config: Mutex::new(config),
             config_path,
+            datalayer_config_path,
         }
     }
 
@@ -169,6 +186,94 @@ impl AppState {
         info!("[CONFIG-SAVE] Configuration saved successfully");
         Ok(())
     }
+
+    fn load_datalayer_config(&self) -> DatalayerConfig {
+            let snap_data = std::env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+            // Pfad an deinen Snap anpassen (x4, x5 etc. war in deinen Logs zu sehen)
+            let path = std::path::PathBuf::from(snap_data).join("datalayer-mappings.json");
+            
+            if let Ok(content) = std::fs::read_to_string(path) {
+                serde_json::from_str(&content).unwrap_or_else(|_| DatalayerConfig::default_internal())
+            } else {
+                DatalayerConfig::default_internal()
+            }
+        }
+
+    fn save_datalayer_config(&self, cfg: &DatalayerConfig) -> io::Result<()> {
+        if let Some(parent) = self.datalayer_config_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(cfg)?;
+        fs::write(&self.datalayer_config_path, json)?;
+        info!("[DL-CONFIG] Datalayer config saved to {:?}", self.datalayer_config_path);
+        Ok(())
+    }
+}
+
+// ── ctrlX Datalayer structs ───────────────────────────────────────────────────
+
+fn dl_default_true() -> bool { true }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+enum MappingTransform {
+    Raw,
+    Measurement,
+    Event,
+    Alarm,
+}
+impl Default for MappingTransform {
+    fn default() -> Self { MappingTransform::Measurement }
+}
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatalayerMapping {
+    pub id: String,
+    #[serde(alias = "datalayer_path")]
+    pub path: String,
+    #[serde(alias = "tedge_topic")]
+    pub topic: String,
+    pub transform: String,
+    pub field_name: Option<String>,
+    pub unit: Option<String>,
+    #[serde(default = "dl_default_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DatalayerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(rename = "baseUrl", default)]
+    pub base_url: String,
+    #[serde(rename = "pollIntervalMs", default = "default_poll_interval")]
+    pub poll_interval_ms: u32,
+    #[serde(default)]
+    pub mappings: Vec<DatalayerMapping>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
+    // NEU: Dieses Feld hinzufügen
+    #[serde(rename = "acceptInvalidCerts", default)]
+    pub accept_invalid_certs: bool,
+}
+impl DatalayerConfig {
+    fn default_internal() -> Self {
+        Self {
+            enabled: false,
+            base_url: "https://localhost".to_string(),
+            poll_interval_ms: 5000,
+            mappings: vec![],
+            username: None,
+            password: None,
+            token: None,
+            accept_invalid_certs: true,
+        }
+    }
 }
 
 // Authentication and Authorization
@@ -202,7 +307,9 @@ impl UserRole {
         matches!(self, UserRole::Admin)
     }
 }
-
+fn default_poll_interval() -> u32 { 
+    5000 
+}
 /// Strip http:// or https:// prefix — tedge config set expects domain only
 fn strip_url_scheme(url: &str) -> &str {
     if let Some(rest) = url.strip_prefix("https://") {
@@ -213,69 +320,47 @@ fn strip_url_scheme(url: &str) -> &str {
         url
     }
 }
-
-fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole) {
-    // Log request details for debugging
-    info!("=== Incoming Request ===");
-    info!("Method: {} Path: {}", req.method(), req.path());
-    info!("Query: {:?}", req.query_string());
-    
-    // Log all headers for debugging
-    info!("Request Headers:");
-    for (name, value) in req.headers() {
-        if let Ok(val_str) = value.to_str() {
-            // Don't log sensitive Authorization tokens, just show presence
-            if name.as_str().to_lowercase().contains("authorization") {
-                info!("  {}: [REDACTED - {} bytes]", name, val_str.len());
-            } else {
-                info!("  {}: {}", name, val_str);
-            }
-        }
-    }
-    
-    let user = req
-        .headers()
-        .get("X-WEBAUTH-USER")
+// Rückgabetyp auf 3 Werte ändern: (User, Rolle, Token)
+fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<String>) {
+    // Prüfe erst X-Auth-Token (von Caddy), dann den Standard Authorization Header
+    let token = req.headers()
+        .get("X-Auth-Token")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
-    
-    // Wenn kein Proxy vorgelagert ist (kein x-forwarded-proto), direkte Verbindung → Admin
+        .map(|s| s.replace("Bearer ", ""))
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+                .map(|s| s.to_string())
+        });
+
+    let user = req.headers().get("X-WEBAUTH-USER").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    let webauth_role = req.headers().get("X-WEBAUTH-ROLE").and_then(|v| v.to_str().ok()).unwrap_or("");
     let via_proxy = req.headers().contains_key("x-forwarded-proto");
 
-    let webauth_role = req
-        .headers()
-        .get("X-WEBAUTH-ROLE")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-
-    // Wenn via Proxy: app-spezifische Rolle aus Caddy nutzen.
-    // Falls "None" (kein thin-edge-io Scope), aber User ist durch ctrlX authentifiziert → Admin.
-    // Direktzugriff (kein Proxy) → immer Admin.
     let role = if !via_proxy {
         UserRole::Admin
     } else if webauth_role.is_empty() || webauth_role == "None" {
-        info!("✓ Via ctrlX Proxy, kein app-spezifischer Scope → Admin (ctrlX-Auth vertraut)");
         UserRole::Admin
     } else {
         UserRole::from_header(webauth_role)
     };
 
-    if let Some(ref username) = user {
-        info!("✓ Authenticated user: '{}' with role: '{:?}'", username, role);
-    } else if via_proxy {
-        info!("✓ Via ctrlX Proxy authentifiziert, role: '{:?}'", role);
-    } else {
-        info!("✓ Direktzugriff (kein Proxy) → Admin-Rolle gewährt");
+    // WICHTIG: Hier sehen wir im Log, ob es jetzt klappt
+    if let Some(ref t) = token {
+        if !t.is_empty() {
+             info!("✓ Token erfolgreich extrahiert (Länge: {} Bytes)", t.len());
+        }
     }
-    info!("=======================");
-    
-    (user, role)
+
+    (user, role, token)
 }
 
 // API Handlers
 
 async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -348,11 +433,23 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
             status.mosquitto, status.agent, status.bridge, status.watchdog, status.c8y, status.aws, status.az);
     }
 
-    Ok(HttpResponse::Ok().json(status))
+    // Zusätzliche Felder für die Mapper explizit ergänzen
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "mosquitto": status.mosquitto,
+        "agent": status.agent,
+        "bridge": status.bridge,
+        "watchdog": status.watchdog,
+        "c8y": status.c8y,
+        "aws": status.aws,
+        "az": status.az,
+        "mapper_c8y": status.c8y,
+        "mapper_aws": status.aws,
+        "mapper_az": status.az
+    })))
 }
 
 async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -369,7 +466,7 @@ async fn save_c8y_config(
     data: web::Data<AppState>,
     cloud_config: web::Json<C8yConfig>,
 ) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -452,7 +549,7 @@ async fn save_aws_config(
     data: web::Data<AppState>,
     cloud_config: web::Json<AwsConfig>,
 ) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -535,7 +632,7 @@ async fn save_az_config(
     data: web::Data<AppState>,
     cloud_config: web::Json<AzConfig>,
 ) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -618,7 +715,7 @@ async fn save_device_config(
     data: web::Data<AppState>,
     device_config: web::Json<DeviceConfig>,
 ) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     
     info!("[CONFIG] Device config update by user: {:?}, role: {:?}", user, role);
     
@@ -651,7 +748,7 @@ async fn save_device_config(
 }
 
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     
     info!("[RESTART] Service restart requested by user: {:?}, role: {:?}", user, role);
     
@@ -727,7 +824,7 @@ struct UploadCertBody {
 }
 
 async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data: web::Data<AppState>) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     info!("[CERT-UPLOAD] Upload cert to c8y requested by user: {:?}", user);
 
     if !role.can_execute() {
@@ -818,7 +915,7 @@ async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data
 }
 
 async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     info!("[CONNECT] Connect to {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
 
     if !role.can_execute() {
@@ -892,7 +989,7 @@ async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result
 }
 
 async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     info!("[DISCONNECT] Disconnect {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
 
     if !role.can_execute() {
@@ -948,7 +1045,7 @@ async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Res
 }
 
 async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     info!("[RECONNECT] Reconnect {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
 
     if !role.can_execute() {
@@ -1004,7 +1101,7 @@ async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Resu
 }
 
 async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     info!("[TEST-MSG] Test message requested by user: {:?}, type: {}", user, body.msg_type);
 
     if !role.can_execute() {
@@ -1136,7 +1233,7 @@ fn chrono_like_ts(secs: u64) -> String {
 }
 
 async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     
     info!("[DEVICE-ID] Get device ID requested by user: {:?}, role: {:?}", user, role);
     
@@ -1198,7 +1295,7 @@ async fn set_device_id(
     req: HttpRequest,
     body: web::Json<SetDeviceIdRequest>,
 ) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     
     info!("[DEVICE-ID] Set device ID requested by user: {:?}, role: {:?}", user, role);
     
@@ -1269,7 +1366,7 @@ async fn set_device_id(
 }
 
 async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1323,7 +1420,7 @@ async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
 }
 
 async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1378,7 +1475,7 @@ async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
 }
 
 async fn show_certificate(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
@@ -1477,7 +1574,7 @@ struct SetLogLevelRequest {
 }
 
 async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Insufficient permissions"})));
@@ -1622,7 +1719,7 @@ fn update_system_toml_level(content: &str, service: &str, level: &str) -> String
 }
 
 async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Insufficient permissions"})));
@@ -1666,7 +1763,7 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
 }
 
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Insufficient permissions"})));
     }
@@ -1709,7 +1806,7 @@ async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
 }
 
 async fn get_me(req: HttpRequest) -> Result<HttpResponse> {
-    let (user, role) = extract_user_info(&req);
+    let (user, role, _token) = extract_user_info(&req);
     let role_str = match role {
         UserRole::Admin => "admin",
         UserRole::Editor => "editor",
@@ -1722,7 +1819,7 @@ async fn get_me(req: HttpRequest) -> Result<HttpResponse> {
 }
 
 async fn get_log_level(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden()
             .json(serde_json::json!({"error": "Insufficient permissions"})));
@@ -1739,7 +1836,7 @@ async fn set_log_level(
     req: HttpRequest,
     body: web::Json<SetLogLevelRequest>,
 ) -> Result<HttpResponse> {
-    let (_user, role) = extract_user_info(&req);
+    let (_user, role, _token) = extract_user_info(&req);
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
@@ -1825,6 +1922,441 @@ fn read_build_info() -> Option<String> {
     None
 }
 
+// ── Datalayer API handlers ────────────────────────────────────────────────────
+
+/// Fetch a Bearer token from the ctrlX identity manager.
+/// Returns the token string on success, None on failure.
+async fn fetch_dl_token(
+    client: &reqwest::Client,
+    base_url: &str,
+    username: &str,
+    password: &str,
+) -> Option<String> {
+    if username.is_empty() || password.is_empty() {
+        return None;
+    }
+    let url = format!("{}/identity-manager/api/v2/auth/token", base_url.trim_end_matches('/'));
+    let params = [
+        ("grant_type", "password"),
+        ("username", username),
+        ("password", password),
+    ];
+    match client.post(&url).form(&params).send().await {
+        Ok(r) if r.status().is_success() => {
+            if let Ok(json) = r.json::<serde_json::Value>().await {
+                json["access_token"].as_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        }
+        Ok(r) => { warn!("[DL] Token fetch failed: HTTP {}", r.status()); None }
+        Err(e) => { warn!("[DL] Token fetch error: {}", e); None }
+    }
+}
+
+async fn dl_client_and_token(cfg: &DatalayerConfig) -> (reqwest::Client, Option<String>) {
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
+
+    // 1. Automatischer Auth-Versuch, wenn Zugangsdaten vorhanden sind
+    if let (Some(username), Some(password)) = (&cfg.username, &cfg.password) {
+        if let Some(t) = fetch_dl_token(&client, &cfg.base_url, username, password).await {
+            return (client, Some(t));
+        }
+    }
+
+    // 2. Fallback: Statischer Token aus der Konfiguration
+    // Da cfg.token bereits ein Option<String> ist, geben wir es direkt zurück.
+    // Wir klonen es nur, um die Besitzverhältnisse zu wahren.
+    (client, cfg.token.clone())
+}
+
+/// GET /api/datalayer/config  — returns config (password + token masked)
+async fn get_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    
+    let mut cfg = data.load_datalayer_config();
+    
+    // Anmeldedaten niemals im Klartext an den Client senden
+    // Wir prüfen, ob der Wert vorhanden (is_some) ist und maskieren ihn dann
+    if cfg.password.is_some() { 
+        cfg.password = Some("***".to_string()); 
+    }
+    
+    if cfg.token.is_some() { 
+        cfg.token = Some("***".to_string()); 
+    }
+    
+    Ok(HttpResponse::Ok().json(cfg))
+}
+
+
+#[derive(Debug, Deserialize)]
+struct SaveDatalayerConfigBody {
+    pub enabled: bool,
+    pub base_url: String,
+    pub poll_interval_ms: u64,
+    /// If empty or "***", keep existing username
+    #[serde(default)]
+    pub username: String,
+    /// If empty or "***", keep existing password
+    #[serde(default)]
+    pub password: String,
+    /// If empty or "***", keep existing token
+    #[serde(default)]
+    pub token: String,
+    #[serde(default = "dl_default_true")]
+    pub accept_invalid_certs: bool,
+}
+
+/// POST /api/datalayer/config  — save connection settings
+async fn save_datalayer_config_handler(
+    req: HttpRequest,
+    body: web::Json<SaveDatalayerConfigBody>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    
+    let mut cfg = data.load_datalayer_config();
+    
+    cfg.enabled = body.enabled;
+    // base_url nur überschreiben, wenn nicht leer
+    if !body.base_url.trim().is_empty() {
+        cfg.base_url = body.base_url.clone();
+    } else if cfg.base_url.trim().is_empty() {
+        // Falls bisher auch leer, auf Default setzen
+        cfg.base_url = "https://localhost".to_string();
+    }
+    
+    // FIX 1: Expliziter Cast nach u32
+    cfg.poll_interval_ms = body.poll_interval_ms.max(500) as u32;
+    
+    // FIX 2: Zuweisung des neuen Feldes
+    cfg.accept_invalid_certs = body.accept_invalid_certs;
+
+    // FIX 3: Mit Some() verpacken, da Zieltyp Option<String> ist
+    if !body.username.is_empty() && body.username != "***" {
+        cfg.username = Some(body.username.clone());
+    }
+    if !body.password.is_empty() && body.password != "***" {
+        cfg.password = Some(body.password.clone());
+    }
+    if !body.token.is_empty() && body.token != "***" {
+        cfg.token = Some(body.token.clone());
+    }
+
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        error!("[DL-CONFIG] Save failed: {}", e);
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+    
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
+}
+
+/// GET /api/datalayer/mappings  — return all mappings
+async fn get_datalayer_mappings(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    let cfg = data.load_datalayer_config();
+    Ok(HttpResponse::Ok().json(serde_json::json!({"mappings": cfg.mappings})))
+}
+
+/// POST /api/datalayer/mappings  — replace all mappings
+async fn save_datalayer_mappings(
+    req: HttpRequest,
+    body: web::Json<serde_json::Value>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    let mappings: Vec<DatalayerMapping> = match serde_json::from_value(
+        body.get("mappings").cloned().unwrap_or(serde_json::Value::Array(vec![])),
+    ) {
+        Ok(m) => m,
+        Err(e) => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+        }
+    };
+    let mut cfg = data.load_datalayer_config();
+    cfg.mappings = mappings;
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
+}
+
+#[derive(Debug, Deserialize)]
+struct AddMappingBody {
+    pub datalayer_path: String,
+    pub tedge_topic: String,
+    #[serde(default)]
+    pub transform: MappingTransform,
+    pub field_name: Option<String>,
+    pub unit: Option<String>,     // Wichtig: Option
+}
+
+/// POST /api/datalayer/mappings/add  — add one mapping, return its id
+async fn add_datalayer_mapping(
+    req: HttpRequest,
+    body: web::Json<AddMappingBody>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+
+    if body.datalayer_path.is_empty() || body.tedge_topic.is_empty() {
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"error": "datalayer_path and tedge_topic required"})));
+    }
+
+    // Mapping-Objekt erstellen - NUR Felder nutzen, die in 'struct DatalayerMapping' stehen
+    let mapping = DatalayerMapping {
+        id: Uuid::new_v4().to_string(),
+        path: body.datalayer_path.clone(), // Mappt Browser 'datalayer_path' auf Struktur 'path'
+        topic: body.tedge_topic.clone(),   // Mappt Browser 'tedge_topic' auf Struktur 'topic'
+        transform: format!("{:?}", body.transform).to_lowercase(),
+        field_name: body.field_name.clone(),
+        unit: body.unit.clone(),
+        enabled: true,
+    };
+
+    let id = mapping.id.clone();
+    let mut cfg = data.load_datalayer_config();
+    cfg.mappings.push(mapping);
+
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+    
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "id": id})))
+}
+
+/// DELETE /api/datalayer/mappings/{id}
+async fn delete_datalayer_mapping(
+    req: HttpRequest,
+    path: web::Path<MappingIdPath>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    let mut cfg = data.load_datalayer_config();
+    let before = cfg.mappings.len();
+    cfg.mappings.retain(|m| m.id != path.id);
+    let removed = before - cfg.mappings.len();
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "removed": removed})))
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowseQuery {
+    #[serde(default)]
+    path: String,
+}
+#[derive(Debug, Deserialize)]
+struct MappingIdPath {
+    pub id: String,
+}
+/// GET /api/datalayer/browse?path=...  — proxy browse request to ctrlX Datalayer REST
+async fn browse_datalayer(
+    req: HttpRequest,
+    query: web::Query<BrowseQuery>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    // 1. Extrahiere Token aus dem Header (Browser-Request)
+    let (_user, role, extracted_token) = extract_user_info(&req);
+    
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
+    let cfg = data.load_datalayer_config();
+    
+    // 2. Pfad für ctrlX aufbereiten
+    let path = query.path.trim_start_matches('/').trim_end_matches('/');
+    let url = if path.is_empty() {
+        format!("{}/automation/api/v2/nodes?type=browse", cfg.base_url.trim_end_matches('/'))
+    } else {
+        format!("{}/automation/api/v2/nodes/{}?type=browse", cfg.base_url.trim_end_matches('/'), path)
+    };
+
+    // 3. Client holen (dieser holt bei Bedarf ein neues Token via User/Passwort!)
+    let (http_client, stored_token) = dl_client_and_token(&cfg).await;
+    let mut req_builder = http_client.get(&url);
+
+    // Priorität: Token vom Browser > Token vom Backend (User/Passwort)
+    if let Some(t) = extracted_token.or(stored_token) {
+        req_builder = req_builder.bearer_auth(t);
+    }
+
+    match req_builder.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::json!({"error": "invalid response"}));
+            Ok(HttpResponse::build(actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap()).json(body))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})))
+    }
+}
+
+
+/// GET /api/datalayer/node?path=...  — read single node value
+async fn read_datalayer_node(
+    req: HttpRequest,
+    query: web::Query<BrowseQuery>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    let cfg = data.load_datalayer_config();
+    if cfg.base_url.is_empty() {
+        return Ok(HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
+    }
+
+    // Bearer-Token aus dem Request-Header extrahieren (Proxy-Token hat Priorität)
+
+    // Bearer-Token aus X-Auth-Token oder Authorization Header extrahieren (X-Auth-Token hat Priorität)
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+        })
+        .map(|s| s.to_string());
+
+    let (http_client, token) = dl_client_and_token(&cfg).await;
+
+    let path = query.path.trim_matches('/');
+    let url = format!(
+        "{}/automation/api/v2/nodes/{}?type=all",
+        cfg.base_url.trim_end_matches('/'),
+        path
+    );
+
+    let mut req_builder = http_client.get(&url);
+    // Priorität: Proxy-Token > gespeicherter Token
+    if let Some(t) = bearer_token.or(token) {
+        req_builder = req_builder.bearer_auth(t);
+    }
+
+    match req_builder.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            let body: serde_json::Value = resp
+                .json()
+                .await
+                .unwrap_or(serde_json::json!({"error": "invalid response"}));
+            Ok(HttpResponse::build(actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap())
+                .json(body))
+        }
+        Err(e) => {
+            warn!("[DL-NODE] Request failed: {}", e);
+            Ok(HttpResponse::ServiceUnavailable()
+                .json(serde_json::json!({"error": format!("{}", e)})))
+        }
+    }
+}
+
+/// GET /api/datalayer/status  — connection status
+async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    
+    let cfg = data.load_datalayer_config();
+    let mapping_count = cfg.mappings.len();
+    let active_count = cfg.mappings.iter().filter(|m| m.enabled).count();
+
+    if !cfg.enabled || cfg.base_url.is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({
+            "enabled": cfg.enabled,
+            "connected": false,
+            "base_url": cfg.base_url,
+            "mapping_count": mapping_count,
+            "active_mappings": active_count,
+        })));
+    }
+
+    // Token-Extraktion (X-Auth-Token hat Vorrang)
+    let bearer_token = req.headers().get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.replace("Bearer ", ""))
+        .or_else(|| {
+            req.headers().get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+                .map(|s| s.to_string())
+        });
+
+    let (http_client, stored_token) = dl_client_and_token(&cfg).await;
+    
+    // ctrlX API Pfad (Prüfe ob /automation/... oder /admin/...)
+    let url = format!("{}/admin/api/v2/nodes?type=browse", cfg.base_url.trim_end_matches('/'));
+    
+    let mut req_builder = http_client.get(&url);
+    
+    if let Some(t) = bearer_token.clone().or(stored_token) {
+        debug!("Datalayer-Request mit Token (Länge: {})", t.len());
+        req_builder = req_builder.bearer_auth(t);
+    }
+
+    let (connected, http_status, connect_error) = match req_builder.send().await {
+        Ok(r) => {
+            let s = r.status().as_u16();
+            if s == 401 { warn!("Datalayer Zugriff verweigert (401) - Token ungültig?"); }
+            (r.status().is_success(), Some(s), None)
+        }
+        Err(e) => {
+            error!("Datalayer Verbindungsfehler: {}", e);
+            (false, None, Some(e.to_string()))
+        }
+    };
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "enabled": cfg.enabled,
+        "connected": connected,
+        "http_status": http_status,
+        "connect_error": connect_error,
+        "base_url": cfg.base_url,
+        "mapping_count": mapping_count,
+        "active_mappings": active_count,
+        "poll_interval_ms": cfg.poll_interval_ms,
+    })))
+}
+
+
+
 #[actix_web::main]
 async fn main() -> io::Result<()> {
     // Logging initialisieren
@@ -1837,6 +2369,12 @@ async fn main() -> io::Result<()> {
         PathBuf::from(&snap_data).join("tedge-web-config.json")
     } else {
         PathBuf::from("./tedge-web-config.json")
+    };
+
+    let datalayer_config_path = if is_snap {
+        PathBuf::from(&snap_data).join("datalayer-mappings.json")
+    } else {
+        PathBuf::from("./datalayer-mappings.json")
     };
 
     let web_root = if is_snap {
@@ -1854,7 +2392,7 @@ async fn main() -> io::Result<()> {
     info!("Web root: {:?}", web_root);
     info!("Config file: {:?}", config_path);
 
-    let app_state = web::Data::new(AppState::new(config_path));
+    let app_state = web::Data::new(AppState::new(config_path, datalayer_config_path));
 
 let server = HttpServer::new(move || {
         App::new()
@@ -1899,6 +2437,16 @@ let server = HttpServer::new(move || {
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))
                             .route("/log-level", web::post().to(set_log_level))
+                            // Datalayer API
+                            .route("/datalayer/status", web::get().to(get_datalayer_status))
+                            .route("/datalayer/config", web::get().to(get_datalayer_config))
+                            .route("/datalayer/config", web::post().to(save_datalayer_config_handler))
+                            .route("/datalayer/mappings", web::get().to(get_datalayer_mappings))
+                            .route("/datalayer/mappings", web::post().to(save_datalayer_mappings))
+                            .route("/datalayer/mappings/add", web::post().to(add_datalayer_mapping))
+                            .route("/datalayer/mappings/{id}", web::delete().to(delete_datalayer_mapping))
+                            .route("/datalayer/browse", web::get().to(browse_datalayer))
+                            .route("/datalayer/node", web::get().to(read_datalayer_node))
                     )
                     // Login liegt unter /thin-edge-io/login
                     .route("/login", web::get().to(token_login))

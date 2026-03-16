@@ -46,6 +46,8 @@ layout:
     bind: $SNAP_DATA/tedge/log-plugins
   /usr/share/tedge/sm-plugins:
     bind: $SNAP_DATA/tedge/sm-plugins
+  #/lib/systemd/system/tedge-watchdog.service:
+  #  bind-file: $SNAP/lib/systemd/system/tedge-watchdog.service
 
 architectures:
   - build-on: [amd64]
@@ -557,6 +559,14 @@ parts:
       
       # Strip binary to reduce size
       $STRIP_CMD $CRAFT_PART_INSTALL/bin/tedge-web-config
+
+  # Systemd stub service files - needed so tedge-watchdog can read them without crashing
+  # (watchdog checks for WatchdogSec in these files; missing file = crash, missing key = graceful warn)
+  systemd-stubs:
+    plugin: dump
+    source: ./snap/local/systemd
+    organize:
+      '*': lib/systemd/system/
 
   # Web-Assets und Icons (zusammengefasst)
   web-assets:

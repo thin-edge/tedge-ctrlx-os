@@ -6,6 +6,9 @@ const I18N = {
         // Header
         'header.color':        'Farbe',
         'header.new_tab':      '⧉ New Tab',
+        'header.title':        'thin-edge.io Konfigurationsoberfläche',
+        'header.lang_de':      'DE',
+        'header.lang_en':      'EN',
         // Nav / Sections
         'section.status':      'Verbindungsstatus',
         'section.cloud':       'Cloud-Konfiguration',
@@ -15,7 +18,8 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
-        'status.clouds':       'Cloud-Verbindungen',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Lädt...',
         'status.running':      '🟢 Läuft',
         'status.stopped':      '🔴 Gestoppt',
@@ -147,11 +151,55 @@ const I18N = {
         'cert.created':             (cn) => `Zertifikat erstellt mit CN: ${cn}`,
         'cert.renewed':             (cn) => `Zertifikat erneuert mit CN: ${cn}`,
         'cert.create_err':          'Fehler beim Erstellen des Zertifikats',
+        // Datalayer section
+        'section.datalayer':             'ctrlX Datenpunkte (Datalayer)',
+        'datalayer.refresh':             'Status aktualisieren',
+        'datalayer.connection_settings': 'Verbindungseinstellungen',
+        'datalayer.enabled':             'Aktiviert',
+        'datalayer.base_url':            'Basis-URL:',
+        'datalayer.poll_interval':       'Poll-Intervall (ms):',
+        'datalayer.username':            'Benutzername:',
+        'datalayer.password':            'Passwort:',
+        'datalayer.accept_invalid_certs':'Ungültige TLS-Zertifikate akzeptieren',
+        'datalayer.node_browser':        'Knoten-Browser',
+        'datalayer.browse_placeholder':  'z.B. plc/app/Application',
+        'datalayer.browser_hint':        'Pfad eingeben und „Durchsuchen" klicken.',
+        'datalayer.mappings_title':      'Datenpunkt-Mappings',
+        'datalayer.add_mapping_btn':     '+ Mapping',
+        'datalayer.path':                'Datalayer-Pfad',
+        'datalayer.transform':           'Transform',
+        'datalayer.unit':                'Einheit (optional)',
+        'datalayer.topic':               'tedge MQTT Topic',
+        'datalayer.field':               'Feldname',
+        'datalayer.auto_hint':           'Automatisch aus Pfad',
+        'datalayer.password_hint':       'Nur für Basis-Auth. Wenn Token verwendet wird, kann dieses Feld leer bleiben.',
+        'datalayer.no_mappings':         'Keine Mappings konfiguriert.',
+        'datalayer.status_noauth':       '🟡 Verbunden – kein Token / Auth-Fehler',
+        'datalayer.status_unreachable':  'Nicht erreichbar',
+        'datalayer.token_static':        'Statisches Token (Optional)',
+        'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
+        // Spalten für die Tabelle (werden in renderDatalayerMappings verwendet)
+        'datalayer.col_path':            'Datalayer-Pfad',
+        'datalayer.col_topic':           'tedge Topic',
+        'datalayer.col_transform':       'Transform',
+        'datalayer.col_field':           'Feld',
+        'datalayer.col_enabled':         'Aktiv',
+        'datalayer.confirm_delete':      'Möchten Sie dieses Mapping wirklich löschen?',
+        'datalayer.delete_title':        'Mapping löschen',
+        'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
+        'notify.dl_mapping_added':       'Mapping hinzugefügt',
+        'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
+        'notify.dl_mapping_deleted':     'Mapping gelöscht',
+        'notify.dl_mapping_del_err':     'Fehler beim Löschen des Mappings',
+        'notify.dl_path_required':       'Bitte Datalayer-Pfad und tedge-Topic eingeben',
     },
     en: {
         // Header
         'header.color':        'Color',
         'header.new_tab':      '⧉ New Tab',
+        'header.title':        'thin-edge.io Configuration Interface',
+        'header.lang_de':      'DE',
+        'header.lang_en':      'EN',
         // Nav / Sections
         'section.status':      'Connection Status',
         'section.cloud':       'Cloud Configuration',
@@ -161,7 +209,8 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
-        'status.clouds':       'Cloud Connections',
+        'status.clouds':       'Cloud',
+        'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Loading...',
         'status.running':      '🟢 Running',
         'status.stopped':      '🔴 Stopped',
@@ -293,9 +342,93 @@ const I18N = {
         'cert.created':             (cn) => `Certificate created with CN: ${cn}`,
         'cert.renewed':             (cn) => `Certificate renewed with CN: ${cn}`,
         'cert.create_err':          'Error creating certificate',
+        // Datalayer section
+        'section.datalayer':             'ctrlX Data Points (Datalayer)',
+        'datalayer.refresh':             'Refresh Status',
+        'datalayer.connection_settings': 'Connection Settings',
+        'datalayer.enabled':             'Enabled',
+        'datalayer.base_url':            'Base URL:',
+        'datalayer.poll_interval':       'Poll interval (ms):',
+        'datalayer.username':            'Username:',
+        'datalayer.password':            'Password:',
+        'datalayer.accept_invalid_certs':'Accept invalid TLS certificates',
+        'datalayer.node_browser':        'Node Browser',
+        'datalayer.browse_placeholder':  'e.g. plc/app/Application',
+        'datalayer.browser_hint':        'Enter a path and click "Browse".',
+        'datalayer.mappings_title':      'Data Point Mappings',
+        'datalayer.add_mapping_btn':     '+ Mapping',
+        'datalayer.path':                'Datalayer Path',
+        'datalayer.transform':           'Transform',
+        'datalayer.unit':                'Unit (optional)',
+        'datalayer.topic':               'tedge MQTT Topic',
+        'datalayer.field':               'Field Name',
+        'datalayer.auto_hint':           'Automatically from path',
+        'datalayer.password_hint':       'Just for basic auth. If using token, this can be left empty.',
+        'datalayer.no_mappings':         'No mappings configured.',
+        'datalayer.status_noauth':       '🟡 Reachable – missing token / auth error',
+        'datalayer.status_unreachable':  'Not reachable',
+        'datalayer.token_static':        'Static Token (Optional)',
+        'datalayer.token_hint':          'If left empty, the current login token will be used.',
+        // Table columns
+        'datalayer.col_path':            'Datalayer Path',
+        'datalayer.col_topic':           'tedge Topic',
+        'datalayer.col_transform':       'Transform',
+        'datalayer.col_field':           'Field',
+        'datalayer.col_enabled':         'Active',
+        // Transform types
+        'datalayer.transform_measurement': 'Measurement',
+        'datalayer.transform_raw':       'Raw',
+        'datalayer.transform_event':     'Event',
+        'datalayer.transform_alarm':     'Alarm',
+        'datalayer.confirm_delete':      'Do you really want to delete this mapping?',
+        'datalayer.delete_title':        'Delete Mapping',
+        // Notifications
+        'notify.dl_config_err':          'Error saving datalayer configuration',
+        'notify.dl_mapping_added':       'Mapping added',
+        'notify.dl_mapping_add_err':     'Error adding mapping',
+        'notify.dl_mapping_deleted':     'Mapping deleted',
+        'notify.dl_mapping_del_err':     'Error deleting mapping',
+        'notify.dl_path_required':       'Please enter Datalayer path and tedge topic',
     }
 };
+// 1. Token beim Start aus der URL extrahieren
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get('token');
+if (tokenFromUrl) {
+    sessionStorage.setItem('ctrlx_token', tokenFromUrl);
+    // Token aus der URL entfernen für saubere Optik
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
 
+/**
+ * Helper function that calls fetch() and automatically
+ * includes the JWT token stored in sessionStorage.
+ */
+async function fetchWithAuth(url, options = {}) {
+    // 1. Token aus sessionStorage holen (wird beim Login/Seitenladen dort gespeichert)
+    const token = sessionStorage.getItem('ctrlx_token');
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    if (token) {
+        // Wir setzen beide Header, um sicherzugehen
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['X-Auth-Token'] = `Bearer ${token}`;
+    }
+
+    return fetch(url, { ...options, headers });
+}
+
+// 3. Bestehende Funktionen anpassen (Beispiel loadStatus)
+async function loadStatus() {
+    try {
+        const response = await fetchWithAuth('api/status'); // Nutzt jetzt fetchWithAuth
+        // ... restliche Logik
+    } catch (error) { /* ... */ }
+}
 const _savedLang = localStorage.getItem('tedge-lang');
 let _lang = _savedLang || ((navigator.language || 'en').startsWith('de') ? 'de' : 'en');
 // Normalise: only 'de' or 'en'
@@ -419,8 +552,20 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // Load status on page load
 window.addEventListener('DOMContentLoaded', () => {
+    // Token aus der URL extrahieren (ctrlX übergibt dies oft als ?token=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token) {
+        sessionStorage.setItem('ctrlx_token', token);
+        // Optional: Token aus der URL entfernen für eine sauberere Adressleiste
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Bestehende Aufrufe...
     loadStatus();
     loadConfiguration();
+    loadDatalayerStatus(); // Dein neuer Aufruf
 });
 
 // Load service status
@@ -439,6 +584,13 @@ async function loadStatus() {
         updateStatusBadge('agent-status', data.agent || 'unknown');
         updateStatusBadge('bridge-status', data.bridge || 'unknown');
         updateStatusBadge('watchdog-status', data.watchdog || 'unknown');
+        // Mapper-Status ergänzen
+        updateStatusBadge('c8y-mapper-status', data.c8y || 'unknown');
+        updateStatusBadge('aws-mapper-status', data.aws || 'unknown');
+        updateStatusBadge('az-mapper-status', data.az || 'unknown');
+        updateStatusBadge('c8y-status', data.c8y || 'unknown');
+        updateStatusBadge('aws-status', data.aws || 'unknown');
+        updateStatusBadge('az-status', data.az || 'unknown');
         updateStatusBadge('c8y-status', data.c8y || 'unknown');
         updateStatusBadge('aws-status', data.aws || 'unknown');
         updateStatusBadge('az-status', data.az || 'unknown');
@@ -1126,6 +1278,46 @@ async function submitCertUpload() {
         if (btn) { btn.disabled = false; btn.textContent = t('device.upload_btn'); }
     }
 }
+
+// Speichert die Datalayer-Konfiguration über die API
+async function saveDatalayerConfig() {
+    try {
+        // Beispiel: Hole die Werte aus dem Formular (Passe die IDs/Namen ggf. an)
+        const baseUrl = document.getElementById('datalayer-base-url')?.value || '';
+        const pollInterval = document.getElementById('datalayer-poll-interval')?.value || '';
+        const username = document.getElementById('datalayer-username')?.value || '';
+        const password = document.getElementById('datalayer-password')?.value || '';
+        const acceptInvalidCerts = document.getElementById('datalayer-accept-invalid-certs')?.checked || false;
+        // ... weitere Felder nach Bedarf ...
+
+        // Baue das JSON-Objekt
+        const config = {
+            base_url: baseUrl,
+            poll_interval: pollInterval,
+            username: username,
+            password: password,
+            accept_invalid_certs: acceptInvalidCerts
+            // ... weitere Felder ...
+        };
+
+        // Sende das JSON an die API
+        const response = await fetchWithAuth('api/datalayer/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        if (response.ok) {
+            showNotification(t('notify.dev_saved'), 'success');
+        } else {
+            showNotification(t('notify.dl_config_err'), 'error');
+        }
+    } catch (err) {
+        showNotification(t('notify.dl_config_err'), 'error');
+        console.error('Fehler beim Speichern der Datalayer-Konfiguration:', err);
+    }
+}
+
 // (toggleColorPicker und setColorTheme sind am Dateianfang als hoisted Deklarationen definiert)
 
 function applyColorTheme() {
@@ -1196,3 +1388,317 @@ async function loadBuildInfo() {
     }
 }
 
+// ── ctrlX Datalayer ──────────────────────────────────────────────────────────
+
+let _dlMappings = [];        // In-Memory Kopie der Mappings
+
+/** 1. Initialisierung beim Laden */
+function _initDatalayerUI() {
+    loadDatalayerStatus();
+    loadDatalayerConfig();
+    loadDatalayerMappings();
+    
+    // Formular initial verstecken
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+
+    // Zwinge das System, die Texte JETZT zu übersetzen
+    // Ein minimales Timeout hilft, falls der Browser noch mit dem DOM beschäftigt ist
+    setTimeout(() => {
+        applyI18n(); 
+    }, 50);
+}
+
+/** 2. Status laden (Zwei-Punkte-Logik) */
+async function loadDatalayerStatus() {
+    const badge = document.getElementById('dl-status-badge');
+    if (!badge) return;
+    badge.textContent = '⚪ ' + t('status.loading');
+    
+    try {
+        const r = await fetchWithAuth('api/datalayer/status');
+        if (!r.ok) { badge.textContent = '⚪ ' + t('status.unknown'); return; }
+        
+        const d = await r.json();
+        if (!d.enabled) {
+            badge.textContent = '⚫ ' + t('status.inactive');
+        } else if (d.connected) {
+            badge.textContent = `🟢 ${t('status.running')} (${d.active_mappings}/${d.mapping_count} Mappings)`;
+        } else if (r.status === 401 || r.status === 403) {
+            badge.textContent = '🟡 ' + t('datalayer.status_noauth');
+        } else {
+            badge.textContent = '🔴 ' + t('status.stopped');
+        }
+    } catch (e) {
+        badge.textContent = '⚪ ' + t('status.unknown');
+    }
+}
+
+/** 3. Mapping aus dem Browser vorbereiten (Add to mapping) */
+function prepareMapping(path) {
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'block';
+
+    const pathInput = document.getElementById('dl-mapping-path');
+    const fieldInput = document.getElementById('dl-mapping-field');
+    const unitInput = document.getElementById('dl-mapping-unit');
+    applyI18n();
+    // Pfad setzen
+    pathInput.value = path;
+    
+    // Feldname automatisch extrahieren (letztes Element des Pfades)
+    const lastPart = path.split('/').pop();
+    fieldInput.value = lastPart;
+    unitInput.value = ''; // Einheit leeren
+
+    // Topic Prefix setzen
+    updateTopicPrefix();
+    
+    pathInput.scrollIntoView({ behavior: 'smooth' });
+}
+
+/** 4. Topic automatisch basierend auf Transform setzen */
+function updateTopicPrefix() {
+    const transform = document.getElementById('dl-mapping-transform').value;
+    const topicInput = document.getElementById('dl-mapping-topic');
+    const path = document.getElementById('dl-mapping-path').value;
+    
+    const lastPart = path.split('/').pop() || "value";
+    let base = "te/device/main///";
+    
+    if (transform === 'Measurement') base += "m/plc/";
+    else if (transform === 'Event') base += "e/plc/";
+    else if (transform === 'Alarm') base += "a/plc/";
+
+    topicInput.value = base + lastPart;
+}
+
+/** 5. Neues Mapping speichern */
+async function saveNewMapping() {
+    const body = {
+        datalayer_path: document.getElementById('dl-mapping-path').value.trim(),
+        tedge_topic:    document.getElementById('dl-mapping-topic').value.trim(),
+        transform:      document.getElementById('dl-mapping-transform').value,
+        field_name:     document.getElementById('dl-mapping-field').value.trim() || null,
+        unit:           document.getElementById('dl-mapping-unit').value.trim() || null
+    };
+
+    if (!body.datalayer_path || !body.tedge_topic) {
+        showNotification(t('notify.dl_path_required'), 'warning');
+        return;
+    }
+
+    try {
+        const r = await fetchWithAuth('api/datalayer/mappings/add', {
+            method: 'POST',
+            body: JSON.stringify(body)
+        });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_added'), 'success');
+            cancelMapping(); // Formular leeren und schließen
+            loadDatalayerMappings(); // Tabelle neu laden
+            loadDatalayerStatus();   // Status (Zähler) aktualisieren
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_add_err'), 'error');
+        }
+    } catch (e) {
+        showNotification(t('notify.dl_mapping_add_err'), 'error');
+    }
+}
+
+/** 6. Mapping-Formular abbrechen / leeren */
+function cancelMapping() {
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+    
+    ['dl-mapping-path','dl-mapping-topic','dl-mapping-field','dl-mapping-unit'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+/** 7. Tabelle rendern (Fix für 'undefined') */
+function renderDatalayerMappings() {
+    const tbody = document.getElementById('dl-mapping-table-body');
+    if (!tbody) return;
+
+    if (_dlMappings.length === 0) {
+        // Hinweis über alle 7 Spalten spannen
+        tbody.innerHTML = `<tr><td colspan="7" class="node-empty-hint" style="text-align:center; padding:20px;">${t('datalayer.no_mappings')}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = _dlMappings.map(m => {
+        const p = m.path || m.datalayer_path || '';
+        const t_topic = m.topic || m.tedge_topic || '';
+        const trans = m.transform || 'Measurement';
+        
+        return `
+            <tr class="mapping-row">
+                <td class="cell-path" title="${p}">${p}</td>
+                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                <td>${m.unit || '<em class="text-muted">-</em>'}</td>
+                <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
+                <td class="text-center">
+                    <label class="c8y-switch">
+                        <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                        <span></span>
+                    </label>
+                </td>
+                <td class="text-right">
+                    <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    applyI18n();
+}
+
+
+/** Deine Init-Funktion mit Sicherheits-Update */
+function _initDatalayerUI() {
+    loadDatalayerStatus();
+    loadDatalayerConfig();
+    loadDatalayerMappings();
+    
+    // Formular initial verstecken
+    const section = document.getElementById('dl-mapping-section');
+    if (section) section.style.display = 'none';
+
+    // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
+    // (wie die Save/Cancel Buttons) im DOM bereit sind
+    setTimeout(() => {
+        applyI18n();
+    }, 150);
+}
+
+/** 8. Mapping löschen */
+async function deleteDatalayerMapping(id) {
+    if (!confirm(t('common.confirm_delete') || 'Mapping löschen?')) return;
+    
+    try {
+        const r = await fetchWithAuth(`api/datalayer/mappings/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const d = await r.json();
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_deleted'), 'success');
+            loadDatalayerMappings();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
+        }
+    } catch (e) {
+        showNotification(t('notify.dl_mapping_del_err'), 'error');
+    }
+}
+
+/** 9. Mapping umschalten (Aktiv/Inaktiv) */
+async function toggleDatalayerMapping(id, enabled) {
+    const updated = _dlMappings.map(m => m.id === id ? { ...m, enabled } : m);
+    try {
+        const r = await fetchWithAuth('api/datalayer/mappings', {
+            method: 'POST',
+            body: JSON.stringify({ mappings: updated })
+        });
+        if (r.ok) {
+            _dlMappings = updated;
+            renderDatalayerMappings();
+            loadDatalayerStatus();
+        }
+    } catch (e) { console.warn('Toggle failed', e); }
+}
+
+/** 10. Mappings vom Server laden */
+async function loadDatalayerMappings() {
+    try {
+        const r = await fetchWithAuth('api/datalayer/mappings');
+        const d = await r.json();
+        _dlMappings = d.mappings || [];
+        renderDatalayerMappings();
+    } catch (e) { console.error("Load Mappings Error:", e); }
+}
+
+// Hilfs-Init (am Ende der Datei lassen)
+function initDatalayer() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _initDatalayerUI);
+    } else {
+        _initDatalayerUI();
+    }
+}
+/** Rendert die Mapping-Tabelle am Ende der Sektion */
+/** Löscht ein Mapping nach Sicherheitsabfrage */
+async function deleteDatalayerMapping(id) {
+    // Sicherheitsabfrage anzeigen
+    if (!confirm(t('datalayer.confirm_delete'))) {
+        return;
+    }
+
+    try {
+        const r = await fetchWithAuth(`api/datalayer/mappings/${encodeURIComponent(id)}`, { 
+            method: 'DELETE' 
+        });
+        
+        const d = await r.json();
+        
+        if (d.success) {
+            showNotification(t('notify.dl_mapping_deleted'), 'success');
+            
+            // 1. Lokale Liste aktualisieren
+            _dlMappings = _dlMappings.filter(m => m.id !== id);
+            
+            // 2. Tabelle sofort neu zeichnen
+            renderDatalayerMappings();
+            
+            // 3. Status (Mapping-Zähler) oben aktualisieren
+            loadDatalayerStatus();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
+        }
+    } catch (e) {
+        console.error("Delete Error:", e);
+        showNotification(t('notify.dl_mapping_del_err'), 'error');
+    }
+}
+function renderDatalayerMappings() {
+    const tbody = document.getElementById('dl-mapping-table-body');
+    if (!tbody) return;
+
+    if (_dlMappings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="node-empty-hint" style="text-align:center; padding:20px;">${t('datalayer.no_mappings')}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = _dlMappings.map(m => {
+        const p = m.path || m.datalayer_path || '';
+        const t_topic = m.topic || m.tedge_topic || '';
+        const trans = m.transform || 'Measurement';
+        
+        return `
+            <tr class="mapping-row">
+                <td class="cell-path" title="${p}">${p}</td>
+                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                <td>${m.unit || '<em class="text-muted">-</em>'}</td>
+                <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
+                <td class="text-center">
+                    <label class="c8y-switch">
+                        <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                        <span></span>
+                    </label>
+                </td>
+                <td class="text-right">
+                    <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Übersetzungen auf die neu erzeugten Tooltips anwenden
+    applyI18n();
+}
+function saveDatalayerConfig() {
+    // TODO: Implementiere hier das Speichern der Datalayer-Konfiguration
+    alert("saveDatalayerConfig ist noch nicht implementiert!");
+}
