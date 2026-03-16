@@ -611,9 +611,6 @@ async function loadStatus() {
         updateStatusBadge('c8y-status', data.c8y || 'unknown');
         updateStatusBadge('aws-status', data.aws || 'unknown');
         updateStatusBadge('az-status', data.az || 'unknown');
-        updateStatusBadge('c8y-status', data.c8y || 'unknown');
-        updateStatusBadge('aws-status', data.aws || 'unknown');
-        updateStatusBadge('az-status', data.az || 'unknown');
     } catch (error) {
         console.error('Error loading status:', error);
         showNotification(t('notify.status_load_err'), 'error');
@@ -623,15 +620,14 @@ async function loadStatus() {
 // Update status badge
 function updateStatusBadge(elementId, status) {
     const element = document.getElementById(elementId);
+    if (!element) return;
     element.className = 'status ' + status;
-    
     const icons = {
         'running':  t('status.running'),
         'stopped':  t('status.stopped'),
         'inactive': t('status.inactive'),
         'unknown':  t('status.unknown')
     };
-    
     element.textContent = icons[status] || t('status.unknown');
 }
 
@@ -1348,7 +1344,8 @@ async function submitCertUpload() {
 // Speichert die Datalayer-Konfiguration über die API
 async function saveDatalayerConfig() {
     try {
-        // Beispiel: Hole die Werte aus dem Formular (Passe die IDs/Namen ggf. an)
+        // Werte aus dem Formular holen
+        const enabled = document.getElementById('datalayer-enabled')?.checked || false;
         const baseUrl = document.getElementById('datalayer-base-url')?.value || '';
         const pollInterval = document.getElementById('datalayer-poll-interval')?.value || '';
         const username = document.getElementById('datalayer-username')?.value || '';
@@ -1358,8 +1355,9 @@ async function saveDatalayerConfig() {
 
         // Baue das JSON-Objekt
         const config = {
+            enabled: enabled,
             base_url: baseUrl,
-            poll_interval: pollInterval,
+            poll_interval_ms: pollInterval,
             username: username,
             password: password,
             accept_invalid_certs: acceptInvalidCerts
@@ -1367,7 +1365,7 @@ async function saveDatalayerConfig() {
         };
 
         // Sende das JSON an die API
-        const response = await fetchWithAuth('api/datalayer/config', {
+        const response = await fetchWithAuth('datalayer/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
@@ -1468,11 +1466,11 @@ function _initDatalayerUI() {
     const section = document.getElementById('dl-mapping-section');
     if (section) section.style.display = 'none';
 
-    // Zwinge das System, die Texte JETZT zu übersetzen
-    // Ein minimales Timeout hilft, falls der Browser noch mit dem DOM beschäftigt ist
+    // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
+    // (wie die Save/Cancel Buttons) im DOM bereit sind
     setTimeout(() => {
-        applyI18n(); 
-    }, 50);
+        applyI18n();
+    }, 150);
 }
 
 /** 2. Status laden (Zwei-Punkte-Logik) */
@@ -1620,6 +1618,7 @@ function renderDatalayerMappings() {
         `;
     }).join('');
 
+    // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
 
@@ -1764,7 +1763,32 @@ function renderDatalayerMappings() {
     // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
-function saveDatalayerConfig() {
-    // TODO: Implementiere hier das Speichern der Datalayer-Konfiguration
-    alert("saveDatalayerConfig ist noch nicht implementiert!");
+
+// Datalayer-Browser: Knoten-Browse-Funktion
+async function browseDatalayer() {
+    const pathInput = document.getElementById('dl-browse-path');
+    const nodeList = document.getElementById('dl-node-list');
+    if (!pathInput || !nodeList) return;
+    const path = pathInput.value.trim();
+    nodeList.innerHTML = '<div>' + t('status.loading') + '</div>';
+    try {
+        const resp = await fetchWithAuth('api/datalayer/browse?path=' + encodeURIComponent(path));
+        if (!resp.ok) {
+            nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
+            return;
+        }
+        const data = await resp.json();
+        if (data.error) {
+            nodeList.innerHTML = '<div style="color:red">' + data.error + '</div>';
+            return;
+        }
+        // Zeige die Knoten an (vereinfachte Darstellung)
+        if (data.nodes && Array.isArray(data.nodes)) {
+            nodeList.innerHTML = data.nodes.map(n => '<div>' + n.name + '</div>').join('');
+        } else {
+            nodeList.innerHTML = '<div>' + t('datalayer.browser_hint') + '</div>';
+        }
+    } catch (err) {
+        nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
+    }
 }

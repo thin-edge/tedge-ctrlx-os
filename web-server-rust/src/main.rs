@@ -424,7 +424,7 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<Str
 
 // API Handlers
 
-async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
+async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     
     if !role.can_read() {
@@ -2160,13 +2160,10 @@ struct SaveDatalayerConfigBody {
     pub enabled: bool,
     pub base_url: String,
     pub poll_interval_ms: u64,
-    /// If empty or "***", keep existing username
     #[serde(default)]
     pub username: String,
-    /// If empty or "***", keep existing password
     #[serde(default)]
     pub password: String,
-    /// If empty or "***", keep existing token
     #[serde(default)]
     pub token: String,
     #[serde(default = "dl_default_true")]

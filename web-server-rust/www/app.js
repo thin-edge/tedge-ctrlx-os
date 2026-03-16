@@ -18,6 +18,8 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
+        'status.mappers':      'Mapper',
+        'status.clouds':       'Cloud-Verbindungen',
         'status.clouds':       'Cloud',
         'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Lädt...',
@@ -64,7 +66,7 @@ const I18N = {
         'connect.disconnect':  'Trennen',
         'connect.setup':       'Setup ↗',
         'connect.test_title':  'Testnachrichten',
-        'connect.test_desc':   'Publiziert eine Testnachricht via tedge mqtt pub auf den lokalen Broker. Output erscheint im Log-Viewer.',
+        'connect.test_desc':   'Publiziert eine Testnachricht via tedge mqtt pub auf den lokalen Broker. Output erscheint im Log-Viewer unten.',
         'connect.test_meas':   'Test Measurement',
         'connect.test_event':  'Test Event',
         'connect.test_alarm':  'Test Alarm',
@@ -211,6 +213,8 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
+        'status.mappers':      'Mappers',
+        'status.clouds':       'Cloud Connections',
         'status.clouds':       'Cloud',
         'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Loading...',
@@ -257,7 +261,7 @@ const I18N = {
         'connect.disconnect':  'Disconnect',
         'connect.setup':       'Setup ↗',
         'connect.test_title':  'Test Messages',
-        'connect.test_desc':   'Publishes a test message via tedge mqtt pub to the local broker. Output appears in the log viewer.',
+        'connect.test_desc':   'Publishes a test message via tedge mqtt pub to the local broker. Output appears in the log viewer below.',
         'connect.test_meas':   'Test Measurement',
         'connect.test_event':  'Test Event',
         'connect.test_alarm':  'Test Alarm',
@@ -577,6 +581,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Bestehende Aufrufe...
     loadStatus();
     loadConfiguration();
+    updateLogLevelDropdown();
     loadDatalayerStatus(); // Dein neuer Aufruf
 });
 
@@ -596,13 +601,13 @@ async function loadStatus() {
         updateStatusBadge('agent-status', data.agent || 'unknown');
         updateStatusBadge('bridge-status', data.bridge || 'unknown');
         updateStatusBadge('watchdog-status', data.watchdog || 'unknown');
+        updateStatusBadge('mapper-c8y-status', data.mapper_c8y || 'unknown');
+        updateStatusBadge('mapper-aws-status', data.mapper_aws || 'unknown');
+        updateStatusBadge('mapper-az-status', data.mapper_az || 'unknown');
         // Mapper-Status ergänzen
         updateStatusBadge('c8y-mapper-status', data.c8y || 'unknown');
         updateStatusBadge('aws-mapper-status', data.aws || 'unknown');
         updateStatusBadge('az-mapper-status', data.az || 'unknown');
-        updateStatusBadge('c8y-status', data.c8y || 'unknown');
-        updateStatusBadge('aws-status', data.aws || 'unknown');
-        updateStatusBadge('az-status', data.az || 'unknown');
         updateStatusBadge('c8y-status', data.c8y || 'unknown');
         updateStatusBadge('aws-status', data.aws || 'unknown');
         updateStatusBadge('az-status', data.az || 'unknown');
@@ -615,15 +620,14 @@ async function loadStatus() {
 // Update status badge
 function updateStatusBadge(elementId, status) {
     const element = document.getElementById(elementId);
+    if (!element) return;
     element.className = 'status ' + status;
-    
     const icons = {
         'running':  t('status.running'),
         'stopped':  t('status.stopped'),
         'inactive': t('status.inactive'),
         'unknown':  t('status.unknown')
     };
-    
     element.textContent = icons[status] || t('status.unknown');
 }
 
@@ -1460,11 +1464,11 @@ function _initDatalayerUI() {
     const section = document.getElementById('dl-mapping-section');
     if (section) section.style.display = 'none';
 
-    // Zwinge das System, die Texte JETZT zu übersetzen
-    // Ein minimales Timeout hilft, falls der Browser noch mit dem DOM beschäftigt ist
+    // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
+    // (wie die Save/Cancel Buttons) im DOM bereit sind
     setTimeout(() => {
-        applyI18n(); 
-    }, 50);
+        applyI18n();
+    }, 150);
 }
 
 /** 2. Status laden (Zwei-Punkte-Logik) */
@@ -1612,6 +1616,7 @@ function renderDatalayerMappings() {
         `;
     }).join('');
 
+    // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
 
@@ -1756,7 +1761,32 @@ function renderDatalayerMappings() {
     // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
-function saveDatalayerConfig() {
-    // TODO: Implementiere hier das Speichern der Datalayer-Konfiguration
-    alert("saveDatalayerConfig ist noch nicht implementiert!");
+
+// Datalayer-Browser: Knoten-Browse-Funktion
+async function browseDatalayer() {
+    const pathInput = document.getElementById('dl-browse-path');
+    const nodeList = document.getElementById('dl-node-list');
+    if (!pathInput || !nodeList) return;
+    const path = pathInput.value.trim();
+    nodeList.innerHTML = '<div>' + t('status.loading') + '</div>';
+    try {
+        const resp = await fetchWithAuth('api/datalayer/browse?path=' + encodeURIComponent(path));
+        if (!resp.ok) {
+            nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
+            return;
+        }
+        const data = await resp.json();
+        if (data.error) {
+            nodeList.innerHTML = '<div style="color:red">' + data.error + '</div>';
+            return;
+        }
+        // Zeige die Knoten an (vereinfachte Darstellung)
+        if (data.nodes && Array.isArray(data.nodes)) {
+            nodeList.innerHTML = data.nodes.map(n => '<div>' + n.name + '</div>').join('');
+        } else {
+            nodeList.innerHTML = '<div>' + t('datalayer.browser_hint') + '</div>';
+        }
+    } catch (err) {
+        nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
+    }
 }
