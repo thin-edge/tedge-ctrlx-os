@@ -6,6 +6,9 @@ const I18N = {
         // Header
         'header.color':        'Farbe',
         'header.new_tab':      '⧉ New Tab',
+        'header.title':        'thin-edge.io Konfigurationsoberfläche',
+        'header.lang_de':      'DE',
+        'header.lang_en':      'EN',
         // Nav / Sections
         'section.status':      'Verbindungsstatus',
         'section.cloud':       'Cloud-Konfiguration',
@@ -194,6 +197,9 @@ const I18N = {
         // Header
         'header.color':        'Color',
         'header.new_tab':      '⧉ New Tab',
+        'header.title':        'thin-edge.io Configuration Interface',
+        'header.lang_de':      'DE',
+        'header.lang_en':      'EN',
         // Nav / Sections
         'section.status':      'Connection Status',
         'section.cloud':       'Cloud Configuration',
@@ -336,7 +342,7 @@ const I18N = {
         'cert.created':             (cn) => `Certificate created with CN: ${cn}`,
         'cert.renewed':             (cn) => `Certificate renewed with CN: ${cn}`,
         'cert.create_err':          'Error creating certificate',
-// Datalayer section
+        // Datalayer section
         'section.datalayer':             'ctrlX Data Points (Datalayer)',
         'datalayer.refresh':             'Refresh Status',
         'datalayer.connection_settings': 'Connection Settings',
@@ -1272,6 +1278,46 @@ async function submitCertUpload() {
         if (btn) { btn.disabled = false; btn.textContent = t('device.upload_btn'); }
     }
 }
+
+// Speichert die Datalayer-Konfiguration über die API
+async function saveDatalayerConfig() {
+    try {
+        // Beispiel: Hole die Werte aus dem Formular (Passe die IDs/Namen ggf. an)
+        const baseUrl = document.getElementById('datalayer-base-url')?.value || '';
+        const pollInterval = document.getElementById('datalayer-poll-interval')?.value || '';
+        const username = document.getElementById('datalayer-username')?.value || '';
+        const password = document.getElementById('datalayer-password')?.value || '';
+        const acceptInvalidCerts = document.getElementById('datalayer-accept-invalid-certs')?.checked || false;
+        // ... weitere Felder nach Bedarf ...
+
+        // Baue das JSON-Objekt
+        const config = {
+            base_url: baseUrl,
+            poll_interval: pollInterval,
+            username: username,
+            password: password,
+            accept_invalid_certs: acceptInvalidCerts
+            // ... weitere Felder ...
+        };
+
+        // Sende das JSON an die API
+        const response = await fetchWithAuth('api/datalayer/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        if (response.ok) {
+            showNotification(t('notify.dev_saved'), 'success');
+        } else {
+            showNotification(t('notify.dl_config_err'), 'error');
+        }
+    } catch (err) {
+        showNotification(t('notify.dl_config_err'), 'error');
+        console.error('Fehler beim Speichern der Datalayer-Konfiguration:', err);
+    }
+}
+
 // (toggleColorPicker und setColorTheme sind am Dateianfang als hoisted Deklarationen definiert)
 
 function applyColorTheme() {
@@ -1539,6 +1585,8 @@ async function deleteDatalayerMapping(id) {
         if (d.success) {
             showNotification(t('notify.dl_mapping_deleted'), 'success');
             loadDatalayerMappings();
+        } else {
+            showNotification(d.error || t('notify.dl_mapping_del_err'), 'error');
         }
     } catch (e) {
         showNotification(t('notify.dl_mapping_del_err'), 'error');
@@ -1650,4 +1698,7 @@ function renderDatalayerMappings() {
     // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
-;
+function saveDatalayerConfig() {
+    // TODO: Implementiere hier das Speichern der Datalayer-Konfiguration
+    alert("saveDatalayerConfig ist noch nicht implementiert!");
+}

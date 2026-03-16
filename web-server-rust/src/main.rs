@@ -1986,18 +1986,23 @@ async fn get_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Re
     Ok(HttpResponse::Ok().json(cfg))
 }
 
-#[derive(Deserialize)]
+
+#[derive(Debug, Deserialize)]
 struct SaveDatalayerConfigBody {
     pub enabled: bool,
-    #[serde(rename = "baseUrl")]
     pub base_url: String,
-    #[serde(rename = "pollIntervalMs")]
     pub poll_interval_ms: u64,
+    /// If empty or "***", keep existing username
+    #[serde(default)]
     pub username: String,
+    /// If empty or "***", keep existing password
+    #[serde(default)]
     pub password: String,
+    /// If empty or "***", keep existing token
+    #[serde(default)]
     pub token: String,
-    #[serde(rename = "acceptInvalidCerts")]
-    pub accept_invalid_certs: bool, // Dieses Feld muss hier auch existieren
+    #[serde(default = "dl_default_true")]
+    pub accept_invalid_certs: bool,
 }
 
 /// POST /api/datalayer/config  — save connection settings

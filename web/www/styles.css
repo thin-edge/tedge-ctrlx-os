@@ -450,6 +450,7 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
 }
 .label {
   min-width: 140px;
@@ -459,6 +460,7 @@ main {
 .status {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .status.running {
   color: var(--c8y-palette-status-success);
