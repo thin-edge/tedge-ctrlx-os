@@ -5,7 +5,7 @@ set -euo pipefail
 
 echo "[build-bridge.sh] Baue und teste Rust-Bridge..."
 
-BRIDGE_LOG="build-rust-bridge-$(date +%Y%m%d-%H%M%S).log"
+BRIDGE_LOG="logs/build-rust-bridge-$(date +%Y%m%d-%H%M%S).log"
 echo "Log file: $BRIDGE_LOG"
 echo ""
 
