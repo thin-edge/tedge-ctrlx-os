@@ -945,11 +945,22 @@ async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result
         "/etc/tedge".to_string()
     };
 
-    info!("[CONNECT] Running: tedge connect {}", cloud);
+    info!("[CONNECT] Running: connect-wrapper.sh connect {}", cloud);
     let result = web::block(move || {
-        Command::new(&tedge_bin)
-            .args(&["--config-dir", &tedge_config_dir, "connect", &cloud])
-            .output()
+        if is_snap {
+            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            Command::new(&wrapper)
+                .args(&["connect", &cloud])
+                .env("SNAP", env::var("SNAP").unwrap_or_default())
+                .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
+                .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
+                .env("TEDGE_CONFIG_DIR", &tedge_config_dir)
+                .output()
+        } else {
+            Command::new(&tedge_bin)
+                .args(&["--config-dir", &tedge_config_dir, "connect", &cloud])
+                .output()
+        }
     }).await;
 
     match result {
@@ -1019,11 +1030,22 @@ async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Res
         "/etc/tedge".to_string()
     };
 
-    info!("[DISCONNECT] Running: tedge disconnect {}", cloud);
+    info!("[DISCONNECT] Running: connect-wrapper.sh disconnect {}", cloud);
     let result = web::block(move || {
-        Command::new(&tedge_bin)
-            .args(&["--config-dir", &tedge_config_dir, "disconnect", &cloud])
-            .output()
+        if is_snap {
+            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            Command::new(&wrapper)
+                .args(&["disconnect", &cloud])
+                .env("SNAP", env::var("SNAP").unwrap_or_default())
+                .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
+                .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
+                .env("TEDGE_CONFIG_DIR", &tedge_config_dir)
+                .output()
+        } else {
+            Command::new(&tedge_bin)
+                .args(&["--config-dir", &tedge_config_dir, "disconnect", &cloud])
+                .output()
+        }
     }).await;
 
     match result {
@@ -1075,11 +1097,22 @@ async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Resu
         "/etc/tedge".to_string()
     };
 
-    info!("[RECONNECT] Running: tedge reconnect {}", cloud);
+    info!("[RECONNECT] Running: connect-wrapper.sh reconnect {}", cloud);
     let result = web::block(move || {
-        Command::new(&tedge_bin)
-            .args(&["--config-dir", &tedge_config_dir, "reconnect", &cloud])
-            .output()
+        if is_snap {
+            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            Command::new(&wrapper)
+                .args(&["reconnect", &cloud])
+                .env("SNAP", env::var("SNAP").unwrap_or_default())
+                .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
+                .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
+                .env("TEDGE_CONFIG_DIR", &tedge_config_dir)
+                .output()
+        } else {
+            Command::new(&tedge_bin)
+                .args(&["--config-dir", &tedge_config_dir, "reconnect", &cloud])
+                .output()
+        }
     }).await;
 
     match result {
@@ -1116,6 +1149,11 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
         format!("{}/bin/tedge", env::var("SNAP").unwrap_or_default())
     } else {
         "tedge".to_string()
+    };
+    let tedge_config_dir = if is_snap {
+        format!("{}/tedge", env::var("SNAP_DATA").unwrap_or_default())
+    } else {
+        "/etc/tedge".to_string()
     };
 
     let now_secs = std::time::SystemTime::now()
@@ -1156,7 +1194,7 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     let payload_display = payload.clone();
     let result = web::block(move || {
         Command::new(&tedge_bin)
-            .args(&["mqtt", "pub", &topic, &payload])
+            .args(&["--config-dir", &tedge_config_dir, "mqtt", "pub", &topic, &payload])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

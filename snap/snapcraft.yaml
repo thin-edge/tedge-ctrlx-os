@@ -92,6 +92,19 @@ apps:
       - hardware-observe  # Needed to read system serial number
       # snapd-control removed: Not allowed on ctrlX CORE for security reasons
 
+  # Snap-aware connect/disconnect/reconnect wrapper
+  # Restarts mosquitto and the mapper via snapctl after tedge writes the bridge config.
+  # Usage: thin-edge-io.tedge-connect <connect|disconnect|reconnect> <c8y|aws|az>
+  tedge-connect:
+    command: scripts/connect-wrapper.sh
+    environment:
+      TZ: Europe/Berlin
+      PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+    plugs:
+      - network
+      - network-bind
+
   # Build information display
   build-info:
     command: scripts/show-build-info.sh
@@ -433,14 +446,14 @@ parts:
       # Create mosquitto config directory
       mkdir -p $CRAFT_PRIME/etc/mosquitto
       
-      # Create MINIMAL default config (like official mosquitto snap)
+      # Create MINIMAL default config - NO listener here, tedge-mosquitto.conf provides it
       cat > $CRAFT_PRIME/etc/mosquitto/default_config.conf << 'EOF'
-      # Minimal mosquitto config for snap (based on official mosquitto snap)
+      # Minimal mosquitto base config for snap
+      # Listener and bridge settings come from $SNAP_DATA/tedge/mosquitto-conf/
+      # via include_dir (added at runtime by mosquitto-wrapper.sh)
       persistence true
       persistence_location /var/snap/thin-edge-io/common/mosquitto/
       user root
-      listener 1883 127.0.0.1
-      allow_anonymous true
       EOF
       
       # Create full example config for reference

@@ -36,4 +36,26 @@ else
 fi
 
 # Launch mosquitto
-exec "$SNAP/usr/sbin/mosquitto" -c "$CONFIG_FILE" "$@" 2>&1 | tee -a "$SNAP_DATA/mosquitto.log"
+# tedge writes its bridge configs AND listener settings to
+# $SNAP_DATA/tedge/mosquitto-conf/ (c8y-bridge.conf, tedge-mosquitto.conf, etc.)
+# We build a minimal runtime config that includes that directory so mosquitto
+# actually loads the bridge connections.
+RUNTIME_CONF="$SNAP_DATA/mosquitto-runtime.conf"
+BRIDGE_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
+
+# Always start from scratch so stale include_dir entries don't remain
+{
+    # Base settings: filter out any existing include_dir lines to prevent duplicates
+    # (e.g. old $SNAP_COMMON/mosquitto.conf may already contain one)
+    grep -v "^include_dir" "$CONFIG_FILE"
+    echo ""
+    echo "# Settings and bridge configs written by tedge"
+    if [ -d "$BRIDGE_CONF_DIR" ]; then
+        echo "include_dir $BRIDGE_CONF_DIR"
+        echo "Found bridge config dir: $BRIDGE_CONF_DIR" >&2
+    else
+        echo "No bridge config dir yet: $BRIDGE_CONF_DIR" >&2
+    fi
+} > "$RUNTIME_CONF"
+
+exec "$SNAP/usr/sbin/mosquitto" -c "$RUNTIME_CONF" "$@" 2>&1 | tee -a "$SNAP_DATA/mosquitto.log"

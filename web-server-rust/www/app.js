@@ -73,6 +73,8 @@ const I18N = {
         'logs.level':          'Log-Level',
         'logs.apply':          'Level anwenden',
         'logs.load':           'Logs laden',
+        'logs.copy':           'Kopieren',
+        'logs.copied':         'Logs in Zwischenablage kopiert',
         'logs.placeholder':    'Klicke „Logs laden" um die letzten Einträge zu laden.',
         // Tedge Config
         'section.tedgeconfig':       'Tedge Konfiguration',
@@ -264,6 +266,8 @@ const I18N = {
         'logs.level':          'Log Level',
         'logs.apply':          'Apply Level',
         'logs.load':           'Load Logs',
+        'logs.copy':           'Copy',
+        'logs.copied':         'Logs copied to clipboard',
         'logs.placeholder':    'Click "Load Logs" to load the latest entries.',
         // Tedge Config
         'section.tedgeconfig':       'Tedge Configuration',
@@ -806,6 +810,25 @@ async function loadLogs() {
     }
 }
 
+// Fetch all log levels from system.toml and update the dropdown for the currently selected service
+async function updateLogLevelDropdown() {
+    const service = document.getElementById('log-service-select').value;
+    try {
+        const response = await fetch('api/log-level');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.levels && data.levels[service]) {
+            const levelSelect = document.getElementById('log-level-select');
+            levelSelect.value = data.levels[service];
+        } else {
+            // No entry in system.toml for this service → default is info
+            document.getElementById('log-level-select').value = 'info';
+        }
+    } catch (_) {
+        // silently ignore – dropdown keeps its current value
+    }
+}
+
 // Apply log level for selected service
 async function applyLogLevel() {
     const service = document.getElementById('log-service-select').value;
@@ -850,6 +873,23 @@ async function loadTedgeConfig() {
     } catch (error) {
         viewer.textContent = t('tedgeconfig.error', error.message);
     }
+}
+
+function copyLogs() {
+    const viewer = document.getElementById('log-viewer');
+    if (!viewer.textContent) return;
+    navigator.clipboard.writeText(viewer.textContent).then(() => {
+        showNotification(t('logs.copied') || 'Logs copied', 'success');
+    }).catch(() => {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(viewer);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('copy');
+        sel.removeAllRanges();
+        showNotification(t('logs.copied') || 'Logs copied', 'success');
+    });
 }
 
 function copyTedgeConfig() {
