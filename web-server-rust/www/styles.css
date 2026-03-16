@@ -1,3 +1,30 @@
+.c8y-table {
+  border-top: 2px solid var(--c8y-palette-gray-60);
+  border-bottom: 2px solid var(--c8y-palette-gray-60);
+  border-radius: 0;
+}
+.form-control {
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
+  border: 1px solid #D4D9DE;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #212121;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-control:focus {
+  outline: none;
+  border-color: #53cd61;
+  box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
+}
+.form-control-sm {
+  font-size: 13px;
+  padding: 5px 8px;
+  max-width: 320px;
+}
 :root {
   --brand-primary: #53cd61;
   --brand-complementary: #a8b3b5;
@@ -423,6 +450,7 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
 }
 .label {
   min-width: 140px;
@@ -432,6 +460,7 @@ main {
 .status {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .status.running {
   color: var(--c8y-palette-status-success);
@@ -829,4 +858,323 @@ footer a:hover {
   background: #f59e0b;
   border-color: #f59e0b;
   color: #000;
+}
+.status-columns {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.status-columns .status-col {
+  flex: 1;
+  min-width: 200px;
+}
+.status-columns .status-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  align-self: stretch;
+}
+/* Responsive für kleine Bildschirme */
+@media (max-width: 768px) {
+  .status-columns {
+    flex-direction: column;
+  }
+  .status-columns .status-divider {
+    display: none;
+  }
+}
+/* Node Browser Styles */
+.node-browser-container {
+  margin-top: 14px;
+}
+.node-browser-container summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.node-browser-container summary:hover {
+  color: var(--brand-primary, #007bff);
+}
+.node-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.node-controls input {
+  flex: 1;
+  max-width: 360px;
+}
+.node-list-box {
+  margin-top: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--c8y-palette-gray-70, #444);
+  border-radius: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+.node-list-box .node-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.node-list-box .node-item:last-child {
+  border-bottom: none;
+}
+.node-list-box .node-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.node-list-box .node-item .node-name {
+  cursor: pointer;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--c8y-palette-gray-20, #ccc);
+  flex: 1;
+}
+.node-list-box .node-item .node-name:hover {
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+.node-empty-hint {
+  color: #888;
+  padding: 12px;
+  font-style: italic;
+}
+/* Button im Node Browser */
+.node-item .btn-add-mapping {
+  background-color: var(--c8y-palette-gray-80);
+  color: var(--c8y-palette-gray-20);
+  border: 1px solid var(--c8y-palette-gray-60);
+  font-size: 11px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.node-item .btn-add-mapping:hover {
+  background-color: var(--brand-primary);
+  color: white;
+}
+/* Gesamte Schriftart für Datalayer-Block vereinheitlichen */
+.node-browser-container,
+.card-inner-block {
+  font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
+  /* Einheitliche Schriftarten und Abstände */
+  /* Transform Badges */
+  /* Mapping Tabelle & Badges */
+  /* Monospace für technische Pfade */
+}
+.node-browser-container label,
+.card-inner-block label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c8y-palette-gray-40);
+  margin-bottom: 4px;
+}
+.node-browser-container #dl-mapping-section,
+.card-inner-block #dl-mapping-section {
+  font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
+}
+.node-browser-container #dl-mapping-section label,
+.card-inner-block #dl-mapping-section label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c8y-palette-gray-40, #999);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.node-browser-container #dl-mapping-section .form-control,
+.card-inner-block #dl-mapping-section .form-control {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--c8y-palette-gray-80, #444);
+  color: white;
+}
+.node-browser-container #dl-mapping-section .form-control:focus,
+.card-inner-block #dl-mapping-section .form-control:focus {
+  border-color: var(--brand-primary);
+}
+.node-browser-container .transform-badge,
+.card-inner-block .transform-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: bold;
+}
+.node-browser-container .transform-badge.measurement,
+.card-inner-block .transform-badge.measurement {
+  background: #00ef8b;
+  color: #000;
+}
+.node-browser-container .transform-badge.event,
+.card-inner-block .transform-badge.event {
+  background: #00bfff;
+  color: #000;
+}
+.node-browser-container .transform-badge.alarm,
+.card-inner-block .transform-badge.alarm {
+  background: #ff4d4d;
+  color: #fff;
+}
+.node-browser-container .mapping-row .cell-path,
+.card-inner-block .mapping-row .cell-path,
+.node-browser-container .mapping-row .cell-topic,
+.card-inner-block .mapping-row .cell-topic {
+  font-family: 'Roboto Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  color: var(--brand-primary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-browser-container .cell-path,
+.card-inner-block .cell-path,
+.node-browser-container .cell-topic,
+.card-inner-block .cell-topic {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Die Transform-Badges */
+.transform-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.transform-badge.measurement {
+  color: #00ef8b;
+  background: rgba(0, 239, 139, 0.1);
+  border: 1px solid rgba(0, 239, 139, 0.2);
+}
+.transform-badge.event {
+  color: #00bfff;
+  background: rgba(0, 191, 255, 0.1);
+  border: 1px solid rgba(0, 191, 255, 0.2);
+}
+.transform-badge.alarm {
+  color: #ff4d4d;
+  background: rgba(255, 77, 77, 0.1);
+  border: 1px solid rgba(255, 77, 77, 0.2);
+}
+/* Delete Button in der Tabelle */
+.btn-delete {
+  background: transparent;
+  border: 1px solid var(--c8y-palette-gray-70);
+  color: var(--c8y-palette-gray-40);
+  border-radius: 4px;
+  padding: 2px 8px;
+  transition: all 0.2s;
+}
+.btn-delete:hover {
+  border-color: #ff4d4d;
+  color: #ff4d4d;
+  background: rgba(255, 77, 77, 0.1);
+}
+.btn-delete {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.btn-delete svg {
+  display: block;
+  stroke: #FDC000;
+}
+.c8y-table th {
+  font-weight: 700;
+  font-size: 15px;
+  padding: 10px 8px;
+  background: var(--c8y-palette-gray-80);
+  border-bottom: 2px solid var(--c8y-palette-gray-60);
+}
+.c8y-table td {
+  padding: 10px 8px;
+  font-size: 14px;
+  border-bottom: 2px solid var(--c8y-palette-gray-60);
+}
+.c8y-table tr:last-child td {
+  border-bottom: none;
+}
+.c8y-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+/* Text-Muted für "auto" Anzeige */
+.text-muted {
+  color: var(--c8y-palette-gray-50, #888);
+  font-style: italic;
+}
+/* --- Datalayer UI Refinement --- */
+/* Die Tabelle schöner machen */
+.mapping-row .cell-path,
+.mapping-row .cell-topic {
+  font-family: 'Roboto Mono', Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  color: var(--brand-primary) !important;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mapping-row .transform-badge {
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.mapping-row .transform-badge.measurement {
+  color: #00ef8b !important;
+  background: rgba(0, 239, 139, 0.1) !important;
+  border: 1px solid rgba(0, 239, 139, 0.3) !important;
+}
+.mapping-row .transform-badge.event {
+  color: #00bfff !important;
+  background: rgba(0, 191, 255, 0.1) !important;
+  border: 1px solid rgba(0, 191, 255, 0.3) !important;
+}
+.mapping-row .transform-badge.alarm {
+  color: #ff4d4d !important;
+  background: rgba(255, 77, 77, 0.1) !important;
+  border: 1px solid rgba(255, 77, 77, 0.3) !important;
+}
+/* Der Lösch-Button */
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: var(--c8y-palette-gray-40);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.btn-delete:hover {
+  color: #ff4d4d;
+}
+.btn-delete:hover {
+  color: #ff4d4d;
+  /* Sanftes Rot beim Hover */
+  background: rgba(255, 77, 77, 0.1);
+  border-color: rgba(255, 77, 77, 0.2);
+}
+/* Fokus-Rahmen für das Bearbeitungs-Formular */
+#dl-mapping-section {
+  border: 1px solid var(--brand-primary);
+  box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
+  transition: all 0.3s ease;
 }

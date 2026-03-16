@@ -1,0 +1,5 @@
+[Unit]
+Description=thin-edge.io watchdog (snap stub)
+
+[Service]
+Type=simple
