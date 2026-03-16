@@ -182,12 +182,6 @@ const I18N = {
         'datalayer.status_unreachable':  'Nicht erreichbar',
         'datalayer.token_static':        'Statisches Token (Optional)',
         'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
-        // Spalten für die Tabelle (werden in renderDatalayerMappings verwendet)
-        'datalayer.col_path':            'Datalayer-Pfad',
-        'datalayer.col_topic':           'tedge Topic',
-        'datalayer.col_transform':       'Transform',
-        'datalayer.col_field':           'Feld',
-        'datalayer.col_enabled':         'Aktiv',
         'datalayer.confirm_delete':      'Möchten Sie dieses Mapping wirklich löschen?',
         'datalayer.delete_title':        'Mapping löschen',
         'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
@@ -377,12 +371,6 @@ const I18N = {
         'datalayer.status_unreachable':  'Not reachable',
         'datalayer.token_static':        'Static Token (Optional)',
         'datalayer.token_hint':          'If left empty, the current login token will be used.',
-        // Table columns
-        'datalayer.col_path':            'Datalayer Path',
-        'datalayer.col_topic':           'tedge Topic',
-        'datalayer.col_transform':       'Transform',
-        'datalayer.col_field':           'Field',
-        'datalayer.col_enabled':         'Active',
         // Transform types
         'datalayer.transform_measurement': 'Measurement',
         'datalayer.transform_raw':       'Raw',
@@ -1364,6 +1352,8 @@ async function saveDatalayerConfig() {
             // ... weitere Felder ...
         };
 
+        // Debug-Ausgabe: Zeige das gesendete JSON im Browser-Console-Log
+        console.log('Datalayer-Konfig wird gesendet:', config);
         // Sende das JSON an die API
         const response = await fetchWithAuth('datalayer/config', {
             method: 'POST',
@@ -1764,31 +1754,58 @@ function renderDatalayerMappings() {
     applyI18n();
 }
 
-// Datalayer-Browser: Knoten-Browse-Funktion
+/** 11. Datalayer Browsing */
 async function browseDatalayer() {
     const pathInput = document.getElementById('dl-browse-path');
-    const nodeList = document.getElementById('dl-node-list');
-    if (!pathInput || !nodeList) return;
-    const path = pathInput.value.trim();
-    nodeList.innerHTML = '<div>' + t('status.loading') + '</div>';
+    const listBox = document.getElementById('dl-node-list');
+    let path = pathInput.value.trim();
+    
+    // Normalisierung des Pfades
+    if (!path.startsWith('/')) path = '/' + path;
+    if (path === '/') path = ''; 
+
+    listBox.innerHTML = `<div class="node-empty-hint">Loading nodes...</div>`;
+
     try {
-        const resp = await fetchWithAuth('api/datalayer/browse?path=' + encodeURIComponent(path));
-        if (!resp.ok) {
-            nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
-            return;
-        }
-        const data = await resp.json();
-        if (data.error) {
-            nodeList.innerHTML = '<div style="color:red">' + data.error + '</div>';
-            return;
-        }
-        // Zeige die Knoten an (vereinfachte Darstellung)
-        if (data.nodes && Array.isArray(data.nodes)) {
-            nodeList.innerHTML = data.nodes.map(n => '<div>' + n.name + '</div>').join('');
-        } else {
-            nodeList.innerHTML = '<div>' + t('datalayer.browser_hint') + '</div>';
-        }
-    } catch (err) {
-        nodeList.innerHTML = '<div style="color:red">' + t('datalayer.status_unreachable') + '</div>';
+        const r = await fetchWithAuth(`api/datalayer/browse?path=${encodeURIComponent(path)}`);
+        if (!r.ok) throw new Error("Browse failed");
+        
+        const nodes = await r.json();
+        renderNodeList(nodes);
+    } catch (e) {
+        listBox.innerHTML = `<div class="node-empty-hint text-danger">Fehler: ${e.message}</div>`;
     }
+}
+
+/** 12. Eine Ebene nach oben navigieren */
+function datalayerUp() {
+    const input = document.getElementById('dl-browse-path');
+    let path = input.value.trim();
+    if (!path || path === '/') return;
+    
+    const parts = path.split('/').filter(p => p.length > 0);
+    parts.pop();
+    input.value = '/' + parts.join('/');
+    browseDatalayer();
+}
+
+/** 13. Knoten-Liste in die Box rendern */
+function renderNodeList(nodes) {
+    const listBox = document.getElementById('dl-node-list');
+    if (!nodes || nodes.length === 0) {
+        listBox.innerHTML = `<div class="node-empty-hint">Keine Unterknoten gefunden.</div>`;
+        return;
+    }
+
+    listBox.innerHTML = nodes.map(node => {
+        const fullPath = node.path;
+        return `
+            <div class="node-item">
+                <span class="node-name" onclick="document.getElementById('dl-browse-path').value='${fullPath}'; browseDatalayer();">
+                    ${fullPath.split('/').pop()}
+                </span>
+                <button class="btn-add-mapping" onclick="prepareMapping('${fullPath}')">Add</button>
+            </div>
+        `;
+    }).join('');
 }
