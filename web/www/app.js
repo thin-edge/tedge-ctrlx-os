@@ -18,6 +18,8 @@ const I18N = {
         'section.sysinfo':     'Systeminformationen',
         // Status
         'status.services':     'Dienste',
+        'status.mappers':      'Mapper',
+        'status.clouds':       'Cloud-Verbindungen',
         'status.clouds':       'Cloud',
         'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Lädt...',
@@ -25,9 +27,9 @@ const I18N = {
         'status.stopped':      '🔴 Gestoppt',
         'status.inactive':     '⚫ Inaktiv',
         'status.unknown':      '⚪ Unbekannt',
-        'status.refresh':      'Status aktualisieren',
+        'status.refresh':      'aktualisieren',
         // Cloud config
-        'cloud.save':          'Konfiguration speichern',
+        'cloud.save':          'Speichern',
         'cloud.save_short':    'Speichern',
         'cloud.c8y_mapper':    'Cumulocity IoT Mapper aktivieren',
         'cloud.aws_mapper':    'AWS IoT Mapper aktivieren',
@@ -41,10 +43,10 @@ const I18N = {
         'device.cert_status':  'Zertifikatsstatus:',
         'device.upload_status':'Upload-Status:',
         'device.save':         'Speichern',
-        'device.renew_cert':   'Zertifikat erneuern',
-        'device.update_cert':  'Zertifikat aktualisieren',
-        'device.create_cert':  'Zertifikat erstellen',
-        'device.upload_cert':  'Zertifikat hochladen',
+        'device.renew_cert':   'Erneuern',
+        'device.update_cert':  'Aktualisieren',
+        'device.create_cert':  'Erstellen',
+        'device.upload_cert':  'Hochladen',
         'device.cert_unknown': '⚪ Unbekannt',
         'device.not_uploaded': '⚪ Noch nicht hochgeladen',
         'device.cert_active':  '🟢 Aktiv',
@@ -64,7 +66,7 @@ const I18N = {
         'connect.disconnect':  'Trennen',
         'connect.setup':       'Setup ↗',
         'connect.test_title':  'Testnachrichten',
-        'connect.test_desc':   'Publiziert eine Testnachricht via tedge mqtt pub auf den lokalen Broker. Output erscheint im Log-Viewer.',
+        'connect.test_desc':   'Publiziert eine Testnachricht via tedge mqtt pub auf den lokalen Broker. Output erscheint im Log-Viewer unten.',
         'connect.test_meas':   'Test Measurement',
         'connect.test_event':  'Test Event',
         'connect.test_alarm':  'Test Alarm',
@@ -211,6 +213,8 @@ const I18N = {
         'section.sysinfo':     'System Information',
         // Status
         'status.services':     'Services',
+        'status.mappers':      'Mappers',
+        'status.clouds':       'Cloud Connections',
         'status.clouds':       'Cloud',
         'status.mappers':      'Tedge Mapper',
         'status.loading':      '⚪ Loading...',
@@ -218,9 +222,9 @@ const I18N = {
         'status.stopped':      '🔴 Stopped',
         'status.inactive':     '⚫ Inactive',
         'status.unknown':      '⚪ Unknown',
-        'status.refresh':      'Refresh Status',
+        'status.refresh':      'Refresh',
         // Cloud config
-        'cloud.save':          'Save Configuration',
+        'cloud.save':          'Save',
         'cloud.save_short':    'Save',
         'cloud.c8y_mapper':    'Enable Cumulocity IoT Mapper',
         'cloud.aws_mapper':    'Enable AWS IoT Mapper',
@@ -234,10 +238,10 @@ const I18N = {
         'device.cert_status':  'Certificate Status:',
         'device.upload_status':'Upload Status:',
         'device.save':         'Save',
-        'device.renew_cert':   'Renew Certificate',
-        'device.update_cert':  'Update Certificate',
-        'device.create_cert':  'Create Certificate',
-        'device.upload_cert':  'Upload Certificate',
+        'device.renew_cert':   'Renew',
+        'device.update_cert':  'Update',
+        'device.create_cert':  'Create',
+        'device.upload_cert':  'Upload',
         'device.cert_unknown': '⚪ Unknown',
         'device.not_uploaded': '⚪ Not yet uploaded',
         'device.cert_active':  '🟢 Active',
@@ -257,7 +261,7 @@ const I18N = {
         'connect.disconnect':  'Disconnect',
         'connect.setup':       'Setup ↗',
         'connect.test_title':  'Test Messages',
-        'connect.test_desc':   'Publishes a test message via tedge mqtt pub to the local broker. Output appears in the log viewer.',
+        'connect.test_desc':   'Publishes a test message via tedge mqtt pub to the local broker. Output appears in the log viewer below.',
         'connect.test_meas':   'Test Measurement',
         'connect.test_event':  'Test Event',
         'connect.test_alarm':  'Test Alarm',
@@ -466,20 +470,28 @@ function applyI18n() {
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         el.title = t(el.getAttribute('data-i18n-title'));
     });
-    // Dynamic: status badges already get their text via updateStatusBadge()
-    // but we re-set the loading placeholders that haven't loaded yet:
-    document.querySelectorAll('.status.unknown').forEach(el => {
-        el.textContent = t('status.loading');
-    });
+    // Re-translate all status badges (running/stopped/inactive/unknown)
+    document.querySelectorAll('.status.running').forEach(el => { el.textContent = t('status.running'); });
+    document.querySelectorAll('.status.stopped').forEach(el => { el.textContent = t('status.stopped'); });
+    document.querySelectorAll('.status.inactive').forEach(el => { el.textContent = t('status.inactive'); });
+    document.querySelectorAll('.status.unknown').forEach(el => { el.textContent = t('status.loading'); });
+    // "unknown" from server (can't determine) → show as "unknown" text
+    document.querySelectorAll('[id$="-status"].status.unknown').forEach(el => { el.textContent = t('status.unknown'); });
     // Log viewer placeholder
     const lv = document.getElementById('log-viewer');
     if (lv && lv.textContent.trim() === '' || (lv && (lv.textContent.includes('Klicke') || lv.textContent.includes('Click')))) {
         lv.textContent = t('logs.placeholder');
     }
-    // cert-upload-status: only if it shows the default "not uploaded" text
+    // cert-upload-status: retranslate only if showing the default "not uploaded" text
     const cu = document.getElementById('cert-upload-status');
-    if (cu && (cu.textContent.includes('Noch nicht') || cu.textContent.includes('Not yet'))) {
-        cu.textContent = t('device.not_uploaded');
+    if (cu) {
+        if (cu.textContent.includes('Noch nicht') || cu.textContent.includes('Not yet')) {
+            cu.textContent = t('device.not_uploaded');
+        }
+        // Retranslate uploaded state via data attributes set by updateCertUploadStatusDisplay
+        const cloud = cu.dataset.uploadCloud;
+        const ts    = cu.dataset.uploadTs;
+        if (cloud) cu.textContent = t('cert.uploaded_to', cloud, ts ? ' (' + new Date(parseInt(ts) * 1000).toLocaleString() + ')' : '');
     }
 }
 // ─────────────────────────────────────────────────────────────────────
@@ -589,6 +601,9 @@ async function loadStatus() {
         updateStatusBadge('agent-status', data.agent || 'unknown');
         updateStatusBadge('bridge-status', data.bridge || 'unknown');
         updateStatusBadge('watchdog-status', data.watchdog || 'unknown');
+        updateStatusBadge('mapper-c8y-status', data.mapper_c8y || 'unknown');
+        updateStatusBadge('mapper-aws-status', data.mapper_aws || 'unknown');
+        updateStatusBadge('mapper-az-status', data.mapper_az || 'unknown');
         // Mapper-Status ergänzen
         updateStatusBadge('c8y-mapper-status', data.c8y || 'unknown');
         updateStatusBadge('aws-mapper-status', data.aws || 'unknown');
@@ -633,9 +648,13 @@ function updateCertUploadStatusDisplay(certUpload) {
         }
         el.textContent = t('cert.uploaded_to', cloud, timeStr);
         el.style.color = 'var(--brand-primary, #53cd61)';
+        el.dataset.uploadCloud = cloud;
+        el.dataset.uploadTs    = certUpload.timestamp || '';
     } else {
         el.textContent = t('device.not_uploaded');
         el.style.color = '';
+        delete el.dataset.uploadCloud;
+        delete el.dataset.uploadTs;
     }
 }
 
@@ -656,6 +675,11 @@ async function loadConfiguration() {
             const deviceIdField = document.getElementById('device-id');
             if (deviceIdField && !deviceIdField.value && config.device.id) {
                 deviceIdField.value = config.device.id;
+            }
+            // Pre-fill device name (cert CN) from saved config if not already set by loadDeviceIdInfo
+            const cnField = document.getElementById('cert-common-name');
+            if (cnField && !cnField.value && config.device.name) {
+                cnField.value = config.device.name;
             }
         }
         
@@ -761,7 +785,8 @@ async function saveAzConfig() {
 // Save device configuration
 async function saveDeviceConfig() {
     const config = {
-        id: document.getElementById('device-id').value
+        id: document.getElementById('device-id').value,
+        name: (document.getElementById('cert-common-name') || {}).value || ''
     };
     
     try {

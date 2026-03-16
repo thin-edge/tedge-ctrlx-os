@@ -14,6 +14,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
     id: String,
+    #[serde(default)]
+    name: String,
     #[serde(rename = "type", default)]
     device_type: String,
 }
@@ -64,6 +66,7 @@ impl Default for Config {
         Config {
             device: DeviceConfig {
                 id: String::new(),
+                name: String::new(),
                 device_type: "ctrlX-CORE".to_string(),
             },
             c8y: C8yConfig {
@@ -90,9 +93,71 @@ struct ServiceStatus {
     agent: String,
     bridge: String,
     watchdog: String,
+    mapper_c8y: String,
+    mapper_aws: String,
+    mapper_az: String,
     c8y: String,
     aws: String,
     az: String,
+}
+
+/// Check actual mosquitto bridge connection state via $SYS topic.
+/// Returns "running" (bridge up), "stopped" (bridge down), "inactive" (not configured),
+/// or "unknown" (configured but state undetermined, e.g. mosquitto just restarted).
+async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> &'static str {
+    // Step 1: check if bridge config exists at all
+    let bridge_conf = format!("{}/tedge/mosquitto-conf/{}-bridge.conf", snap_data, cloud);
+    if !std::path::Path::new(&bridge_conf).exists() {
+        return "inactive";
+    }
+
+    let bridge_name = match cloud {
+        "c8y" => "edge_to_c8y",
+        "aws" => "edge_to_aws",
+        "az"  => "edge_to_az",
+        _     => return "unknown",
+    };
+
+    // mapper service name (used both as fallback and as proxy for bridge state)
+    let mapper_svc = match cloud {
+        "c8y" => "thin-edge-io.tedge-mapper-c8y",
+        "aws" => "thin-edge-io.tedge-mapper-aws",
+        "az"  => "thin-edge-io.tedge-mapper-az",
+        _     => return "unknown",
+    };
+
+    // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state.
+    // Note: $SYS topics are only published at sys_interval (default 10s) or on state change.
+    // If mosquitto_sub times out or returns an ambiguous result, fall through to Step 3.
+    if std::path::Path::new(&sub_bin).exists() {
+        let topic = format!("$SYS/broker/connection/{}/state", bridge_name);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(4),
+            tokio::process::Command::new(&sub_bin)
+                .args(["-h", "127.0.0.1", "-p", "1883", "-t", &topic, "-C", "1", "-W", "3"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .output(),
+        ).await;
+
+        match result {
+            Ok(Ok(out)) if !out.stdout.is_empty() => match out.stdout.first() {
+                Some(&b'1') => return "running",
+                Some(&b'0') => return "stopped",
+                // ambiguous → fall through to snapctl fallback below
+                _ => {}
+            },
+            // timeout or error → fall through to snapctl fallback below
+            _ => {}
+        }
+    }
+
+    // Step 3: fallback — use mapper snapctl status as proxy.
+    // bridge.conf exists → tedge connect was run. Active mapper ≈ bridge is up.
+    match std::process::Command::new("snapctl").args(["services", mapper_svc]).output() {
+        Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+        _ => "stopped",
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,7 +238,7 @@ impl AppState {
 
     fn save_config(&self, config: &Config) -> io::Result<()> {
         info!("[CONFIG-SAVE] Saving configuration to: {:?}", self.config_path);
-        info!("[CONFIG-SAVE] Device ID: {}, Type: {}", config.device.id, config.device.device_type);
+        info!("[CONFIG-SAVE] Device ID: {}, Name: {}, Type: {}", config.device.id, config.device.name, config.device.device_type);
         info!("[CONFIG-SAVE] C8y enabled: {}, AWS enabled: {}, Azure enabled: {}", 
               config.c8y.enabled, config.aws.enabled, config.az.enabled);
         
@@ -375,6 +440,9 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         agent: "unknown".to_string(),
         bridge: "unknown".to_string(),
         watchdog: "unknown".to_string(),
+        mapper_c8y: "unknown".to_string(),
+        mapper_aws: "unknown".to_string(),
+        mapper_az: "unknown".to_string(),
         c8y: "unknown".to_string(),
         aws: "unknown".to_string(),
         az: "unknown".to_string(),
@@ -397,7 +465,7 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
         };
         // Like check_process but returns "inactive" (neutral) instead of "stopped" (error)
         // for optional services that may not be started yet
-        let check_optional = |name: &str| -> &'static str {
+        let _check_optional = |name: &str| -> &'static str {
             if let Ok(entries) = std::fs::read_dir("/proc") {
                 for entry in entries.flatten() {
                     let comm_path = entry.path().join("comm");
@@ -425,12 +493,56 @@ async fn get_status(req: HttpRequest) -> Result<HttpResponse> {
                 _ => "inactive",
             }
         }.to_string();
-        status.c8y = check_process("tedge-mapper-c8y").to_string();
-        status.aws = check_process("tedge-mapper-aws").to_string();
-        status.az = check_process("tedge-mapper-az").to_string();
 
-        info!("[STATUS] mosquitto={} agent={} bridge={} watchdog={} c8y={} aws={} az={}",
-            status.mosquitto, status.agent, status.bridge, status.watchdog, status.c8y, status.aws, status.az);
+        // Mapper process checks via snapctl (column 2)
+        // /proc/comm truncates to 15 chars: "tedge-mapper-c8y" → "tedge-mapper-c8" → check_process fails
+        let check_snapctl = |svc: &str| -> &'static str {
+            let full = format!("thin-edge-io.{}", svc);
+            match std::process::Command::new("snapctl").args(["services", &full]).output() {
+                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+                _ => "stopped",
+            }
+        };
+        status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
+        status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
+        status.mapper_az  = check_snapctl("tedge-mapper-az").to_string();
+
+        // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)
+        // Uses mosquitto_sub; runs all 3 in parallel to avoid cumulative timeout
+        let snap_dir = env::var("SNAP").unwrap_or_default();
+        let snap_data_dir = env::var("SNAP_DATA").unwrap_or_else(|_| "/etc/tedge/..".to_string());
+        let sub_bin = format!("{}/usr/bin/mosquitto_sub", snap_dir);
+
+        let (c8y_conn, aws_conn, az_conn) = tokio::join!(
+            check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "c8y"),
+            check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "aws"),
+            check_bridge_state(sub_bin,          snap_data_dir,         "az"),
+        );
+        status.c8y = c8y_conn.to_string();
+        status.aws = aws_conn.to_string();
+        status.az  = az_conn.to_string();
+
+        // Auto-record cert upload when c8y bridge is running (cert was accepted by C8y = it's trusted)
+        if c8y_conn == "running" {
+            let mut config = data.config.lock().unwrap();
+            if config.cert_upload.as_ref().map(|u| !u.uploaded).unwrap_or(true) {
+                let ts = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs()).unwrap_or(0);
+                config.cert_upload = Some(CertUploadStatus {
+                    uploaded: true,
+                    timestamp: Some(ts.to_string()),
+                    cloud: Some("c8y".to_string()),
+                });
+                let _ = data.save_config(&config);
+                info!("[STATUS] Auto-recorded cert_upload (c8y bridge running)");
+            }
+        }
+
+        info!("[STATUS] mosquitto={} agent={} bridge={} watchdog={} mapper_c8y={} mapper_aws={} mapper_az={} c8y={} aws={} az={}",
+            status.mosquitto, status.agent, status.bridge, status.watchdog,
+            status.mapper_c8y, status.mapper_aws, status.mapper_az,
+            status.c8y, status.aws, status.az);
     }
 
     // Zusätzliche Felder für die Mapper explizit ergänzen
@@ -1164,7 +1276,7 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     let (topic, payload) = match body.msg_type.as_str() {
         "measurement" => (
             "te/device/main///m/test".to_string(),
-            format!(r#"{{"temperature":{{"value":{:.1},"unit":"°C"}},"time":"{}"}}"#,
+            format!(r#"{{"temperature":{:.1},"time":"{}"}}"#,
                 20.0 + (now_secs % 10) as f64,
                 chrono_like_ts(now_secs),
             ),
@@ -1283,43 +1395,51 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
         })));
     }
     
-    let is_snap = env::var("SNAP").is_ok();
-    
-    if !is_snap {
-        warn!("[DEVICE-ID] Not in snap environment");
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": "Device ID management only available in snap environment"
-        })));
-    }
+    // In snap mode the script lives in $SNAP/scripts/; in local dev try the workspace scripts/ dir.
+    let script_path = {
+        let snap_path = env::var("SNAP").ok()
+            .map(|s| PathBuf::from(s).join("scripts/manage-device-id.sh"));
+        let local_path = std::env::current_exe().ok()
+            .and_then(|p| p.ancestors().nth(4).map(|a| a.join("scripts/manage-device-id.sh")));
+        let hardcoded = PathBuf::from("/home/ubuntu/thin-edge-io-app/scripts/manage-device-id.sh");
 
-    let snap = env::var("SNAP").unwrap_or_default();
-    let script_path = PathBuf::from(&snap).join("scripts/manage-device-id.sh");
-    info!("[DEVICE-ID] Using script: {:?}", script_path);
+        [snap_path, local_path, Some(hardcoded)]
+            .into_iter()
+            .flatten()
+            .find(|p| p.exists())
+    };
 
-    let script_path_clone = script_path.clone();
-    let (system_serial, current) = web::block(move || {
-        let serial = Command::new(&script_path_clone)
-            .arg("get-serial")
-            .output()
-            .ok()
-            .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+    let (system_serial, current) = if let Some(script_path) = script_path {
+        info!("[DEVICE-ID] Using script: {:?}", script_path);
+        let script_path_clone = script_path.clone();
+        web::block(move || {
+            let serial = Command::new(&script_path_clone)
+                .arg("get-serial")
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
 
-        // get-current exits 1 when no certificate → return empty string so JS falls back to system_serial
-        let current = Command::new(&script_path)
-            .arg("get-current")
-            .output()
-            .ok()
-            .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
-            .map(|s| s.trim().to_string())
-            .unwrap_or_default();
+            // get-current exits 1 when no certificate → returns empty string
+            let current = Command::new(&script_path)
+                .arg("get-current")
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .map(|s| s.trim().to_string())
+                .unwrap_or_default();
 
-        (serial, current)
-    }).await.unwrap_or_else(|_| ("unknown".to_string(), "not-set".to_string()));
+            (serial, current)
+        }).await.unwrap_or_else(|_| ("unknown".to_string(), String::new()))
+    } else {
+        warn!("[DEVICE-ID] manage-device-id.sh not found – returning empty device info");
+        ("unknown".to_string(), String::new())
+    };
 
-    let has_certificate = std::path::Path::new("/var/snap/thin-edge-io/current/tedge/device-certs/tedge-certificate.pem").exists();
+    // Derive has_certificate from the script result: get-current returns non-empty CN only if cert exists.
+    // This avoids a hardcoded snap path and works in both snap and local-dev mode.
+    let has_certificate = !current.is_empty();
     info!("[DEVICE-ID] Serial: {}, Current: {}, Has cert: {}", system_serial, current, has_certificate);
     
     Ok(HttpResponse::Ok().json(DeviceIdInfo {

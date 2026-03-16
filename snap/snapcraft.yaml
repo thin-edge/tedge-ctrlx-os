@@ -440,6 +440,7 @@ parts:
     plugin: nil
     stage-packages:
       - mosquitto
+      - mosquitto-clients
       - libssl3
     override-prime: |
       craftctl default

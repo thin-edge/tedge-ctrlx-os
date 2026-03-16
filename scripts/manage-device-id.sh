@@ -56,8 +56,9 @@ get_system_serial() {
 get_current_device_id() {
     if [ -f "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" ]; then
         # Extract CN from certificate
+        # OpenSSL may output "CN = Testname" (with spaces) or "CN=Testname" (no spaces)
         openssl x509 -in "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" -noout -subject 2>/dev/null | \
-            sed -n 's/.*CN=\([^,]*\).*/\1/p' || echo ""
+            sed -n 's/.*CN\s*=\s*\([^,/]*\).*/\1/p' | sed 's/[[:space:]]*$//' || echo ""
     else
         echo ""
     fi
