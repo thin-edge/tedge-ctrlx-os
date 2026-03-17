@@ -1075,7 +1075,7 @@ footer {
         margin-bottom: 4px;
     }
 /* Einheitliche Schriftarten und Abstände */
-#dl-mapping-section {
+#datalayer-mapping-section {
     font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
     
     label {
@@ -1186,13 +1186,18 @@ footer {
     display: block;
     stroke: #FDC000;
   }
-  .c8y-table th {
-    font-weight: 700;
-    font-size: 15px;
-    padding: 10px 8px;
-    background: var(--c8y-palette-gray-80);
-    border-bottom: 2px solid var(--c8y-palette-gray-60);
-  }
+.c8y-table th {
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--c8y-palette-gray-40); /* Subtileres Grau */
+    padding: 8px 8px !important;
+    background: rgba(0, 0, 0, 0.03); /* Ganz zarter Hintergrund */
+    border-bottom: 1px solid var(--c8y-palette-gray-80) !important;
+    vertical-align: middle;
+    white-space: nowrap;
+}
   .c8y-table td {
     padding: 10px 8px;
     font-size: 14px;
@@ -1269,7 +1274,7 @@ footer {
 }
 
 /* Fokus-Rahmen für das Bearbeitungs-Formular */
-#dl-mapping-section {
+#datalayer-mapping-section {
     border: 1px solid var(--brand-primary);
     box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
     transition: all 0.3s ease;

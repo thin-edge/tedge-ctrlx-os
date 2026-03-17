@@ -46,6 +46,7 @@ fn default_poll_interval() -> u64 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DatalayerMapping {
     pub id: String,
     /// ctrlX Datalayer node path, e.g. "plc/app/Application/activity/variables/Temp"
@@ -87,22 +88,16 @@ impl DatalayerMapping {
 pub struct DatalayerConfig {
     #[serde(default)]
     pub enabled: bool,
-    /// Base URL of the ctrlX device REST API, e.g. "https://localhost" or "https://192.168.1.1"
-    #[serde(default)]
+    #[serde(alias = "baseUrl")] // Akzeptiert beides beim Einlesen
     pub base_url: String,
-    /// Polling interval in milliseconds
     #[serde(default = "default_poll_interval")]
     pub poll_interval_ms: u64,
-    /// ctrlX username for automatic token generation (recommended)
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub username: String,
-    /// ctrlX password for automatic token generation
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub password: String,
-    /// Static bearer token (optional fallback; auto-token takes priority if username set)
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub token: String,
-    /// Accept self-signed TLS certificates (for development / internal access)
     #[serde(default = "default_true")]
     pub accept_invalid_certs: bool,
     #[serde(default)]
@@ -330,9 +325,6 @@ impl DatalayerEngine {
 
         let raw: Value = resp.json().await.context("Failed to parse browse response")?;
 
-        // Response can be:
-        //  { "type": "...", "value": [...list of paths or node objects...] }
-        //  or a direct array
         let mut nodes = Vec::new();
         let items = if raw.is_array() {
             raw.as_array().cloned().unwrap_or_default()

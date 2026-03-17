@@ -184,6 +184,10 @@ const I18N = {
         'datalayer.token_hint':          'Falls leer, wird das aktuelle Anmelde-Token verwendet.',
         'datalayer.confirm_delete':      'Möchten Sie dieses Mapping wirklich löschen?',
         'datalayer.delete_title':        'Mapping löschen',
+        'datalayer.direction':           'Richtung',
+        'datalayer.dir_dl_to_tedge':     'Datalayer ➔ tedge (Lesen)',
+        'datalayer.dir_tedge_to_dl':     'tedge ➔ Datalayer (Schreiben)',
+        'datalayer.col_direction':       'Richtung',
         'notify.dl_config_err':          'Fehler beim Speichern der Datalayer-Konfiguration',
         'notify.dl_mapping_added':       'Mapping hinzugefügt',
         'notify.dl_mapping_add_err':     'Fehler beim Hinzufügen des Mappings',
@@ -378,6 +382,10 @@ const I18N = {
         'datalayer.transform_alarm':     'Alarm',
         'datalayer.confirm_delete':      'Do you really want to delete this mapping?',
         'datalayer.delete_title':        'Delete Mapping',
+        'datalayer.direction':           'Direction',
+        'datalayer.dir_dl_to_tedge':     'Datalayer ➔ tedge (Read)',
+        'datalayer.dir_tedge_to_dl':     'tedge ➔ Datalayer (Write)',
+        'datalayer.col_direction':       'Direction',
         // Notifications
         'notify.dl_config_err':          'Error saving datalayer configuration',
         'notify.dl_mapping_added':       'Mapping added',
@@ -1332,30 +1340,28 @@ async function submitCertUpload() {
 // Speichert die Datalayer-Konfiguration über die API
 async function saveDatalayerConfig() {
     try {
-        // Werte aus dem Formular holen
+        // IDs korrigieren (siehe Hinweis unten) und Werte holen
         const enabled = document.getElementById('datalayer-enabled')?.checked || false;
         const baseUrl = document.getElementById('datalayer-base-url')?.value || '';
-        const pollInterval = document.getElementById('datalayer-poll-interval')?.value || '';
         const username = document.getElementById('datalayer-username')?.value || '';
         const password = document.getElementById('datalayer-password')?.value || '';
         const acceptInvalidCerts = document.getElementById('datalayer-accept-invalid-certs')?.checked || false;
-        // ... weitere Felder nach Bedarf ...
 
-        // Baue das JSON-Objekt
+        // WICHTIG: Hier muss parseInt() verwendet werden, um aus dem String "5000" die Zahl 5000 zu machen
+        const pollIntervalStr = document.getElementById('datalayer-poll-interval')?.value || '5000';
+        const pollIntervalMs = parseInt(pollIntervalStr, 10);
+
         const config = {
             enabled: enabled,
             base_url: baseUrl,
-            poll_interval_ms: pollInterval,
+            poll_interval_ms: pollIntervalMs, 
             username: username,
             password: password,
             accept_invalid_certs: acceptInvalidCerts
-            // ... weitere Felder ...
         };
-
-        // Debug-Ausgabe: Zeige das gesendete JSON im Browser-Console-Log
         console.log('Datalayer-Konfig wird gesendet:', config);
-        // Sende das JSON an die API
-        const response = await fetchWithAuth('datalayer/config', {
+        
+        const response = await fetchWithAuth('api/datalayer/config', { // Pfad inkl. /api/
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(config)
@@ -1368,7 +1374,7 @@ async function saveDatalayerConfig() {
         }
     } catch (err) {
         showNotification(t('notify.dl_config_err'), 'error');
-        console.error('Fehler beim Speichern der Datalayer-Konfiguration:', err);
+        console.error('Fehler beim Speichern:', err);
     }
 }
 
@@ -1453,7 +1459,7 @@ function _initDatalayerUI() {
     loadDatalayerMappings();
     
     // Formular initial verstecken
-    const section = document.getElementById('dl-mapping-section');
+    const section = document.getElementById('datalayer-mapping-section');
     if (section) section.style.display = 'none';
 
     // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
@@ -1465,7 +1471,7 @@ function _initDatalayerUI() {
 
 /** 2. Status laden (Zwei-Punkte-Logik) */
 async function loadDatalayerStatus() {
-    const badge = document.getElementById('dl-status-badge');
+    const badge = document.getElementById('datalayer-status-badge');
     if (!badge) return;
     badge.textContent = '⚪ ' + t('status.loading');
     
@@ -1488,14 +1494,38 @@ async function loadDatalayerStatus() {
     }
 }
 
+async function loadDatalayerConfig() {
+    try {
+        const r = await fetchWithAuth('api/datalayer/config');
+        if (!r.ok) return;
+        const config = await r.json();
+        
+        // IDs müssen hier auch dem HTML entsprechen (datalayer-...)
+        if (document.getElementById('datalayer-enabled')) 
+            document.getElementById('datalayer-enabled').checked = config.enabled || false;
+        if (document.getElementById('datalayer-base-url')) 
+            document.getElementById('datalayer-base-url').value = config.base_url || config.baseUrl || '';
+        if (document.getElementById('datalayer-username')) 
+            document.getElementById('datalayer-username').value = config.username || '';
+        if (document.getElementById('datalayer-poll-interval')) 
+            document.getElementById('datalayer-poll-interval').value = config.poll_interval_ms || '5000';
+        if (document.getElementById('datalayer-accept-invalid-certs')) 
+            document.getElementById('datalayer-accept-invalid-certs').checked = config.accept_invalid_certs || false;
+    } catch (e) {
+        console.error("Fehler beim Laden der Datalayer-Konfig:", e);
+    }
+}
+
+
+
 /** 3. Mapping aus dem Browser vorbereiten (Add to mapping) */
 function prepareMapping(path) {
-    const section = document.getElementById('dl-mapping-section');
+    const section = document.getElementById('datalayer-mapping-section');
     if (section) section.style.display = 'block';
 
-    const pathInput = document.getElementById('dl-mapping-path');
-    const fieldInput = document.getElementById('dl-mapping-field');
-    const unitInput = document.getElementById('dl-mapping-unit');
+    const pathInput = document.getElementById('datalayer-mapping-path');
+    const fieldInput = document.getElementById('datalayer-mapping-field');
+    const unitInput = document.getElementById('datalayer-mapping-unit');
     applyI18n();
     // Pfad setzen
     pathInput.value = path;
@@ -1513,28 +1543,36 @@ function prepareMapping(path) {
 
 /** 4. Topic automatisch basierend auf Transform setzen */
 function updateTopicPrefix() {
-    const transform = document.getElementById('dl-mapping-transform').value;
-    const topicInput = document.getElementById('dl-mapping-topic');
-    const path = document.getElementById('dl-mapping-path').value;
+    const direction = document.getElementById('datalayer-mapping-direction').value;
+    const transform = document.getElementById('datalayer-mapping-transform').value;
+    const topicInput = document.getElementById('datalayer-mapping-topic');
+    const path = document.getElementById('datalayer-mapping-path').value;
     
     const lastPart = path.split('/').pop() || "value";
-    let base = "te/device/main///";
+    let topic = "te/device/main///";
     
-    if (transform === 'Measurement') base += "m/plc/";
-    else if (transform === 'Event') base += "e/plc/";
-    else if (transform === 'Alarm') base += "a/plc/";
+    if (direction === 'tedge_to_dl') {
+        // Für Schreibvorgänge nutzen wir das tedge-Kommando-Schema
+        topic += "cmd/plc/" + lastPart;
+    } else {
+        // Für Lesevorgänge (Polling) nutzen wir das gewählte Transform
+        if (transform === 'Measurement') topic += "m/plc/" + lastPart;
+        else if (transform === 'Event') topic += "e/plc/" + lastPart;
+        else if (transform === 'Alarm') topic += "a/plc/" + lastPart;
+    }
 
-    topicInput.value = base + lastPart;
+    topicInput.value = topic;
 }
 
 /** 5. Neues Mapping speichern */
 async function saveNewMapping() {
     const body = {
-        datalayer_path: document.getElementById('dl-mapping-path').value.trim(),
-        tedge_topic:    document.getElementById('dl-mapping-topic').value.trim(),
-        transform:      document.getElementById('dl-mapping-transform').value,
-        field_name:     document.getElementById('dl-mapping-field').value.trim() || null,
-        unit:           document.getElementById('dl-mapping-unit').value.trim() || null
+        datalayer_path: document.getElementById('datalayer-mapping-path').value.trim(),
+        tedge_topic:    document.getElementById('datalayer-mapping-topic').value.trim(),
+        direction:      document.getElementById('datalayer-mapping-direction').value, // NEU
+        transform:      document.getElementById('datalayer-mapping-transform').value,
+        field_name:     document.getElementById('datalayer-mapping-field').value.trim() || null,
+        unit:           document.getElementById('datalayer-mapping-unit').value.trim() || null
     };
 
     if (!body.datalayer_path || !body.tedge_topic) {
@@ -1563,10 +1601,10 @@ async function saveNewMapping() {
 
 /** 6. Mapping-Formular abbrechen / leeren */
 function cancelMapping() {
-    const section = document.getElementById('dl-mapping-section');
+    const section = document.getElementById('datalayer-mapping-section');
     if (section) section.style.display = 'none';
     
-    ['dl-mapping-path','dl-mapping-topic','dl-mapping-field','dl-mapping-unit'].forEach(id => {
+    ['datalayer-mapping-path','datalayer-mapping-topic','datalayer-mapping-field','datalayer-mapping-unit'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -1574,7 +1612,7 @@ function cancelMapping() {
 
 /** 7. Tabelle rendern (Fix für 'undefined') */
 function renderDatalayerMappings() {
-    const tbody = document.getElementById('dl-mapping-table-body');
+    const tbody = document.getElementById('datalayer-mapping-table-body');
     if (!tbody) return;
 
     if (_dlMappings.length === 0) {
@@ -1587,7 +1625,8 @@ function renderDatalayerMappings() {
         const p = m.path || m.datalayer_path || '';
         const t_topic = m.topic || m.tedge_topic || '';
         const trans = m.transform || 'Measurement';
-        
+        const dir = m.direction === 'tedge_to_dl' ? 'tedge ➔ DL' : 'DL ➔ tedge';
+
         return `
             <tr class="mapping-row">
                 <td class="cell-path" title="${p}">${p}</td>
@@ -1620,7 +1659,7 @@ function _initDatalayerUI() {
     loadDatalayerMappings();
     
     // Formular initial verstecken
-    const section = document.getElementById('dl-mapping-section');
+    const section = document.getElementById('datalayer-mapping-section');
     if (section) section.style.display = 'none';
 
     // Ein kleiner Delay stellt sicher, dass alle statischen Elemente 
@@ -1717,7 +1756,7 @@ async function deleteDatalayerMapping(id) {
     }
 }
 function renderDatalayerMappings() {
-    const tbody = document.getElementById('dl-mapping-table-body');
+    const tbody = document.getElementById('datalayer-mapping-table-body');
     if (!tbody) return;
 
     if (_dlMappings.length === 0) {
@@ -1726,52 +1765,63 @@ function renderDatalayerMappings() {
     }
 
     tbody.innerHTML = _dlMappings.map(m => {
-        const p = m.path || m.datalayer_path || '';
-        const t_topic = m.topic || m.tedge_topic || '';
-        const trans = m.transform || 'Measurement';
-        
+            const p = m.path || m.datalayer_path || '';
+            const t_topic = m.topic || m.tedge_topic || '';
+            const trans = m.transform || 'Measurement';
+            const isWrite = m.direction === 'tedge_to_dl';
+            const dirIcon = isWrite ? '⬅' : '➔'; 
+            const dirTitle = isWrite ? t('datalayer.dir_tedge_to_dl') : t('datalayer.dir_dl_to_tedge');
+            const dirColor = isWrite ? '#FD8200' : 'var(--brand-primary)'; // Orange für Schreiben, Grün für Lesen
+            
         return `
-            <tr class="mapping-row">
-                <td class="cell-path" title="${p}">${p}</td>
-                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
-                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
-                <td>${m.unit || '<em class="text-muted">-</em>'}</td>
-                <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
-                <td class="text-center">
-                    <label class="c8y-switch">
-                        <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
-                        <span></span>
-                    </label>
-                </td>
-                <td class="text-right">
-                    <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+                <tr class="mapping-row">
+                    <td class="cell-path" title="${p}">${p}</td>
+                    <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                    <td class="text-center" title="${dirTitle}" style="cursor: help; font-size: 16px; color: ${dirColor};">
+                        ${dirIcon}
+                    </td>
+                    <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                    <td>${m.unit || '<em class="text-muted">-</em>'}</td>
+                    <td>${m.field_name || '<em class="text-muted">auto</em>'}</td>
+                    <td class="text-center">
+                        <label class="c8y-switch">
+                            <input type="checkbox" ${m.enabled ? 'checked' : ''} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                            <span></span>
+                        </label>
+                    </td>
+                    <td class="text-right">
+                        <button class="btn-delete" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">🗑</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
-    // Übersetzungen auf die neu erzeugten Tooltips anwenden
     applyI18n();
 }
 
 /** 11. Datalayer Browsing */
 async function browseDatalayer() {
-    const pathInput = document.getElementById('dl-browse-path');
-    const listBox = document.getElementById('dl-node-list');
+    const pathInput = document.getElementById('datalayer-browse-path');
+    const listBox = document.getElementById('datalayer-node-list');
     let path = pathInput.value.trim();
     
     // Normalisierung des Pfades
     if (!path.startsWith('/')) path = '/' + path;
     if (path === '/') path = ''; 
 
-    listBox.innerHTML = `<div class="node-empty-hint">Loading nodes...</div>`;
+    listBox.innerHTML = `<div class="node-empty-hint">${t('status.loading')}</div>`;
 
-    try {
+try {
         const r = await fetchWithAuth(`api/datalayer/browse?path=${encodeURIComponent(path)}`);
         if (!r.ok) throw new Error("Browse failed");
         
-        const nodes = await r.json();
-        renderNodeList(nodes);
+        const data = await r.json();
+        const nodeList = data.value || []; 
+        const formattedNodes = nodeList.map(name => ({
+        path: (path.endsWith('/') ? path : path + '/') + name
+        }));
+
+        renderNodeList(formattedNodes);
     } catch (e) {
         listBox.innerHTML = `<div class="node-empty-hint text-danger">Fehler: ${e.message}</div>`;
     }
@@ -1779,7 +1829,7 @@ async function browseDatalayer() {
 
 /** 12. Eine Ebene nach oben navigieren */
 function datalayerUp() {
-    const input = document.getElementById('dl-browse-path');
+    const input = document.getElementById('datalayer-browse-path');
     let path = input.value.trim();
     if (!path || path === '/') return;
     
@@ -1791,7 +1841,7 @@ function datalayerUp() {
 
 /** 13. Knoten-Liste in die Box rendern */
 function renderNodeList(nodes) {
-    const listBox = document.getElementById('dl-node-list');
+    const listBox = document.getElementById('datalayer-node-list');
     if (!nodes || nodes.length === 0) {
         listBox.innerHTML = `<div class="node-empty-hint">Keine Unterknoten gefunden.</div>`;
         return;
@@ -1801,7 +1851,7 @@ function renderNodeList(nodes) {
         const fullPath = node.path;
         return `
             <div class="node-item">
-                <span class="node-name" onclick="document.getElementById('dl-browse-path').value='${fullPath}'; browseDatalayer();">
+                <span class="node-name" onclick="document.getElementById('datalayer-browse-path').value='${fullPath}'; browseDatalayer();">
                     ${fullPath.split('/').pop()}
                 </span>
                 <button class="btn-add-mapping" onclick="prepareMapping('${fullPath}')">Add</button>

@@ -974,12 +974,12 @@ footer a:hover {
   color: var(--c8y-palette-gray-40);
   margin-bottom: 4px;
 }
-.node-browser-container #dl-mapping-section,
-.card-inner-block #dl-mapping-section {
+.node-browser-container #datalayer-mapping-section,
+.card-inner-block #datalayer-mapping-section {
   font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
 }
-.node-browser-container #dl-mapping-section label,
-.card-inner-block #dl-mapping-section label {
+.node-browser-container #datalayer-mapping-section label,
+.card-inner-block #datalayer-mapping-section label {
   display: block;
   font-size: 12px;
   font-weight: 600;
@@ -987,14 +987,14 @@ footer a:hover {
   margin-bottom: 4px;
   text-transform: uppercase;
 }
-.node-browser-container #dl-mapping-section .form-control,
-.card-inner-block #dl-mapping-section .form-control {
+.node-browser-container #datalayer-mapping-section .form-control,
+.card-inner-block #datalayer-mapping-section .form-control {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--c8y-palette-gray-80, #444);
   color: white;
 }
-.node-browser-container #dl-mapping-section .form-control:focus,
-.card-inner-block #dl-mapping-section .form-control:focus {
+.node-browser-container #datalayer-mapping-section .form-control:focus,
+.card-inner-block #datalayer-mapping-section .form-control:focus {
   border-color: var(--brand-primary);
 }
 .node-browser-container .transform-badge,
@@ -1096,11 +1096,18 @@ footer a:hover {
   stroke: #FDC000;
 }
 .c8y-table th {
-  font-weight: 700;
-  font-size: 15px;
-  padding: 10px 8px;
-  background: var(--c8y-palette-gray-80);
-  border-bottom: 2px solid var(--c8y-palette-gray-60);
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--c8y-palette-gray-40);
+  /* Subtileres Grau */
+  padding: 8px 8px !important;
+  background: rgba(0, 0, 0, 0.03);
+  /* Ganz zarter Hintergrund */
+  border-bottom: 1px solid var(--c8y-palette-gray-80) !important;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 .c8y-table td {
   padding: 10px 8px;
@@ -1173,7 +1180,7 @@ footer a:hover {
   border-color: rgba(255, 77, 77, 0.2);
 }
 /* Fokus-Rahmen für das Bearbeitungs-Formular */
-#dl-mapping-section {
+#datalayer-mapping-section {
   border: 1px solid var(--brand-primary);
   box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
   transition: all 0.3s ease;
