@@ -579,10 +579,11 @@ main {
 
 .status-item {
   .flex-row(10px);
+  white-space: nowrap;
 }
 
 .label {
-  min-width: 140px;
+  min-width: 120px;
   font-size: 13px;
   color:     var(--c8y-palette-gray-40);
 }
@@ -590,6 +591,7 @@ main {
 .status {
   font-size:   13px;
   font-weight: 600;
+  white-space: nowrap;
 
   &.running  { color: var(--c8y-palette-status-success); }
   &.stopped  { color: var(--c8y-palette-status-danger);  }
@@ -1073,7 +1075,7 @@ footer {
         margin-bottom: 4px;
     }
 /* Einheitliche Schriftarten und Abstände */
-#dl-mapping-section {
+#datalayer-mapping-section {
     font-family: var(--c8y-font-family-base, "Roboto", sans-serif);
     
     label {
@@ -1137,9 +1139,21 @@ footer {
     text-transform: uppercase;
     display: inline-block;
     
-    &.measurement { color: #00ef8b; background: rgba(0, 239, 139, 0.1); border: 1px solid rgba(0, 239, 139, 0.2); }
-    &.event { color: #00bfff; background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.2); }
-    &.alarm { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); border: 1px solid rgba(255, 77, 77, 0.2); }
+    &.measurement { 
+        color: #00ef8b !important; 
+        background: rgba(0, 239, 139, 0.1) !important; 
+        border: 1px solid rgba(0, 239, 139, 0.3) !important; 
+    }
+    &.event { 
+        color: #00bfff !important; 
+        background: rgba(0, 191, 255, 0.1) !important; 
+        border: 1px solid rgba(0, 191, 255, 0.3) !important; 
+    }
+    &.alarm { 
+        color: #ff4d4d !important; 
+        background: rgba(255, 77, 77, 0.1) !important; 
+        border: 1px solid rgba(255, 77, 77, 0.3) !important; 
+    }
 }
 
 /* Delete Button in der Tabelle */
@@ -1172,13 +1186,18 @@ footer {
     display: block;
     stroke: #FDC000;
   }
-  .c8y-table th {
-    font-weight: 700;
-    font-size: 15px;
-    padding: 10px 8px;
-    background: var(--c8y-palette-gray-80);
-    border-bottom: 2px solid var(--c8y-palette-gray-60);
-  }
+.c8y-table th {
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--c8y-palette-gray-40); /* Subtileres Grau */
+    padding: 8px 8px !important;
+    background: rgba(0, 0, 0, 0.03); /* Ganz zarter Hintergrund */
+    border-bottom: 1px solid var(--c8y-palette-gray-80) !important;
+    vertical-align: middle;
+    white-space: nowrap;
+}
   .c8y-table td {
     padding: 10px 8px;
     font-size: 14px;
@@ -1255,7 +1274,7 @@ footer {
 }
 
 /* Fokus-Rahmen für das Bearbeitungs-Formular */
-#dl-mapping-section {
+#datalayer-mapping-section {
     border: 1px solid var(--brand-primary);
     box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
     transition: all 0.3s ease;

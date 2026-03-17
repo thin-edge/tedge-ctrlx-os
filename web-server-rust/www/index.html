@@ -426,7 +426,7 @@
             </div>
             <div class="form-group">
                 <label data-i18n="datalayer.direction">Direction</label>
-                <select id="dl-mapping-direction" class="form-control" onchange="updateTopicPrefix()"
+                <select id="datalayer-mapping-direction" class="form-control" onchange="updateTopicPrefix()"
                         style="padding:6px 10px; border:1px solid var(--c8y-palette-gray-60); border-radius:4px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10);">
                     <option value="dl_to_tedge" data-i18n="datalayer.dir_dl_to_tedge">Datalayer ➔ tedge (Read)</option>
                     <option value="tedge_to_dl" data-i18n="datalayer.dir_tedge_to_dl">tedge ➔ Datalayer (Write)</option>
@@ -446,11 +446,11 @@
             </div>
             <div class="form-group">
                 <label data-i18n="datalayer.transform">Transform</label>
-                <select id="datalayer-mapping-transform" class="form-control" onchange="updateTopicPrefix()" 
-                        style="padding:6px 10px; border:1px solid var(--c8y-palette-gray-60); border-radius:4px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10);">
-                    <option value="Measurement">Measurement</option>
-                    <option value="Event">Event</option>
-                    <option value="Alarm">Alarm</option>
+                <select id="datalayer-mapping-transform" class="form-control" onchange="updateTopicPrefix()">
+                    <option value="raw">Raw</option>
+                    <option value="measurement">Measurement</option>
+                    <option value="event">Event</option>
+                    <option value="alarm">Alarm</option>
                 </select>
             </div>
             <div class="form-group">
@@ -477,7 +477,7 @@
             <tr>
                 <th data-i18n="datalayer.path">Pfad</th>
                 <th data-i18n="datalayer.topic">Topic</th>
-                <th data-i18n="datalayer.col_direction">Richtung</th>
+                <th data-i18n="datalayer.direction">Richtung</th>
                 <th data-i18n="datalayer.transform">Typ</th>
                 <th data-i18n="datalayer.unit">Einheit</th>
                 <th data-i18n="datalayer.field">Feld</th>
