@@ -23,7 +23,7 @@ if command_exists rustc; then
 	fi
 else
 	echo "[i] Rust not found. Installing Rust toolchain..."
-	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.94
 	source "$HOME/.cargo/env"
 	if command_exists rustc; then
 		echo "[✓] Rust installed successfully: $(rustc --version)"
@@ -33,9 +33,9 @@ else
 fi
 
 if command_exists rustup; then
-	echo "[i] Setting Rust 1.85 as default..."
-	rustup default 1.85 || rustup install 1.85 && rustup default 1.85
-	echo "[✓] Rust 1.85 is active"
+	echo "[i] Setting Rust 1.94 as default..."
+	rustup default 1.94 || rustup install 1.94 && rustup default 1.94
+	echo "[✓] Rust 1.94 is active"
 fi
 
 echo "=============================================="

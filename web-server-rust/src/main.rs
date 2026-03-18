@@ -1,5 +1,5 @@
 use actix_files::Files;
-use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result};
+use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result, Responder};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -7,9 +7,13 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use tokio::sync::Mutex as TokioMutex;
 use std::time::Duration;
 use uuid::Uuid;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+pub mod datalayer;
+use crate::datalayer::{add_mapping_handler, delete_mapping_handler, DatalayerEngine, DatalayerMapping, MappingDirection,  MappingTransform, DatalayerConfig };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -176,6 +180,7 @@ struct AppState {
     config: Mutex<Config>,
     config_path: PathBuf,
     datalayer_config_path: PathBuf,
+    datalayer_engine: Arc<TokioMutex<DatalayerEngine>>,
 }
 
 impl AppState {
@@ -194,7 +199,7 @@ impl AppState {
         // Datalayer-Konfigurationsdatei mit Defaults anlegen, falls sie fehlt
         if !datalayer_config_path.exists() {
             info!("[INIT] Creating initial datalayer config at: {:?}", datalayer_config_path);
-            let default_dl = DatalayerConfig::default_internal();
+            let default_dl = DatalayerConfig::default();
             if let Some(parent) = datalayer_config_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
@@ -203,13 +208,16 @@ impl AppState {
                 Err(e) => warn!("[INIT] Failed to write datalayer config: {}", e),
             }
         }
-
+        let engine = DatalayerEngine::new(datalayer_config_path.clone());
         AppState {
-            config: Mutex::new(config),
+            config: std::sync::Mutex::new(config),
             config_path,
             datalayer_config_path,
+            datalayer_engine: Arc::new(tokio::sync::Mutex::new(engine)), // Initialisieren
         }
     }
+}
+    
 
     fn save_config_static(path: &PathBuf, config: &Config) -> io::Result<()> {
         if let Some(parent) = path.parent() {
@@ -275,71 +283,6 @@ impl AppState {
     }
 }
 
-// ── ctrlX Datalayer structs ───────────────────────────────────────────────────
-
-fn dl_default_true() -> bool { true }
-
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-enum MappingTransform {
-    Raw,
-    Measurement,
-    Event,
-    Alarm,
-}
-impl Default for MappingTransform {
-    fn default() -> Self { MappingTransform::Measurement }
-}
-
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatalayerMapping {
-    pub id: String,
-    #[serde(alias = "datalayer_path")]
-    pub path: String,
-    #[serde(alias = "tedge_topic")]
-    pub topic: String,
-    pub transform: String,
-    pub field_name: Option<String>,
-    pub unit: Option<String>,
-    #[serde(default = "dl_default_true")]
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct DatalayerConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(rename = "baseUrl", default)]
-    pub base_url: String,
-    #[serde(rename = "pollIntervalMs", default = "default_poll_interval")]
-    pub poll_interval_ms: u32,
-    #[serde(default)]
-    pub mappings: Vec<DatalayerMapping>,
-    pub username: Option<String>,
-    pub password: Option<String>,
-    #[serde(default)]
-    pub token: Option<String>,
-    // NEU: Dieses Feld hinzufügen
-    #[serde(rename = "acceptInvalidCerts", default)]
-    pub accept_invalid_certs: bool,
-}
-impl DatalayerConfig {
-    fn default_internal() -> Self {
-        Self {
-            enabled: false,
-            base_url: "https://localhost".to_string(),
-            poll_interval_ms: 5000,
-            mappings: vec![],
-            username: None,
-            password: None,
-            token: None,
-            accept_invalid_certs: true,
-        }
-    }
-}
 
 // Authentication and Authorization
 
@@ -2266,65 +2209,6 @@ struct AddMappingBody {
     pub unit: Option<String>,     // Wichtig: Option
 }
 
-/// POST /api/datalayer/mappings/add  — add one mapping, return its id
-async fn add_datalayer_mapping(
-    req: HttpRequest,
-    body: web::Json<AddMappingBody>,
-    data: web::Data<AppState>,
-) -> Result<HttpResponse> {
-    let (_user, role, _token) = extract_user_info(&req);
-    if !role.can_write() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
-    }
-
-    if body.datalayer_path.is_empty() || body.tedge_topic.is_empty() {
-        return Ok(HttpResponse::BadRequest()
-            .json(serde_json::json!({"error": "datalayer_path and tedge_topic required"})));
-    }
-
-    // Mapping-Objekt erstellen - NUR Felder nutzen, die in 'struct DatalayerMapping' stehen
-    let mapping = DatalayerMapping {
-        id: Uuid::new_v4().to_string(),
-        path: body.datalayer_path.clone(), // Mappt Browser 'datalayer_path' auf Struktur 'path'
-        topic: body.tedge_topic.clone(),   // Mappt Browser 'tedge_topic' auf Struktur 'topic'
-        transform: format!("{:?}", body.transform).to_lowercase(),
-        field_name: body.field_name.clone(),
-        unit: body.unit.clone(),
-        enabled: true,
-    };
-
-    let id = mapping.id.clone();
-    let mut cfg = data.load_datalayer_config();
-    cfg.mappings.push(mapping);
-
-    if let Err(e) = data.save_datalayer_config(&cfg) {
-        return Ok(HttpResponse::InternalServerError()
-            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
-    }
-    
-    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "id": id})))
-}
-
-/// DELETE /api/datalayer/mappings/{id}
-async fn delete_datalayer_mapping(
-    req: HttpRequest,
-    path: web::Path<MappingIdPath>,
-    data: web::Data<AppState>,
-) -> Result<HttpResponse> {
-    let (_user, role, _token) = extract_user_info(&req);
-    if !role.can_write() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
-    }
-    let mut cfg = data.load_datalayer_config();
-    let before = cfg.mappings.len();
-    cfg.mappings.retain(|m| m.id != path.id);
-    let removed = before - cfg.mappings.len();
-    if let Err(e) = data.save_datalayer_config(&cfg) {
-        return Ok(HttpResponse::InternalServerError()
-            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
-    }
-    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "removed": removed})))
-}
 
 #[derive(Debug, Deserialize)]
 struct BrowseQuery {
@@ -2548,8 +2432,9 @@ async fn main() -> io::Result<()> {
     info!("Config file: {:?}", config_path);
 
     let app_state = web::Data::new(AppState::new(config_path, datalayer_config_path));
-
-let server = HttpServer::new(move || {
+    
+    let server = HttpServer::new(move || {
+        
         App::new()
             .app_data(app_state.clone())
             .wrap(middleware::Logger::new("%a %r %s %b %T ms"))
@@ -2593,15 +2478,18 @@ let server = HttpServer::new(move || {
                             .route("/log-level", web::get().to(get_log_level))
                             .route("/log-level", web::post().to(set_log_level))
                             // Datalayer API
-                            .route("/datalayer/status", web::get().to(get_datalayer_status))
-                            .route("/datalayer/config", web::get().to(get_datalayer_config))
-                            .route("/datalayer/config", web::post().to(save_datalayer_config_handler))
-                            .route("/datalayer/mappings", web::get().to(get_datalayer_mappings))
-                            .route("/datalayer/mappings", web::post().to(save_datalayer_mappings))
-                            .route("/datalayer/mappings/add", web::post().to(add_datalayer_mapping))
-                            .route("/datalayer/mappings/{id}", web::delete().to(delete_datalayer_mapping))
-                            .route("/datalayer/browse", web::get().to(browse_datalayer))
-                            .route("/datalayer/node", web::get().to(read_datalayer_node))
+                            .service(
+                                web::scope("/datalayer")
+                                    .route("/status", web::get().to(get_datalayer_status))
+                                    .route("/config", web::get().to(get_datalayer_config))
+                                    .route("/config", web::post().to(save_datalayer_config_handler))
+                                    .route("/mappings", web::get().to(get_datalayer_mappings))
+                                    .route("/mappings", web::post().to(save_datalayer_mappings))
+                                    .route("/mappings/add", web::post().to(add_mapping_handler)) 
+                                    .route("/mappings/{id}", web::delete().to(delete_mapping_handler))
+                                    .route("/browse", web::get().to(browse_datalayer))
+                                    .route("/node", web::get().to(read_datalayer_node))
+                        )
                     )
                     // Login liegt unter /thin-edge-io/login
                     .route("/login", web::get().to(token_login))

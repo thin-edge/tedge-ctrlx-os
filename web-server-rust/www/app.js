@@ -1567,15 +1567,22 @@ function updateTopicPrefix() {
 /** 5. Neues Mapping speichern */
 async function saveNewMapping() {
     const body = {
-        datalayer_path: document.getElementById('datalayer-mapping-path').value.trim(),
-        tedge_topic:    document.getElementById('datalayer-mapping-topic').value.trim(),
-        direction:      document.getElementById('datalayer-mapping-direction').value, // NEU
-        transform:      document.getElementById('datalayer-mapping-transform').value,
-        field_name:     document.getElementById('datalayer-mapping-field').value.trim() || null,
-        unit:           document.getElementById('datalayer-mapping-unit').value.trim() || null
+        path:       document.getElementById('datalayer-mapping-path').value.trim(),
+        topic:      document.getElementById('datalayer-mapping-topic').value.trim(),
+        direction:  document.getElementById('datalayer-mapping-direction').value,
+        transform:  document.getElementById('datalayer-mapping-transform').value,
+        field_name: document.getElementById('datalayer-mapping-field').value.trim() || null,
+        unit:       document.getElementById('datalayer-mapping-unit').value.trim() || null
     };
+    console.log("Sende Mapping:", body); // Zum Debuggen im Browser
 
-    if (!body.datalayer_path || !body.tedge_topic) {
+    const response = await fetch('/api/datalayer/mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    if (!body.path || !body.topic) {
         showNotification(t('notify.dl_path_required'), 'warning');
         return;
     }
