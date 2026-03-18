@@ -27,3 +27,6 @@ version = "=0.3.36"
 [[bin]]
 name = "tedge-web-config"
 path = "src/main.rs"
+
+[features]
+mqtt = []

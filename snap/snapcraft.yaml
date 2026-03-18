@@ -533,11 +533,12 @@ parts:
 
   webserver:
     plugin: nil
-    source: ./web-server-rust
+    source: .
     build-packages:
       - pkg-config
       - gcc-aarch64-linux-gnu
     override-build: |
+      cd web-server-rust
       # Ensure cargo is in PATH
       export PATH="$HOME/.cargo/bin:$PATH"
       

@@ -17,3 +17,7 @@ uuid = { version = "1.11", features = ["v4"] }
 futures = "0.3.32"
 rumqttc = "0.24"
 actix-web = "4.0"
+
+[features]
+default = ["mqtt"]
+mqtt = []

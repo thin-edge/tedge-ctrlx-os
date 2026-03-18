@@ -7,12 +7,10 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use tokio::sync::Mutex as TokioMutex;
 use std::time::Duration;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+#[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerEngine, DatalayerMapping, MappingDirection, MappingTransform, DatalayerConfig};
+use crate::datalayer::{DatalayerMapping, DatalayerConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -179,7 +177,6 @@ struct AppState {
     config: std::sync::Mutex<Config>,
     config_path: PathBuf,
     datalayer_config_path: PathBuf,
-    datalayer_engine: Arc<TokioMutex<DatalayerEngine>>,
 }
 
 impl AppState {
@@ -187,6 +184,7 @@ impl AppState {
         info!("[INIT] Loading configuration from: {:?}", config_path);
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
+        
         // Lege initiale Default-Datei an, falls sie nicht existiert
         if !config_path.exists() {
             info!("[INIT] Creating initial default config at: {:?}", config_path);
@@ -207,16 +205,14 @@ impl AppState {
                 Err(e) => warn!("[INIT] Failed to write datalayer config: {}", e),
             }
         }
-        let engine = DatalayerEngine::new(datalayer_config_path.clone());
+      
+        
         AppState {
             config: std::sync::Mutex::new(config),
             config_path,
             datalayer_config_path,
-            datalayer_engine: Arc::new(tokio::sync::Mutex::new(engine)), // Initialisieren
         }
     }
-
-    
 
     fn save_config_static(path: &PathBuf, config: &Config) -> io::Result<()> {
         if let Some(parent) = path.parent() {
@@ -260,16 +256,15 @@ impl AppState {
     }
 
     fn load_datalayer_config(&self) -> DatalayerConfig {
-            let snap_data = std::env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-            // Pfad an deinen Snap anpassen (x4, x5 etc. war in deinen Logs zu sehen)
-            let path = std::path::PathBuf::from(snap_data).join("datalayer-mappings.json");
-            
-            if let Ok(content) = std::fs::read_to_string(path) {
-                serde_json::from_str(&content).unwrap_or_else(|_| DatalayerConfig::default_internal())
-            } else {
-                DatalayerConfig::default_internal()
-            }
+        let snap_data = std::env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+        let path = std::path::PathBuf::from(snap_data).join("datalayer-mappings.json");
+        
+        if let Ok(content) = std::fs::read_to_string(path) {
+            serde_json::from_str(&content).unwrap_or_else(|_| DatalayerConfig::default())
+        } else {
+            DatalayerConfig::default()
         }
+    }
 
     fn save_datalayer_config(&self, cfg: &DatalayerConfig) -> io::Result<()> {
         if let Some(parent) = self.datalayer_config_path.parent() {
@@ -280,6 +275,7 @@ impl AppState {
         info!("[DL-CONFIG] Datalayer config saved to {:?}", self.datalayer_config_path);
         Ok(())
     }
+}
 /// POST /api/datalayer/mappings/add  — Fügt ein einzelnes Mapping hinzu
 async fn add_datalayer_mapping(
     req: HttpRequest,
@@ -372,9 +368,7 @@ impl UserRole {
         matches!(self, UserRole::Admin)
     }
 }
-fn default_poll_interval() -> u32 { 
-    5000 
-}
+
 /// Strip http:// or https:// prefix — tedge config set expects domain only
 fn strip_url_scheme(url: &str) -> &str {
     if let Some(rest) = url.strip_prefix("https://") {
@@ -2172,9 +2166,6 @@ struct SaveDatalayerConfigBody {
 
 fn dl_default_true() -> bool { true }
 
-#[derive(Debug, Deserialize)]
-struct SaveDatalayerConfigBody {}
-
 
 /// POST /api/datalayer/config  — save connection settings
 async fn save_datalayer_config_handler(
@@ -2262,25 +2253,12 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
-#[derive(Debug, Deserialize)]
-struct AddMappingBody {
-    pub datalayer_path: String,
-    pub tedge_topic: String,
-    #[serde(default)]
-    pub transform: MappingTransform,
-    pub field_name: Option<String>,
-    pub unit: Option<String>,     // Wichtig: Option
-}
 
 
 #[derive(Debug, Deserialize)]
 struct BrowseQuery {
     #[serde(default)]
     path: String,
-}
-#[derive(Debug, Deserialize)]
-struct MappingIdPath {
-    pub id: String,
 }
 /// GET /api/datalayer/browse?path=...  — proxy browse request to ctrlX Datalayer REST
 async fn browse_datalayer(

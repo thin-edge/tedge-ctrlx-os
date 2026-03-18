@@ -1,4 +1,5 @@
 use log::{info, warn};
+#[cfg(feature = "mqtt")]
 use paho_mqtt as mqtt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -6,8 +7,11 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+#[cfg(feature = "mqtt")]
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "mqtt")]
 use std::sync::Arc;
+#[cfg(feature = "mqtt")]
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -194,7 +198,7 @@ impl DatalayerEngine {
 }
 
 // --- Loops & Handler ---
-
+#[cfg(feature = "mqtt")]
 pub async fn run_datalayer_loop(mut engine: DatalayerEngine, mqtt_client: Arc<tokio::sync::Mutex<Option<mqtt::AsyncClient>>>, shutdown: Arc<AtomicBool>) {
     info!("[DATALAYER] Loop started");
     while !shutdown.load(Ordering::Relaxed) {
@@ -209,7 +213,7 @@ pub async fn run_datalayer_loop(mut engine: DatalayerEngine, mqtt_client: Arc<to
         tokio::time::sleep(Duration::from_millis(engine.config().poll_interval_ms as u64)).await;
     }
 }
-
+#[cfg(feature = "mqtt")]
 pub async fn handle_mqtt_message(msg: &mqtt::Message, config: &DatalayerConfig, http_client: &Client) {
     let topic = msg.topic();
     if let Some(m) = config.mappings.iter().find(|m| m.topic == topic && m.direction == MappingDirection::TedgeToDatalayer && m.enabled) {
