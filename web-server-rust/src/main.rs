@@ -1,5 +1,5 @@
 use actix_files::Files;
-use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result, Responder};
+use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -9,11 +9,10 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use tokio::sync::Mutex as TokioMutex;
 use std::time::Duration;
-use uuid::Uuid;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 pub mod datalayer;
-use crate::datalayer::{add_mapping_handler, delete_mapping_handler, DatalayerEngine, DatalayerMapping, MappingDirection,  MappingTransform, DatalayerConfig };
+use crate::datalayer::{DatalayerEngine, DatalayerMapping, MappingDirection, MappingTransform, DatalayerConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -177,7 +176,7 @@ struct SetDeviceIdRequest {
 }
 
 struct AppState {
-    config: Mutex<Config>,
+    config: std::sync::Mutex<Config>,
     config_path: PathBuf,
     datalayer_config_path: PathBuf,
     datalayer_engine: Arc<TokioMutex<DatalayerEngine>>,
@@ -216,7 +215,7 @@ impl AppState {
             datalayer_engine: Arc::new(tokio::sync::Mutex::new(engine)), // Initialisieren
         }
     }
-}
+
     
 
     fn save_config_static(path: &PathBuf, config: &Config) -> io::Result<()> {
@@ -281,6 +280,64 @@ impl AppState {
         info!("[DL-CONFIG] Datalayer config saved to {:?}", self.datalayer_config_path);
         Ok(())
     }
+/// POST /api/datalayer/mappings/add  — Fügt ein einzelnes Mapping hinzu
+async fn add_datalayer_mapping(
+    req: HttpRequest,
+    body: web::Json<DatalayerMapping>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+
+    let mut new_mapping = body.into_inner();
+    
+    // UUID generieren, falls noch keine da ist
+    if new_mapping.id.is_empty() {
+        new_mapping.id = uuid::Uuid::new_v4().to_string();
+    }
+
+    // Config laden, Mapping hinzufügen, Config speichern
+    let mut cfg = data.load_datalayer_config();
+    cfg.mappings.push(new_mapping.clone());
+
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+
+    info!("[DL-CONFIG] Neues Mapping hinzugefügt: {}", new_mapping.id);
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "mapping": new_mapping})))
+}
+
+/// DELETE /api/datalayer/mappings/{id}  — Löscht ein einzelnes Mapping
+async fn delete_datalayer_mapping(
+    req: HttpRequest,
+    path: web::Path<String>, // Die ID kommt aus der URL
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+
+    let id_to_delete = path.into_inner();
+    let mut cfg = data.load_datalayer_config();
+    
+    let initial_len = cfg.mappings.len();
+    cfg.mappings.retain(|m| m.id != id_to_delete);
+
+    // Nur speichern, wenn wirklich etwas gelöscht wurde
+    if cfg.mappings.len() < initial_len {
+        if let Err(e) = data.save_datalayer_config(&cfg) {
+            return Ok(HttpResponse::InternalServerError()
+                .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+        }
+        info!("[DL-CONFIG] Mapping gelöscht: {}", id_to_delete);
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
 }
 
 
@@ -2113,6 +2170,12 @@ struct SaveDatalayerConfigBody {
     pub accept_invalid_certs: bool,
 }
 
+fn dl_default_true() -> bool { true }
+
+#[derive(Debug, Deserialize)]
+struct SaveDatalayerConfigBody {}
+
+
 /// POST /api/datalayer/config  — save connection settings
 async fn save_datalayer_config_handler(
     req: HttpRequest,
@@ -2485,8 +2548,8 @@ async fn main() -> io::Result<()> {
                                     .route("/config", web::post().to(save_datalayer_config_handler))
                                     .route("/mappings", web::get().to(get_datalayer_mappings))
                                     .route("/mappings", web::post().to(save_datalayer_mappings))
-                                    .route("/mappings/add", web::post().to(add_mapping_handler)) 
-                                    .route("/mappings/{id}", web::delete().to(delete_mapping_handler))
+                                    .route("/mappings/add", web::post().to(add_datalayer_mapping)) 
+                                    .route("/mappings/{id}", web::delete().to(delete_datalayer_mapping))
                                     .route("/browse", web::get().to(browse_datalayer))
                                     .route("/node", web::get().to(read_datalayer_node))
                         )

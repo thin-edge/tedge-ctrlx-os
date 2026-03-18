@@ -1,4 +1,3 @@
-use anyhow::Result;
 use log::{info, warn};
 use paho_mqtt as mqtt;
 use reqwest::Client;
@@ -10,8 +9,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use actix_web::{web, HttpResponse, Responder}; 
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
 // --- Config Structs ---
@@ -129,36 +126,6 @@ impl DatalayerEngine {
     pub fn is_enabled(&self) -> bool { self.config.enabled && !self.config.base_url.is_empty() }
     pub fn config(&self) -> &DatalayerConfig { &self.config }
 
-
-    pub fn save_config(&self) -> Result<()> { 
-            let json = serde_json::to_string_pretty(&self.config)?;
-            fs::write(&self.config_path, json)?;
-            info!("[DATALAYER] Konfiguration gespeichert: {:?}", self.config_path);
-            Ok(())
-        }
-
-    /// Fügt ein neues Mapping hinzu und vergibt eine ID, falls diese fehlt
-    pub fn add_mapping(&mut self, mut new_mapping: DatalayerMapping) -> Result<()> {
-        if new_mapping.id.is_empty() {
-            new_mapping.id = uuid::Uuid::new_v4().to_string();
-        }
-
-        info!("[DATALAYER] Mapping hinzugefügt: {}", new_mapping.id);
-        self.config.mappings.push(new_mapping);
-        self.save_config()?;
-        Ok(())
-    }
-    pub fn delete_mapping(&mut self, id: &str) -> Result<()> {
-        let initial_len = self.config.mappings.len();
-        self.config.mappings.retain(|m| m.id != id);
-        
-        if self.config.mappings.len() < initial_len {
-            info!("[DATALAYER] Mapping gelöscht: {}", id);
-            self.save_config()?;
-        }
-        Ok(())
-    }
-
     pub async fn fetch_token(&mut self) -> bool {
         let user = match &self.config.username { Some(u) if !u.is_empty() => u, _ => return false };
         let pass = self.config.password.as_deref().unwrap_or("");
@@ -251,28 +218,5 @@ pub async fn handle_mqtt_message(msg: &mqtt::Message, config: &DatalayerConfig, 
         let token = config.token.clone().or(config.token.clone()).unwrap_or_default();
         if !token.is_empty() { req = req.bearer_auth(token); }
         let _ = req.send().await;
-    }
-}
-pub async fn add_mapping_handler(
-    engine: web::Data<Arc<Mutex<DatalayerEngine>>>,
-    new_mapping: web::Json<DatalayerMapping>,
-) -> impl Responder {
-    let mut engine = engine.lock().await;
-    
-    match engine.add_mapping(new_mapping.into_inner()) {
-        Ok(_) => HttpResponse::Created().json("Mapping gespeichert"),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
-    }
-}
-
-pub async fn delete_mapping_handler(
-    engine: web::Data<Arc<Mutex<DatalayerEngine>>>,
-    id: web::Path<String>, // web::Path benutzen
-) -> impl Responder {
-    let mut engine = engine.lock().await;
-    
-    match engine.delete_mapping(&id.into_inner()) {
-        Ok(_) => HttpResponse::Ok().json("Mapping gelöscht"),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
     }
 }
