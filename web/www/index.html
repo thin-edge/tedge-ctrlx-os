@@ -413,9 +413,11 @@
     </details>
 
 <div id="datalayer-mapping-section" class="card-inner-block" style="display:none; border-radius: 6px; padding: 20px; margin-top: 20px; background: rgba(83, 205, 97, 0.03);">
+    <input type="hidden" id="datalayer-mapping-id" value="">
+    
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:15px; color:var(--brand-primary);">
         <span style="font-size:18px;">⊕</span>
-        <strong style="text-transform:uppercase; font-size:12px; letter-spacing:1px;">Mapping hinzufügen</strong>
+        <strong id="mapping-form-title" data-i18n="datalayer.add_mapping_title" style="text-transform:uppercase; font-size:12px; letter-spacing:1px;">Mapping hinzufügen</strong>
     </div>
     
     <div class="status-columns">
@@ -479,8 +481,6 @@
                 <th data-i18n="datalayer.topic">Topic</th>
                 <th data-i18n="datalayer.direction">Richtung</th>
                 <th data-i18n="datalayer.transform">Typ</th>
-                <th data-i18n="datalayer.unit">Einheit</th>
-                <th data-i18n="datalayer.field">Feld</th>
                 <th class="text-center" data-i18n="datalayer.enabled">Aktiv</th>
                 <th></th> </tr>
         </thead>

@@ -121,9 +121,21 @@ impl DatalayerEngine {
     }
 
     pub fn load_config(path: &PathBuf) -> DatalayerConfig {
-        fs::read_to_string(path).ok()
-            .and_then(|c| serde_json::from_str(&c).ok())
-            .unwrap_or_default()
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                match serde_json::from_str(&content) {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        log::error!("[DATALAYER]  JSON Parse-Fehler in Config: {}", e);
+                        DatalayerConfig::default()
+                    }
+                }
+            }
+            Err(e) => {
+                log::warn!("[DATALAYER] Konnte Config nicht lesen: {}", e);
+                DatalayerConfig::default()
+            }
+        }
     }
 
     pub fn reload_config(&mut self) { self.config = Self::load_config(&self.config_path); }

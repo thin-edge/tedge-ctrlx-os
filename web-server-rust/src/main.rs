@@ -255,14 +255,26 @@ impl AppState {
         Ok(())
     }
 
-    fn load_datalayer_config(&self) -> DatalayerConfig {
-        let snap_data = std::env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-        let path = std::path::PathBuf::from(snap_data).join("datalayer-mappings.json");
+fn load_datalayer_config(&self) -> DatalayerConfig {
+        info!("[DL-CONFIG] Versuche Konfiguration zu lesen von: {:?}", self.datalayer_config_path);
         
-        if let Ok(content) = std::fs::read_to_string(path) {
-            serde_json::from_str(&content).unwrap_or_else(|_| DatalayerConfig::default())
-        } else {
-            DatalayerConfig::default()
+        match std::fs::read_to_string(&self.datalayer_config_path) {
+            Ok(content) => {
+                match serde_json::from_str::<DatalayerConfig>(&content) {
+                    Ok(cfg) => {
+                        info!("[DL-CONFIG] Erfolgreich geladen: {} Mappings aktiv.", cfg.mappings.len());
+                        cfg
+                    },
+                    Err(e) => {
+                        error!("[DL-CONFIG] JSON PARSE-FEHLER in Zeile {}, Spalte {}: {}", e.line(), e.column(), e);
+                        DatalayerConfig::default()
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("[DL-CONFIG] Konnte datalayer-mappings.json nicht lesen: {}", e);
+                DatalayerConfig::default()
+            }
         }
     }
 
@@ -2225,6 +2237,29 @@ async fn get_datalayer_mappings(req: HttpRequest, data: web::Data<AppState>) -> 
     Ok(HttpResponse::Ok().json(serde_json::json!({"mappings": cfg.mappings})))
 }
 
+/// GET /api/datalayer/raw-config  — Lädt die JSON-Datei als rohen Text (für Debugging)
+async fn get_raw_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    
+    // Wir lesen die Datei einfach nur als String und schicken sie direkt zurück, 
+    // OHNE sie durch den serde_json Parser zu jagen!
+    match std::fs::read_to_string(&data.datalayer_config_path) {
+        Ok(content) => {
+            Ok(HttpResponse::Ok()
+                .content_type("application/json") // Sagt dem Browser, dass es JSON ist
+                .body(content))
+        },
+        Err(e) => {
+            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": format!("Konnte datalayer-mappings.json nicht von der Festplatte lesen: {}", e)
+            })))
+        }
+    }
+}
+
 /// POST /api/datalayer/mappings  — replace all mappings
 async fn save_datalayer_mappings(
     req: HttpRequest,
@@ -2524,6 +2559,7 @@ async fn main() -> io::Result<()> {
                                     .route("/status", web::get().to(get_datalayer_status))
                                     .route("/config", web::get().to(get_datalayer_config))
                                     .route("/config", web::post().to(save_datalayer_config_handler))
+                                    .route("/raw-config", web::get().to(get_raw_datalayer_config))
                                     .route("/mappings", web::get().to(get_datalayer_mappings))
                                     .route("/mappings", web::post().to(save_datalayer_mappings))
                                     .route("/mappings/add", web::post().to(add_datalayer_mapping)) 
