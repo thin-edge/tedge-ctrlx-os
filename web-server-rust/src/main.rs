@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerMapping, DatalayerConfig};
+use crate::datalayer::{DatalayerConfig, DatalayerMapping};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -115,16 +115,16 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
     let bridge_name = match cloud {
         "c8y" => "edge_to_c8y",
         "aws" => "edge_to_aws",
-        "az"  => "edge_to_az",
-        _     => return "unknown",
+        "az" => "edge_to_az",
+        _ => return "unknown",
     };
 
     // mapper service name (used both as fallback and as proxy for bridge state)
     let mapper_svc = match cloud {
         "c8y" => "thin-edge-io.tedge-mapper-c8y",
         "aws" => "thin-edge-io.tedge-mapper-aws",
-        "az"  => "thin-edge-io.tedge-mapper-az",
-        _     => return "unknown",
+        "az" => "thin-edge-io.tedge-mapper-az",
+        _ => return "unknown",
     };
 
     // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state.
@@ -135,11 +135,23 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(4),
             tokio::process::Command::new(&sub_bin)
-                .args(["-h", "127.0.0.1", "-p", "1883", "-t", &topic, "-C", "1", "-W", "3"])
+                .args([
+                    "-h",
+                    "127.0.0.1",
+                    "-p",
+                    "1883",
+                    "-t",
+                    &topic,
+                    "-C",
+                    "1",
+                    "-W",
+                    "3",
+                ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
                 .output(),
-        ).await;
+        )
+        .await;
 
         match result {
             Ok(Ok(out)) if !out.stdout.is_empty() => match out.stdout.first() {
@@ -155,7 +167,10 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
 
     // Step 3: fallback — use mapper snapctl status as proxy.
     // bridge.conf exists → tedge connect was run. Active mapper ≈ bridge is up.
-    match std::process::Command::new("snapctl").args(["services", mapper_svc]).output() {
+    match std::process::Command::new("snapctl")
+        .args(["services", mapper_svc])
+        .output()
+    {
         Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
         _ => "stopped",
     }
@@ -184,10 +199,13 @@ impl AppState {
         info!("[INIT] Loading configuration from: {:?}", config_path);
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
-        
+
         // Lege initiale Default-Datei an, falls sie nicht existiert
         if !config_path.exists() {
-            info!("[INIT] Creating initial default config at: {:?}", config_path);
+            info!(
+                "[INIT] Creating initial default config at: {:?}",
+                config_path
+            );
             if let Err(e) = Self::save_config_static(&config_path, &config) {
                 warn!("[INIT] Failed to write initial config file: {}", e);
             }
@@ -195,18 +213,23 @@ impl AppState {
 
         // Datalayer-Konfigurationsdatei mit Defaults anlegen, falls sie fehlt
         if !datalayer_config_path.exists() {
-            info!("[INIT] Creating initial datalayer config at: {:?}", datalayer_config_path);
+            info!(
+                "[INIT] Creating initial datalayer config at: {:?}",
+                datalayer_config_path
+            );
             let default_dl = DatalayerConfig::default();
             if let Some(parent) = datalayer_config_path.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            match std::fs::write(&datalayer_config_path, serde_json::to_string_pretty(&default_dl).unwrap()) {
+            match std::fs::write(
+                &datalayer_config_path,
+                serde_json::to_string_pretty(&default_dl).unwrap(),
+            ) {
                 Ok(_) => info!("[INIT] Datalayer config written with defaults."),
                 Err(e) => warn!("[INIT] Failed to write datalayer config: {}", e),
             }
         }
-      
-        
+
         AppState {
             config: std::sync::Mutex::new(config),
             config_path,
@@ -226,7 +249,10 @@ impl AppState {
     fn load_config(path: &PathBuf) -> Config {
         info!("[CONFIG-LOAD] Attempting to load config from: {:?}", path);
         if let Ok(content) = fs::read_to_string(path) {
-            info!("[CONFIG-LOAD] File read successfully, size: {} bytes", content.len());
+            info!(
+                "[CONFIG-LOAD] File read successfully, size: {} bytes",
+                content.len()
+            );
             if let Ok(config) = serde_json::from_str(&content) {
                 info!("[CONFIG-LOAD] Config parsed successfully");
                 return config;
@@ -240,39 +266,59 @@ impl AppState {
     }
 
     fn save_config(&self, config: &Config) -> io::Result<()> {
-        info!("[CONFIG-SAVE] Saving configuration to: {:?}", self.config_path);
-        info!("[CONFIG-SAVE] Device ID: {}, Name: {}, Type: {}", config.device.id, config.device.name, config.device.device_type);
-        info!("[CONFIG-SAVE] C8y enabled: {}, AWS enabled: {}, Azure enabled: {}", 
-              config.c8y.enabled, config.aws.enabled, config.az.enabled);
-        
+        info!(
+            "[CONFIG-SAVE] Saving configuration to: {:?}",
+            self.config_path
+        );
+        info!(
+            "[CONFIG-SAVE] Device ID: {}, Name: {}, Type: {}",
+            config.device.id, config.device.name, config.device.device_type
+        );
+        info!(
+            "[CONFIG-SAVE] C8y enabled: {}, AWS enabled: {}, Azure enabled: {}",
+            config.c8y.enabled, config.aws.enabled, config.az.enabled
+        );
+
         if let Some(parent) = self.config_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(config)?;
         fs::write(&self.config_path, json)?;
-        
+
         info!("[CONFIG-SAVE] Configuration saved successfully");
         Ok(())
     }
 
-fn load_datalayer_config(&self) -> DatalayerConfig {
-        info!("[DL-CONFIG] Versuche Konfiguration zu lesen von: {:?}", self.datalayer_config_path);
-        
+    fn load_datalayer_config(&self) -> DatalayerConfig {
+        info!(
+            "[DL-CONFIG] Versuche Konfiguration zu lesen von: {:?}",
+            self.datalayer_config_path
+        );
+
         match std::fs::read_to_string(&self.datalayer_config_path) {
-            Ok(content) => {
-                match serde_json::from_str::<DatalayerConfig>(&content) {
-                    Ok(cfg) => {
-                        info!("[DL-CONFIG] Erfolgreich geladen: {} Mappings aktiv.", cfg.mappings.len());
-                        cfg
-                    },
-                    Err(e) => {
-                        error!("[DL-CONFIG] JSON PARSE-FEHLER in Zeile {}, Spalte {}: {}", e.line(), e.column(), e);
-                        DatalayerConfig::default()
-                    }
+            Ok(content) => match serde_json::from_str::<DatalayerConfig>(&content) {
+                Ok(cfg) => {
+                    info!(
+                        "[DL-CONFIG] Erfolgreich geladen: {} Mappings aktiv.",
+                        cfg.mappings.len()
+                    );
+                    cfg
                 }
-            }
+                Err(e) => {
+                    error!(
+                        "[DL-CONFIG] JSON PARSE-FEHLER in Zeile {}, Spalte {}: {}",
+                        e.line(),
+                        e.column(),
+                        e
+                    );
+                    DatalayerConfig::default()
+                }
+            },
             Err(e) => {
-                warn!("[DL-CONFIG] Konnte datalayer-mappings.json nicht lesen: {}", e);
+                warn!(
+                    "[DL-CONFIG] Konnte datalayer-mappings.json nicht lesen: {}",
+                    e
+                );
                 DatalayerConfig::default()
             }
         }
@@ -284,7 +330,10 @@ fn load_datalayer_config(&self) -> DatalayerConfig {
         }
         let json = serde_json::to_string_pretty(cfg)?;
         fs::write(&self.datalayer_config_path, json)?;
-        info!("[DL-CONFIG] Datalayer config saved to {:?}", self.datalayer_config_path);
+        info!(
+            "[DL-CONFIG] Datalayer config saved to {:?}",
+            self.datalayer_config_path
+        );
         Ok(())
     }
 }
@@ -300,7 +349,7 @@ async fn add_datalayer_mapping(
     }
 
     let mut new_mapping = body.into_inner();
-    
+
     // UUID generieren, falls noch keine da ist
     if new_mapping.id.is_empty() {
         new_mapping.id = uuid::Uuid::new_v4().to_string();
@@ -332,7 +381,7 @@ async fn delete_datalayer_mapping(
 
     let id_to_delete = path.into_inner();
     let mut cfg = data.load_datalayer_config();
-    
+
     let initial_len = cfg.mappings.len();
     cfg.mappings.retain(|m| m.id != id_to_delete);
 
@@ -347,7 +396,6 @@ async fn delete_datalayer_mapping(
 
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
 }
-
 
 // Authentication and Authorization
 
@@ -394,7 +442,8 @@ fn strip_url_scheme(url: &str) -> &str {
 // Rückgabetyp auf 3 Werte ändern: (User, Rolle, Token)
 fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<String>) {
     // Prüfe erst X-Auth-Token (von Caddy), dann den Standard Authorization Header
-    let token = req.headers()
+    let token = req
+        .headers()
         .get("X-Auth-Token")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.replace("Bearer ", ""))
@@ -406,13 +455,19 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<Str
                 .map(|s| s.to_string())
         });
 
-    let user = req.headers().get("X-WEBAUTH-USER").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
-    let webauth_role = req.headers().get("X-WEBAUTH-ROLE").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let user = req
+        .headers()
+        .get("X-WEBAUTH-USER")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let webauth_role = req
+        .headers()
+        .get("X-WEBAUTH-ROLE")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
     let via_proxy = req.headers().contains_key("x-forwarded-proto");
 
-    let role = if !via_proxy {
-        UserRole::Admin
-    } else if webauth_role.is_empty() || webauth_role == "None" {
+    let role = if !via_proxy || webauth_role.is_empty() || webauth_role == "None" {
         UserRole::Admin
     } else {
         UserRole::from_header(webauth_role)
@@ -421,7 +476,7 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<Str
     // WICHTIG: Hier sehen wir im Log, ob es jetzt klappt
     if let Some(ref t) = token {
         if !t.is_empty() {
-             info!("✓ Token erfolgreich extrahiert (Länge: {} Bytes)", t.len());
+            info!("✓ Token erfolgreich extrahiert (Länge: {} Bytes)", t.len());
         }
     }
 
@@ -432,15 +487,15 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<Str
 
 async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "error": "Insufficient permissions"
         })));
     }
-    
+
     let is_snap = env::var("SNAP").is_ok();
-    
+
     let mut status = ServiceStatus {
         mosquitto: "unknown".to_string(),
         agent: "unknown".to_string(),
@@ -488,8 +543,8 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         status.mosquitto = check_process("mosquitto").to_string();
         status.agent = check_process("tedge-agent").to_string();
         status.bridge = check_process("tedge-datalayer").to_string(); // /proc/comm truncates to 15 chars
-        // watchdog-wrapper.sh is a bash script → /proc/comm shows "bash", not "tedge-watchdog"
-        // Use snapctl services to reliably detect the running state instead
+                                                                      // watchdog-wrapper.sh is a bash script → /proc/comm shows "bash", not "tedge-watchdog"
+                                                                      // Use snapctl services to reliably detect the running state instead
         status.watchdog = {
             let out = std::process::Command::new("snapctl")
                 .args(["services", "thin-edge-io.tedge-watchdog"])
@@ -498,20 +553,24 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
                 Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
                 _ => "inactive",
             }
-        }.to_string();
+        }
+        .to_string();
 
         // Mapper process checks via snapctl (column 2)
         // /proc/comm truncates to 15 chars: "tedge-mapper-c8y" → "tedge-mapper-c8" → check_process fails
         let check_snapctl = |svc: &str| -> &'static str {
             let full = format!("thin-edge-io.{}", svc);
-            match std::process::Command::new("snapctl").args(["services", &full]).output() {
+            match std::process::Command::new("snapctl")
+                .args(["services", &full])
+                .output()
+            {
                 Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
                 _ => "stopped",
             }
         };
         status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
         status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
-        status.mapper_az  = check_snapctl("tedge-mapper-az").to_string();
+        status.mapper_az = check_snapctl("tedge-mapper-az").to_string();
 
         // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)
         // Uses mosquitto_sub; runs all 3 in parallel to avoid cumulative timeout
@@ -522,19 +581,25 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         let (c8y_conn, aws_conn, az_conn) = tokio::join!(
             check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "c8y"),
             check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "aws"),
-            check_bridge_state(sub_bin,          snap_data_dir,         "az"),
+            check_bridge_state(sub_bin, snap_data_dir, "az"),
         );
         status.c8y = c8y_conn.to_string();
         status.aws = aws_conn.to_string();
-        status.az  = az_conn.to_string();
+        status.az = az_conn.to_string();
 
         // Auto-record cert upload when c8y bridge is running (cert was accepted by C8y = it's trusted)
         if c8y_conn == "running" {
             let mut config = data.config.lock().unwrap();
-            if config.cert_upload.as_ref().map(|u| !u.uploaded).unwrap_or(true) {
+            if config
+                .cert_upload
+                .as_ref()
+                .map(|u| !u.uploaded)
+                .unwrap_or(true)
+            {
                 let ts = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs()).unwrap_or(0);
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
                 config.cert_upload = Some(CertUploadStatus {
                     uploaded: true,
                     timestamp: Some(ts.to_string()),
@@ -568,13 +633,13 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
 async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "error": "Insufficient permissions"
         })));
     }
-    
+
     let config = data.config.lock().unwrap();
     Ok(HttpResponse::Ok().json(config.clone()))
 }
@@ -585,16 +650,16 @@ async fn save_c8y_config(
     cloud_config: web::Json<C8yConfig>,
 ) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
             "error": "Insufficient permissions - write access required"
         })));
     }
-    
+
     let cloud = cloud_config.into_inner();
-    
+
     // Apply configuration to thin-edge.io using tedge config set
     let is_snap = env::var("SNAP").is_ok();
     let tedge_bin = if is_snap {
@@ -603,23 +668,30 @@ async fn save_c8y_config(
     } else {
         "tedge".to_string()
     };
-    
+
     let tedge_config_dir = if is_snap {
         let snap_data = env::var("SNAP_DATA").unwrap_or_default();
         format!("{}/tedge", snap_data)
     } else {
         "/etc/tedge".to_string()
     };
-    
+
     // Set c8y.url if provided
     if let Some(url) = &cloud.url {
         if !url.is_empty() {
             let domain = strip_url_scheme(url);
             info!("Setting c8y.url to: {}", domain);
             let output = Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "config", "set", "c8y.url", domain])
+                .args([
+                    "--config-dir",
+                    &tedge_config_dir,
+                    "config",
+                    "set",
+                    "c8y.url",
+                    domain,
+                ])
                 .output();
-            
+
             match output {
                 Ok(result) if result.status.success() => {
                     info!("Successfully set c8y.url");
@@ -642,11 +714,11 @@ async fn save_c8y_config(
             }
         }
     }
-    
+
     // Save to local JSON config
     let mut config = data.config.lock().unwrap();
     config.c8y = cloud;
-    
+
     if let Err(e) = data.save_config(&config) {
         error!("Failed to save C8y config to JSON: {}", e);
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -654,7 +726,7 @@ async fn save_c8y_config(
             "error": format!("Failed to save configuration: {}", e)
         })));
     }
-    
+
     info!("Cumulocity configuration saved successfully");
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
@@ -668,16 +740,16 @@ async fn save_aws_config(
     cloud_config: web::Json<AwsConfig>,
 ) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
             "error": "Insufficient permissions - write access required"
         })));
     }
-    
+
     let cloud = cloud_config.into_inner();
-    
+
     // Apply configuration to thin-edge.io using tedge config set
     let is_snap = env::var("SNAP").is_ok();
     let tedge_bin = if is_snap {
@@ -686,23 +758,30 @@ async fn save_aws_config(
     } else {
         "tedge".to_string()
     };
-    
+
     let tedge_config_dir = if is_snap {
         let snap_data = env::var("SNAP_DATA").unwrap_or_default();
         format!("{}/tedge", snap_data)
     } else {
         "/etc/tedge".to_string()
     };
-    
+
     // Set aws.url if url is provided
     if let Some(endpoint) = &cloud.url {
         if !endpoint.is_empty() {
             let domain = strip_url_scheme(endpoint);
             info!("Setting aws.url to: {}", domain);
             let output = Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "config", "set", "aws.url", domain])
+                .args([
+                    "--config-dir",
+                    &tedge_config_dir,
+                    "config",
+                    "set",
+                    "aws.url",
+                    domain,
+                ])
                 .output();
-            
+
             match output {
                 Ok(result) if result.status.success() => {
                     info!("Successfully set aws.url");
@@ -725,11 +804,11 @@ async fn save_aws_config(
             }
         }
     }
-    
+
     // Save to local JSON config
     let mut config = data.config.lock().unwrap();
     config.aws = cloud;
-    
+
     if let Err(e) = data.save_config(&config) {
         error!("Failed to save AWS config to JSON: {}", e);
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -737,7 +816,7 @@ async fn save_aws_config(
             "error": format!("Failed to save configuration: {}", e)
         })));
     }
-    
+
     info!("AWS configuration saved successfully");
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
@@ -751,16 +830,16 @@ async fn save_az_config(
     cloud_config: web::Json<AzConfig>,
 ) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
             "error": "Insufficient permissions - write access required"
         })));
     }
-    
+
     let cloud = cloud_config.into_inner();
-    
+
     // Apply configuration to thin-edge.io using tedge config set
     let is_snap = env::var("SNAP").is_ok();
     let tedge_bin = if is_snap {
@@ -769,23 +848,30 @@ async fn save_az_config(
     } else {
         "tedge".to_string()
     };
-    
+
     let tedge_config_dir = if is_snap {
         let snap_data = env::var("SNAP_DATA").unwrap_or_default();
         format!("{}/tedge", snap_data)
     } else {
         "/etc/tedge".to_string()
     };
-    
+
     // Set az.url if url is provided
     if let Some(hub) = &cloud.url {
         if !hub.is_empty() {
             let domain = strip_url_scheme(hub);
             info!("Setting az.url to: {}", domain);
             let output = Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "config", "set", "az.url", domain])
+                .args([
+                    "--config-dir",
+                    &tedge_config_dir,
+                    "config",
+                    "set",
+                    "az.url",
+                    domain,
+                ])
                 .output();
-            
+
             match output {
                 Ok(result) if result.status.success() => {
                     info!("Successfully set az.url");
@@ -808,11 +894,11 @@ async fn save_az_config(
             }
         }
     }
-    
+
     // Save to local JSON config
     let mut config = data.config.lock().unwrap();
     config.az = cloud;
-    
+
     if let Err(e) = data.save_config(&config) {
         error!("Failed to save Azure config to JSON: {}", e);
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -820,7 +906,7 @@ async fn save_az_config(
             "error": format!("Failed to save configuration: {}", e)
         })));
     }
-    
+
     info!("Azure configuration saved successfully");
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
@@ -834,9 +920,12 @@ async fn save_device_config(
     device_config: web::Json<DeviceConfig>,
 ) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    
-    info!("[CONFIG] Device config update by user: {:?}, role: {:?}", user, role);
-    
+
+    info!(
+        "[CONFIG] Device config update by user: {:?}, role: {:?}",
+        user, role
+    );
+
     if !role.can_execute() {
         warn!("[CONFIG] Access denied - admin permissions required");
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -844,13 +933,16 @@ async fn save_device_config(
             "error": "Insufficient permissions - admin access required"
         })));
     }
-    
+
     let new_config = device_config.into_inner();
-    info!("[CONFIG] New device ID: {}, Type: {}", new_config.id, new_config.device_type);
-    
+    info!(
+        "[CONFIG] New device ID: {}, Type: {}",
+        new_config.id, new_config.device_type
+    );
+
     let mut config = data.config.lock().unwrap();
     config.device = new_config;
-    
+
     if let Err(e) = data.save_config(&config) {
         error!("[CONFIG] Failed to save device config: {}", e);
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
@@ -858,7 +950,7 @@ async fn save_device_config(
             "error": format!("Failed to save configuration: {}", e)
         })));
     }
-    
+
     info!("[CONFIG] Device configuration saved successfully");
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true
@@ -867,9 +959,12 @@ async fn save_device_config(
 
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    
-    info!("[RESTART] Service restart requested by user: {:?}, role: {:?}", user, role);
-    
+
+    info!(
+        "[RESTART] Service restart requested by user: {:?}, role: {:?}",
+        user, role
+    );
+
     if !role.can_execute() {
         warn!("[RESTART] Access denied - insufficient permissions");
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -877,9 +972,9 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
             "error": "Insufficient permissions - admin access required"
         })));
     }
-    
+
     let is_snap = env::var("SNAP").is_ok();
-    
+
     if !is_snap {
         warn!("[RESTART] Not in snap environment, cannot restart services");
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -896,11 +991,14 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
         "tedge-watchdog",
     ];
 
-    info!("[RESTART] Restarting {} thin-edge.io services...", services.len());
+    info!(
+        "[RESTART] Restarting {} thin-edge.io services...",
+        services.len()
+    );
     for service in &services {
         info!("[RESTART]   - Restarting {}", service);
         match std::process::Command::new("snapctl")
-            .args(&["restart", &format!("thin-edge-io.{}", service)])
+            .args(["restart", &format!("thin-edge-io.{}", service)])
             .output()
         {
             Ok(output) => {
@@ -912,7 +1010,10 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
                 }
             }
             Err(e) => {
-                error!("[RESTART]   ✗ Failed to execute restart for {}: {}", service, e);
+                error!(
+                    "[RESTART]   ✗ Failed to execute restart for {}: {}",
+                    service, e
+                );
             }
         }
     }
@@ -941,9 +1042,16 @@ struct UploadCertBody {
     password: String,
 }
 
-async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data: web::Data<AppState>) -> Result<HttpResponse> {
+async fn upload_cert_c8y(
+    req: HttpRequest,
+    body: web::Json<UploadCertBody>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    info!("[CERT-UPLOAD] Upload cert to c8y requested by user: {:?}", user);
+    info!(
+        "[CERT-UPLOAD] Upload cert to c8y requested by user: {:?}",
+        user
+    );
 
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -966,22 +1074,31 @@ async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data
 
     let username = body.username.clone();
     let password = body.password.clone();
-    info!("[CERT-UPLOAD] Running: tedge cert upload c8y --user {}", username);
+    info!(
+        "[CERT-UPLOAD] Running: tedge cert upload c8y --user {}",
+        username
+    );
 
     let result = web::block(move || {
         Command::new(&tedge_bin)
-            .args(&[
-                "--config-dir", &tedge_config_dir,
-                "cert", "upload", "c8y",
-                "--user", &username,
-                "--password", &password,
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "cert",
+                "upload",
+                "c8y",
+                "--user",
+                &username,
+                "--password",
+                &password,
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?
             .wait_with_output()
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(out)) => {
@@ -1034,7 +1151,10 @@ async fn upload_cert_c8y(req: HttpRequest, body: web::Json<UploadCertBody>, data
 
 async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    info!("[CONNECT] Connect to {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
+    info!(
+        "[CONNECT] Connect to {} requested by user: {:?}, role: {:?}",
+        path.cloud, user, role
+    );
 
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1066,9 +1186,12 @@ async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result
     info!("[CONNECT] Running: connect-wrapper.sh connect {}", cloud);
     let result = web::block(move || {
         if is_snap {
-            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            let wrapper = format!(
+                "{}/scripts/connect-wrapper.sh",
+                env::var("SNAP").unwrap_or_default()
+            );
             Command::new(&wrapper)
-                .args(&["connect", &cloud])
+                .args(["connect", &cloud])
                 .env("SNAP", env::var("SNAP").unwrap_or_default())
                 .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
                 .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
@@ -1076,10 +1199,11 @@ async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result
                 .output()
         } else {
             Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "connect", &cloud])
+                .args(["--config-dir", &tedge_config_dir, "connect", &cloud])
                 .output()
         }
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(out)) => {
@@ -1119,7 +1243,10 @@ async fn connect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result
 
 async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    info!("[DISCONNECT] Disconnect {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
+    info!(
+        "[DISCONNECT] Disconnect {} requested by user: {:?}, role: {:?}",
+        path.cloud, user, role
+    );
 
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1148,12 +1275,18 @@ async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Res
         "/etc/tedge".to_string()
     };
 
-    info!("[DISCONNECT] Running: connect-wrapper.sh disconnect {}", cloud);
+    info!(
+        "[DISCONNECT] Running: connect-wrapper.sh disconnect {}",
+        cloud
+    );
     let result = web::block(move || {
         if is_snap {
-            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            let wrapper = format!(
+                "{}/scripts/connect-wrapper.sh",
+                env::var("SNAP").unwrap_or_default()
+            );
             Command::new(&wrapper)
-                .args(&["disconnect", &cloud])
+                .args(["disconnect", &cloud])
                 .env("SNAP", env::var("SNAP").unwrap_or_default())
                 .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
                 .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
@@ -1161,10 +1294,11 @@ async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Res
                 .output()
         } else {
             Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "disconnect", &cloud])
+                .args(["--config-dir", &tedge_config_dir, "disconnect", &cloud])
                 .output()
         }
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(out)) => {
@@ -1173,20 +1307,27 @@ async fn disconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Res
             let output = format!("{}{}", stdout, stderr).trim().to_string();
             if out.status.success() {
                 info!("[DISCONNECT] Success: {}", output);
-                Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true, "output": output })))
+                Ok(HttpResponse::Ok()
+                    .json(serde_json::json!({ "success": true, "output": output })))
             } else {
                 warn!("[DISCONNECT] Failed: {}", output);
-                Ok(HttpResponse::Ok().json(serde_json::json!({ "success": false, "output": output })))
+                Ok(HttpResponse::Ok()
+                    .json(serde_json::json!({ "success": false, "output": output })))
             }
         }
-        Ok(Err(e)) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
-        Err(e)    => Ok(HttpResponse::InternalServerError().json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
+        Ok(Err(e)) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
     }
 }
 
 async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    info!("[RECONNECT] Reconnect {} requested by user: {:?}, role: {:?}", path.cloud, user, role);
+    info!(
+        "[RECONNECT] Reconnect {} requested by user: {:?}, role: {:?}",
+        path.cloud, user, role
+    );
 
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1215,12 +1356,18 @@ async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Resu
         "/etc/tedge".to_string()
     };
 
-    info!("[RECONNECT] Running: connect-wrapper.sh reconnect {}", cloud);
+    info!(
+        "[RECONNECT] Running: connect-wrapper.sh reconnect {}",
+        cloud
+    );
     let result = web::block(move || {
         if is_snap {
-            let wrapper = format!("{}/scripts/connect-wrapper.sh", env::var("SNAP").unwrap_or_default());
+            let wrapper = format!(
+                "{}/scripts/connect-wrapper.sh",
+                env::var("SNAP").unwrap_or_default()
+            );
             Command::new(&wrapper)
-                .args(&["reconnect", &cloud])
+                .args(["reconnect", &cloud])
                 .env("SNAP", env::var("SNAP").unwrap_or_default())
                 .env("SNAP_DATA", env::var("SNAP_DATA").unwrap_or_default())
                 .env("SNAP_COMMON", env::var("SNAP_COMMON").unwrap_or_default())
@@ -1228,10 +1375,11 @@ async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Resu
                 .output()
         } else {
             Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "reconnect", &cloud])
+                .args(["--config-dir", &tedge_config_dir, "reconnect", &cloud])
                 .output()
         }
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(out)) => {
@@ -1240,20 +1388,30 @@ async fn reconnect_cloud(req: HttpRequest, path: web::Path<ConnectPath>) -> Resu
             let output = format!("{}{}", stdout, stderr).trim().to_string();
             if out.status.success() {
                 info!("[RECONNECT] Success: {}", output);
-                Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true, "output": output })))
+                Ok(HttpResponse::Ok()
+                    .json(serde_json::json!({ "success": true, "output": output })))
             } else {
                 warn!("[RECONNECT] Failed: {}", output);
-                Ok(HttpResponse::Ok().json(serde_json::json!({ "success": false, "output": output })))
+                Ok(HttpResponse::Ok()
+                    .json(serde_json::json!({ "success": false, "output": output })))
             }
         }
-        Ok(Err(e)) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
-        Err(e)    => Ok(HttpResponse::InternalServerError().json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
+        Ok(Err(e)) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "success": false, "error": format!("{}", e) }))),
     }
 }
 
-async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>) -> Result<HttpResponse> {
+async fn publish_test_message(
+    req: HttpRequest,
+    body: web::Json<TestMessageBody>,
+) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    info!("[TEST-MSG] Test message requested by user: {:?}, type: {}", user, body.msg_type);
+    info!(
+        "[TEST-MSG] Test message requested by user: {:?}, type: {}",
+        user, body.msg_type
+    );
 
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1282,20 +1440,23 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
     let (topic, payload) = match body.msg_type.as_str() {
         "measurement" => (
             "te/device/main///m/test".to_string(),
-            format!(r#"{{"temperature":{:.1},"time":"{}"}}"#,
+            format!(
+                r#"{{"temperature":{:.1},"time":"{}"}}"#,
                 20.0 + (now_secs % 10) as f64,
                 chrono_like_ts(now_secs),
             ),
         ),
         "event" => (
             "te/device/main///e/test_event".to_string(),
-            format!(r#"{{"text":"Test event from thin-edge.io web config","time":"{}"}}"#,
+            format!(
+                r#"{{"text":"Test event from thin-edge.io web config","time":"{}"}}"#,
                 chrono_like_ts(now_secs),
             ),
         ),
         "alarm" => (
             "te/device/main///a/test_alarm".to_string(),
-            format!(r#"{{"severity":"warning","text":"Test alarm from thin-edge.io web config","time":"{}"}}"#,
+            format!(
+                r#"{{"severity":"warning","text":"Test alarm from thin-edge.io web config","time":"{}"}}"#,
                 chrono_like_ts(now_secs),
             ),
         ),
@@ -1307,24 +1468,40 @@ async fn publish_test_message(req: HttpRequest, body: web::Json<TestMessageBody>
         }
     };
 
-    info!("[TEST-MSG] Publishing to topic: {} payload: {}", topic, payload);
+    info!(
+        "[TEST-MSG] Publishing to topic: {} payload: {}",
+        topic, payload
+    );
     let topic_display = topic.clone();
     let payload_display = payload.clone();
     let result = web::block(move || {
         Command::new(&tedge_bin)
-            .args(&["--config-dir", &tedge_config_dir, "mqtt", "pub", &topic, &payload])
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "mqtt",
+                "pub",
+                &topic,
+                &payload,
+            ])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?
             .wait_with_output()
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(out)) => {
             let stdout = String::from_utf8_lossy(&out.stdout).to_string();
             let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-            let output = format!("Topic: {}\nPayload: {}\n{}{}", topic_display, payload_display, stdout, stderr).trim().to_string();
+            let output = format!(
+                "Topic: {}\nPayload: {}\n{}{}",
+                topic_display, payload_display, stdout, stderr
+            )
+            .trim()
+            .to_string();
             if out.status.success() {
                 info!("[TEST-MSG] Published successfully");
                 Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -1361,38 +1538,57 @@ fn chrono_like_ts(secs: u64) -> String {
     // Basic ISO-8601 UTC without chrono: delegate to a simple formatter
     // We compute year/month/day/hour/min/sec from unix timestamp
     let mut s = secs;
-    let sec = s % 60; s /= 60;
-    let min = s % 60; s /= 60;
-    let hour = s % 24; s /= 24;
+    let sec = s % 60;
+    s /= 60;
+    let min = s % 60;
+    s /= 60;
+    let hour = s % 24;
+    s /= 24;
     // Days since epoch (1970-01-01)
     let mut days = s as u32;
     let mut year = 1970u32;
     loop {
-        let dy = if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 { 366 } else { 365 };
-        if days < dy { break; }
+        let dy =
+            if (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400) {
+                366
+            } else {
+                365
+            };
+        if days < dy {
+            break;
+        }
         days -= dy;
         year += 1;
     }
-    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
     let months = if leap {
-        [31u32,29,31,30,31,30,31,31,30,31,30,31]
+        [31u32, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {
-        [31u32,28,31,30,31,30,31,31,30,31,30,31]
+        [31u32, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     };
     let mut month = 0u32;
     for (i, &dm) in months.iter().enumerate() {
-        if days < dm { month = i as u32 + 1; break; }
+        if days < dm {
+            month = i as u32 + 1;
+            break;
+        }
         days -= dm;
     }
     let day = days + 1;
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", year, month, day, hour, min, sec)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hour, min, sec
+    )
 }
 
 async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    
-    info!("[DEVICE-ID] Get device ID requested by user: {:?}, role: {:?}", user, role);
-    
+
+    info!(
+        "[DEVICE-ID] Get device ID requested by user: {:?}, role: {:?}",
+        user, role
+    );
+
     if !role.can_read() {
         warn!("[DEVICE-ID] Access denied - insufficient permissions");
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1400,13 +1596,17 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
             "error": "Insufficient permissions"
         })));
     }
-    
+
     // In snap mode the script lives in $SNAP/scripts/; in local dev try the workspace scripts/ dir.
     let script_path = {
-        let snap_path = env::var("SNAP").ok()
+        let snap_path = env::var("SNAP")
+            .ok()
             .map(|s| PathBuf::from(s).join("scripts/manage-device-id.sh"));
-        let local_path = std::env::current_exe().ok()
-            .and_then(|p| p.ancestors().nth(4).map(|a| a.join("scripts/manage-device-id.sh")));
+        let local_path = std::env::current_exe().ok().and_then(|p| {
+            p.ancestors()
+                .nth(4)
+                .map(|a| a.join("scripts/manage-device-id.sh"))
+        });
         let hardcoded = PathBuf::from("/home/ubuntu/thin-edge-io-app/scripts/manage-device-id.sh");
 
         [snap_path, local_path, Some(hardcoded)]
@@ -1423,7 +1623,13 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
                 .arg("get-serial")
                 .output()
                 .ok()
-                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .and_then(|o| {
+                    if o.status.success() {
+                        String::from_utf8(o.stdout).ok()
+                    } else {
+                        None
+                    }
+                })
                 .map(|s| s.trim().to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
@@ -1432,12 +1638,20 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
                 .arg("get-current")
                 .output()
                 .ok()
-                .and_then(|o| if o.status.success() { String::from_utf8(o.stdout).ok() } else { None })
+                .and_then(|o| {
+                    if o.status.success() {
+                        String::from_utf8(o.stdout).ok()
+                    } else {
+                        None
+                    }
+                })
                 .map(|s| s.trim().to_string())
                 .unwrap_or_default();
 
             (serial, current)
-        }).await.unwrap_or_else(|_| ("unknown".to_string(), String::new()))
+        })
+        .await
+        .unwrap_or_else(|_| ("unknown".to_string(), String::new()))
     } else {
         warn!("[DEVICE-ID] manage-device-id.sh not found – returning empty device info");
         ("unknown".to_string(), String::new())
@@ -1446,8 +1660,11 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
     // Derive has_certificate from the script result: get-current returns non-empty CN only if cert exists.
     // This avoids a hardcoded snap path and works in both snap and local-dev mode.
     let has_certificate = !current.is_empty();
-    info!("[DEVICE-ID] Serial: {}, Current: {}, Has cert: {}", system_serial, current, has_certificate);
-    
+    info!(
+        "[DEVICE-ID] Serial: {}, Current: {}, Has cert: {}",
+        system_serial, current, has_certificate
+    );
+
     Ok(HttpResponse::Ok().json(DeviceIdInfo {
         current,
         system_serial,
@@ -1460,9 +1677,12 @@ async fn set_device_id(
     body: web::Json<SetDeviceIdRequest>,
 ) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
-    
-    info!("[DEVICE-ID] Set device ID requested by user: {:?}, role: {:?}", user, role);
-    
+
+    info!(
+        "[DEVICE-ID] Set device ID requested by user: {:?}, role: {:?}",
+        user, role
+    );
+
     if !role.can_execute() {
         warn!("[DEVICE-ID] Access denied - admin permissions required");
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1470,9 +1690,9 @@ async fn set_device_id(
             "error": "Insufficient permissions - admin access required"
         })));
     }
-    
+
     let is_snap = env::var("SNAP").is_ok();
-    
+
     if !is_snap {
         warn!("[DEVICE-ID] Not in snap environment");
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -1483,9 +1703,9 @@ async fn set_device_id(
 
     let snap = env::var("SNAP").unwrap_or_default();
     let script_path = PathBuf::from(&snap).join("scripts/manage-device-id.sh");
-    
+
     let device_id = body.device_id.trim();
-    
+
     if device_id.is_empty() {
         warn!("[DEVICE-ID] Empty device ID provided");
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -1493,15 +1713,15 @@ async fn set_device_id(
             "error": "Device ID cannot be empty"
         })));
     }
-    
+
     info!("[DEVICE-ID] Setting device ID to: {}", device_id);
     info!("[DEVICE-ID] Executing: {:?} set {}", script_path, device_id);
-    
+
     let output = Command::new(&script_path)
         .arg("set")
         .arg(device_id)
         .output();
-    
+
     match output {
         Ok(output) if output.status.success() => {
             info!("Device ID set successfully");
@@ -1531,16 +1751,16 @@ async fn set_device_id(
 
 async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
             "error": "Insufficient permissions - admin access required"
         })));
     }
-    
+
     let is_snap = env::var("SNAP").is_ok();
-    
+
     if !is_snap {
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
@@ -1550,13 +1770,11 @@ async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
 
     let snap = env::var("SNAP").unwrap_or_default();
     let script_path = PathBuf::from(&snap).join("scripts/manage-device-id.sh");
-    
+
     info!("Recreating device certificate");
-    
-    let output = Command::new(&script_path)
-        .arg("recreate")
-        .output();
-    
+
+    let output = Command::new(&script_path).arg("recreate").output();
+
     match output {
         Ok(output) if output.status.success() => {
             info!("Certificate recreated successfully");
@@ -1585,16 +1803,16 @@ async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
 
 async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
-    
+
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "success": false,
             "error": "Insufficient permissions - admin access required"
         })));
     }
-    
+
     let is_snap = env::var("SNAP").is_ok();
-    
+
     if !is_snap {
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
@@ -1604,13 +1822,11 @@ async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
 
     let snap = env::var("SNAP").unwrap_or_default();
     let script_path = PathBuf::from(&snap).join("scripts/manage-device-id.sh");
-    
+
     info!("Creating certificate with auto-detected device ID");
-    
-    let output = Command::new(&script_path)
-        .arg("create")
-        .output();
-    
+
+    let output = Command::new(&script_path).arg("create").output();
+
     match output {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1663,10 +1879,11 @@ async fn show_certificate(req: HttpRequest) -> Result<HttpResponse> {
         Duration::from_secs(15),
         web::block(move || {
             Command::new(&tedge_bin)
-                .args(&["--config-dir", &tedge_config_dir, "cert", "show"])
+                .args(["--config-dir", &tedge_config_dir, "cert", "show"])
                 .output()
         }),
-    ).await;
+    )
+    .await;
 
     let output = match output {
         Err(_) => {
@@ -1767,7 +1984,7 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
         info!("[LOGS] journalctl -u {} -n {}", unit, lines_str);
 
         let jctl_result = Command::new("journalctl")
-            .args(&["-u", &unit, "-n", &lines_str, "--no-pager", "--output=short-iso"])
+            .args(["-u", &unit, "-n", &lines_str, "--no-pager", "--output=short-iso"])
             .output();
 
         match jctl_result {
@@ -1801,7 +2018,10 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
         Ok(text) => {
             let log_lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
             info!("[LOGS] {} lines fetched for {}", log_lines.len(), service);
-            Ok(HttpResponse::Ok().json(LogResponse { lines: log_lines, service }))
+            Ok(HttpResponse::Ok().json(LogResponse {
+                lines: log_lines,
+                service,
+            }))
         }
         Err(e) => {
             error!("[LOGS] Blocking error: {}", e);
@@ -1811,9 +2031,7 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
     }
 }
 
-fn parse_system_toml_log_section(
-    content: &str,
-) -> std::collections::HashMap<String, String> {
+fn parse_system_toml_log_section(content: &str) -> std::collections::HashMap<String, String> {
     let mut levels = std::collections::HashMap::new();
     let mut in_log = false;
     for line in content.lines() {
@@ -1901,7 +2119,7 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
 
         let mut cmd = Command::new(tedge_bin);
         if is_snap && !snap_data.is_empty() {
-            cmd.args(&["--config-dir", &snap_data]);
+            cmd.args(["--config-dir", &snap_data]);
         }
         cmd.arg("config").arg("list");
 
@@ -1912,12 +2130,16 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
                     String::from_utf8_lossy(&out.stdout).to_string()
                 } else {
                     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                    format!("[Fehler beim Ausführen von 'tedge config list']\n{}", stderr.trim())
+                    format!(
+                        "[Fehler beim Ausführen von 'tedge config list']\n{}",
+                        stderr.trim()
+                    )
                 }
             }
             Err(e) => format!("[tedge nicht ausführbar: {}]", e),
         }
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
@@ -1929,7 +2151,8 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Insufficient permissions"})));
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
     }
 
     let snap = env::var("SNAP").unwrap_or_default();
@@ -2036,8 +2259,11 @@ async fn set_log_level(
         // Fire-and-forget via web::block so we don't block the async runtime
         actix_web::rt::spawn(async move {
             let _ = web::block(move || {
-                Command::new("snapctl").args(&["restart", &snap_svc]).output()
-            }).await;
+                Command::new("snapctl")
+                    .args(["restart", &snap_svc])
+                    .output()
+            })
+            .await;
             info!("[LOG-LEVEL] Restarted {}", svc);
         });
     }
@@ -2054,16 +2280,16 @@ async fn token_login(req: HttpRequest) -> Result<HttpResponse> {
         .find(|s| s.starts_with("token="))
         .and_then(|s| s.strip_prefix("token="))
         .unwrap_or("");
-    
+
     if token.is_empty() {
         info!("Login attempt without token, redirecting to home");
         return Ok(HttpResponse::Found()
             .insert_header(("Location", "/thin-edge-io/"))
             .finish());
     }
-    
+
     info!("Token-based login initiated");
-    
+
     // In ctrlX environment, the reverse proxy handles authentication
     // We just redirect to the main page with the token in the Authorization header
     // The browser will automatically include the token in subsequent requests
@@ -2099,7 +2325,10 @@ async fn fetch_dl_token(
     if username.is_empty() || password.is_empty() {
         return None;
     }
-    let url = format!("{}/identity-manager/api/v2/auth/token", base_url.trim_end_matches('/'));
+    let url = format!(
+        "{}/identity-manager/api/v2/auth/token",
+        base_url.trim_end_matches('/')
+    );
     let params = [
         ("grant_type", "password"),
         ("username", username),
@@ -2113,8 +2342,14 @@ async fn fetch_dl_token(
                 None
             }
         }
-        Ok(r) => { warn!("[DL] Token fetch failed: HTTP {}", r.status()); None }
-        Err(e) => { warn!("[DL] Token fetch error: {}", e); None }
+        Ok(r) => {
+            warn!("[DL] Token fetch failed: HTTP {}", r.status());
+            None
+        }
+        Err(e) => {
+            warn!("[DL] Token fetch error: {}", e);
+            None
+        }
     }
 }
 
@@ -2144,22 +2379,21 @@ async fn get_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Re
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
-    
+
     let mut cfg = data.load_datalayer_config();
-    
+
     // Anmeldedaten niemals im Klartext an den Client senden
     // Wir prüfen, ob der Wert vorhanden (is_some) ist und maskieren ihn dann
-    if cfg.password.is_some() { 
-        cfg.password = Some("***".to_string()); 
+    if cfg.password.is_some() {
+        cfg.password = Some("***".to_string());
     }
-    
-    if cfg.token.is_some() { 
-        cfg.token = Some("***".to_string()); 
+
+    if cfg.token.is_some() {
+        cfg.token = Some("***".to_string());
     }
-    
+
     Ok(HttpResponse::Ok().json(cfg))
 }
-
 
 #[derive(Debug, Deserialize)]
 struct SaveDatalayerConfigBody {
@@ -2176,8 +2410,9 @@ struct SaveDatalayerConfigBody {
     pub accept_invalid_certs: bool,
 }
 
-fn dl_default_true() -> bool { true }
-
+fn dl_default_true() -> bool {
+    true
+}
 
 /// POST /api/datalayer/config  — save connection settings
 async fn save_datalayer_config_handler(
@@ -2189,9 +2424,9 @@ async fn save_datalayer_config_handler(
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
-    
+
     let mut cfg = data.load_datalayer_config();
-    
+
     cfg.enabled = body.enabled;
     // base_url nur überschreiben, wenn nicht leer
     if !body.base_url.trim().is_empty() {
@@ -2200,10 +2435,10 @@ async fn save_datalayer_config_handler(
         // Falls bisher auch leer, auf Default setzen
         cfg.base_url = "https://localhost".to_string();
     }
-    
+
     // FIX 1: Expliziter Cast nach u32
     cfg.poll_interval_ms = body.poll_interval_ms.max(500) as u32;
-    
+
     // FIX 2: Zuweisung des neuen Feldes
     cfg.accept_invalid_certs = body.accept_invalid_certs;
 
@@ -2223,12 +2458,15 @@ async fn save_datalayer_config_handler(
         return Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
     }
-    
+
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
 }
 
 /// GET /api/datalayer/mappings  — return all mappings
-async fn get_datalayer_mappings(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+async fn get_datalayer_mappings(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
@@ -2238,25 +2476,26 @@ async fn get_datalayer_mappings(req: HttpRequest, data: web::Data<AppState>) -> 
 }
 
 /// GET /api/datalayer/raw-config  — Lädt die JSON-Datei als rohen Text (für Debugging)
-async fn get_raw_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+async fn get_raw_datalayer_config(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
-    
-    // Wir lesen die Datei einfach nur als String und schicken sie direkt zurück, 
+
+    // Wir lesen die Datei einfach nur als String und schicken sie direkt zurück,
     // OHNE sie durch den serde_json Parser zu jagen!
     match std::fs::read_to_string(&data.datalayer_config_path) {
         Ok(content) => {
             Ok(HttpResponse::Ok()
                 .content_type("application/json") // Sagt dem Browser, dass es JSON ist
                 .body(content))
-        },
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": format!("Konnte datalayer-mappings.json nicht von der Festplatte lesen: {}", e)
-            })))
         }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": format!("Konnte datalayer-mappings.json nicht von der Festplatte lesen: {}", e)
+        }))),
     }
 }
 
@@ -2271,7 +2510,9 @@ async fn save_datalayer_mappings(
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
     let mappings: Vec<DatalayerMapping> = match serde_json::from_value(
-        body.get("mappings").cloned().unwrap_or(serde_json::Value::Array(vec![])),
+        body.get("mappings")
+            .cloned()
+            .unwrap_or(serde_json::Value::Array(vec![])),
     ) {
         Ok(m) => m,
         Err(e) => {
@@ -2288,8 +2529,6 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
-
-
 #[derive(Debug, Deserialize)]
 struct BrowseQuery {
     #[serde(default)]
@@ -2303,19 +2542,26 @@ async fn browse_datalayer(
 ) -> Result<HttpResponse> {
     // 1. Extrahiere Token aus dem Header (Browser-Request)
     let (_user, role, extracted_token) = extract_user_info(&req);
-    
+
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().finish());
     }
 
     let cfg = data.load_datalayer_config();
-    
+
     // 2. Pfad für ctrlX aufbereiten
     let path = query.path.trim_start_matches('/').trim_end_matches('/');
     let url = if path.is_empty() {
-        format!("{}/automation/api/v2/nodes?type=browse", cfg.base_url.trim_end_matches('/'))
+        format!(
+            "{}/automation/api/v2/nodes?type=browse",
+            cfg.base_url.trim_end_matches('/')
+        )
     } else {
-        format!("{}/automation/api/v2/nodes/{}?type=browse", cfg.base_url.trim_end_matches('/'), path)
+        format!(
+            "{}/automation/api/v2/nodes/{}?type=browse",
+            cfg.base_url.trim_end_matches('/'),
+            path
+        )
     };
 
     // 3. Client holen (dieser holt bei Bedarf ein neues Token via User/Passwort!)
@@ -2330,13 +2576,23 @@ async fn browse_datalayer(
     match req_builder.send().await {
         Ok(resp) => {
             let status = resp.status();
-            let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::json!({"error": "invalid response"}));
-            Ok(HttpResponse::build(actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap()).json(body))
+            let body: serde_json::Value = resp
+                .json()
+                .await
+                .unwrap_or(serde_json::json!({"error": "invalid response"}));
+            Ok(
+                HttpResponse::build(
+                    actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap(),
+                )
+                .json(body),
+            )
         }
-        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})))
+        Err(e) => {
+            Ok(HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": e.to_string()})))
+        }
     }
 }
-
 
 /// GET /api/datalayer/node?path=...  — read single node value
 async fn read_datalayer_node(
@@ -2391,8 +2647,12 @@ async fn read_datalayer_node(
                 .json()
                 .await
                 .unwrap_or(serde_json::json!({"error": "invalid response"}));
-            Ok(HttpResponse::build(actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap())
-                .json(body))
+            Ok(
+                HttpResponse::build(
+                    actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap(),
+                )
+                .json(body),
+            )
         }
         Err(e) => {
             warn!("[DL-NODE] Request failed: {}", e);
@@ -2408,7 +2668,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
-    
+
     let cfg = data.load_datalayer_config();
     let mapping_count = cfg.mappings.len();
     let active_count = cfg.mappings.iter().filter(|m| m.enabled).count();
@@ -2424,23 +2684,29 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     }
 
     // Token-Extraktion (X-Auth-Token hat Vorrang)
-    let bearer_token = req.headers().get("X-Auth-Token")
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.replace("Bearer ", ""))
         .or_else(|| {
-            req.headers().get("Authorization")
+            req.headers()
+                .get("Authorization")
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.strip_prefix("Bearer "))
                 .map(|s| s.to_string())
         });
 
     let (http_client, stored_token) = dl_client_and_token(&cfg).await;
-    
+
     // ctrlX API Pfad (Prüfe ob /automation/... oder /admin/...)
-    let url = format!("{}/admin/api/v2/nodes?type=browse", cfg.base_url.trim_end_matches('/'));
-    
+    let url = format!(
+        "{}/admin/api/v2/nodes?type=browse",
+        cfg.base_url.trim_end_matches('/')
+    );
+
     let mut req_builder = http_client.get(&url);
-    
+
     if let Some(t) = bearer_token.clone().or(stored_token) {
         debug!("Datalayer-Request mit Token (Länge: {})", t.len());
         req_builder = req_builder.bearer_auth(t);
@@ -2449,7 +2715,9 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     let (connected, http_status, connect_error) = match req_builder.send().await {
         Ok(r) => {
             let s = r.status().as_u16();
-            if s == 401 { warn!("Datalayer Zugriff verweigert (401) - Token ungültig?"); }
+            if s == 401 {
+                warn!("Datalayer Zugriff verweigert (401) - Token ungültig?");
+            }
             (r.status().is_success(), Some(s), None)
         }
         Err(e) => {
@@ -2469,8 +2737,6 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
         "poll_interval_ms": cfg.poll_interval_ms,
     })))
 }
-
-
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
@@ -2508,22 +2774,23 @@ async fn main() -> io::Result<()> {
     info!("Config file: {:?}", config_path);
 
     let app_state = web::Data::new(AppState::new(config_path, datalayer_config_path));
-    
+
     let server = HttpServer::new(move || {
-        
         App::new()
             .app_data(app_state.clone())
             .wrap(middleware::Logger::new("%a %r %s %b %T ms"))
             .wrap(middleware::Compress::default())
             // Root-Redirect: / → /thin-edge-io/
-            .route("/", web::get().to(|| async {
-                HttpResponse::Found()
-                    .insert_header(("Location", "/thin-edge-io/"))
-                    .finish()
-            }))
+            .route(
+                "/",
+                web::get().to(|| async {
+                    HttpResponse::Found()
+                        .insert_header(("Location", "/thin-edge-io/"))
+                        .finish()
+                }),
+            )
             // Lokaler Fallback (falls du auf dem PC entwickelst)
             .service(Files::new("/local", web_root.clone()).index_file("index.html"))
-            
             // Alles, was über den ctrlX Proxy kommt, liegt unter /thin-edge-io
             .service(
                 web::scope("/thin-edge-io")
@@ -2545,7 +2812,10 @@ async fn main() -> io::Result<()> {
                             .route("/device-id", web::get().to(get_device_id))
                             .route("/device-id", web::post().to(set_device_id))
                             .route("/device-id/recreate", web::post().to(recreate_certificate))
-                            .route("/device-id/create-auto", web::post().to(create_certificate_auto))
+                            .route(
+                                "/device-id/create-auto",
+                                web::post().to(create_certificate_auto),
+                            )
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
                             .route("/tedge-config-list", web::get().to(get_tedge_config_list))
@@ -2562,48 +2832,50 @@ async fn main() -> io::Result<()> {
                                     .route("/raw-config", web::get().to(get_raw_datalayer_config))
                                     .route("/mappings", web::get().to(get_datalayer_mappings))
                                     .route("/mappings", web::post().to(save_datalayer_mappings))
-                                    .route("/mappings/add", web::post().to(add_datalayer_mapping)) 
-                                    .route("/mappings/{id}", web::delete().to(delete_datalayer_mapping))
+                                    .route("/mappings/add", web::post().to(add_datalayer_mapping))
+                                    .route(
+                                        "/mappings/{id}",
+                                        web::delete().to(delete_datalayer_mapping),
+                                    )
                                     .route("/browse", web::get().to(browse_datalayer))
-                                    .route("/node", web::get().to(read_datalayer_node))
-                        )
+                                    .route("/node", web::get().to(read_datalayer_node)),
+                            ),
                     )
                     // Login liegt unter /thin-edge-io/login
                     .route("/login", web::get().to(token_login))
-                    
                     // Static Files GANZ AM ENDE DES SCOPES! (Wichtig für Actix Routing)
-                    .service(Files::new("/", web_root.clone()).index_file("index.html"))
+                    .service(Files::new("/", web_root.clone()).index_file("index.html")),
             )
     });
 
-if is_snap {
-    let snap_data = std::env::var("SNAP_DATA")
-        .unwrap_or_else(|_| String::from("/var/snap/thin-edge-io/current"));
-    
-    // Unterordner "thin-edge-io" für den ctrlX Proxy-Standard (package-run/<snapname>/web.sock)
-    let sock_dir = format!("{}/package-run/thin-edge-io", snap_data);
-    let socket_path = format!("{}/web.sock", sock_dir);
-    
-    // Verzeichnis anlegen (jetzt inklusive Unterordner)
-    if let Err(e) = std::fs::create_dir_all(&sock_dir) {
-        warn!("Konnte Verzeichnis {} nicht erstellen: {}", sock_dir, e);
-    }
-    
-    let _ = std::fs::remove_file(&socket_path);
-    
-    info!("Starte Server auf Unix-Socket: {}", socket_path);
-    
-    let bound_server = server.bind_uds(&socket_path)?;
-    
-    // Berechtigungen auf 777 (Wichtig, damit der Proxy-User zugreifen darf)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o777));
-    }
+    if is_snap {
+        let snap_data = std::env::var("SNAP_DATA")
+            .unwrap_or_else(|_| String::from("/var/snap/thin-edge-io/current"));
 
-    bound_server.run().await
-} else {
+        // Unterordner "thin-edge-io" für den ctrlX Proxy-Standard (package-run/<snapname>/web.sock)
+        let sock_dir = format!("{}/package-run/thin-edge-io", snap_data);
+        let socket_path = format!("{}/web.sock", sock_dir);
+
+        // Verzeichnis anlegen (jetzt inklusive Unterordner)
+        if let Err(e) = std::fs::create_dir_all(&sock_dir) {
+            warn!("Konnte Verzeichnis {} nicht erstellen: {}", sock_dir, e);
+        }
+
+        let _ = std::fs::remove_file(&socket_path);
+
+        info!("Starte Server auf Unix-Socket: {}", socket_path);
+
+        let bound_server = server.bind_uds(&socket_path)?;
+
+        // Berechtigungen auf 777 (Wichtig, damit der Proxy-User zugreifen darf)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o777));
+        }
+
+        bound_server.run().await
+    } else {
         let bind = "0.0.0.0:8888";
         info!("Starte Server auf http://{}", bind);
         server.bind(bind)?.run().await
