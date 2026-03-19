@@ -32,7 +32,7 @@ const I18N = {
     "status.stopped": "🔴 Gestoppt",
     "status.inactive": "⚫ Inaktiv",
     "status.unknown": "⚪ Unbekannt",
-    "status.refresh": "aktualisieren",
+    "status.refresh": "Aktualisieren",
     // Cloud config
     "cloud.save": "Speichern",
     "cloud.save_short": "Speichern",
@@ -181,7 +181,7 @@ const I18N = {
     "cert.create_err": "Fehler beim Erstellen des Zertifikats",
     // Datalayer section
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
-    "datalayer.refresh": "Status aktualisieren",
+    "datalayer.refresh": "Aktualisieren",
     "datalayer.connection_settings": "Verbindungseinstellungen",
     "datalayer.enabled": "Aktiviert",
     "datalayer.base_url": "Basis-URL:",
@@ -1627,34 +1627,66 @@ function _initDatalayerUI() {
   }, 150);
 }
 
-/** 2. Status laden */
+/** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
 async function loadDatalayerStatus() {
-  const badge = document.getElementById("datalayer-status-badge");
-  if (!badge) return;
-  badge.textContent = "⚪ " + t("status.loading");
+  const dotSvc = document.getElementById("datalayer-dot-service");
+  const text = document.getElementById("datalayer-status-text");
+
+  if (!dotSvc || !text) return;
+
+  // Hilfsfunktion: Setzt Text und sorgt dafür, dass die Sprache umschaltbar bleibt
+  const setStatus = (key) => {
+    text.textContent = t(key);
+    text.setAttribute("data-i18n", key);
+  };
+
+  // Start-Zustand: ⚪ | ⚪ Loading...
+  dotSvc.textContent = "⚪";
+  setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
+
+    // Authentifizierungs-Fehler (Dienst läuft, aber Login falsch)
+    if (r.status === 401 || r.status === 403) {
+      dotSvc.textContent = "🟢";
+      // Hier müsstest du evtl. noch 'status.noauth' ("🟡 Auth Error") in der i18n anlegen!
+      setStatus("datalayer.status_noauth");
+      return;
+    }
+
     if (!r.ok) {
-      badge.textContent = "⚪ " + t("status.unknown");
+      // Webserver liefert Fehler: 🔴 | ⚪ Unknown
+      dotSvc.textContent = "🔴";
+      setStatus("status.unknown");
       return;
     }
 
     const d = await r.json();
+
     if (!d.enabled) {
-      badge.textContent = "⚫ " + t("status.inactive");
-    } else if (d.connected) {
-      badge.textContent = `🟢 ${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`;
-    } else if (r.status === 401 || r.status === 403) {
-      badge.textContent = "🟡 " + t("datalayer.status_noauth");
+      // Schalter ist aus -> Verbindung ist deaktiviert
+      dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
+      setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
     } else {
-      badge.textContent = "🔴 " + t("status.stopped");
+      // Dienst läuft
+      dotSvc.textContent = "🟢";
+
+      if (d.connected) {
+        // Verbindung zum Datalayer steht
+        text.textContent = `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`;
+        text.removeAttribute("data-i18n");
+      } else {
+        // Dienst da, aber keine Verbindung
+        setStatus("status.stopped"); // "🔴 Getrennt"
+      }
     }
   } catch (e) {
-    badge.textContent = "⚪ " + t("status.unknown");
+    // Komplettabsturz (Rust-Backend weg): 🔴 | ⚪ Unknown
+    dotSvc.textContent = "🔴";
+    setStatus("status.unknown");
   }
 }
-
 async function loadDatalayerConfig() {
   try {
     const r = await fetchWithAuth("api/datalayer/config");
@@ -1834,7 +1866,8 @@ function renderDatalayerMappings() {
   if (!tbody) return;
 
   if (_dlMappings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint" style="text-align:center; padding:20px;">${t("datalayer.no_mappings")}</td></tr>`;
+    // Colspan von 6 auf 8 erhöht, wegen der neuen Spalten
+    tbody.innerHTML = `<tr><td colspan="8" class="node-empty-hint" style="text-align:center; padding:20px;" data-i18n="datalayer.no_mappings">${t("datalayer.no_mappings")}</td></tr>`;
     return;
   }
 
@@ -1843,36 +1876,64 @@ function renderDatalayerMappings() {
       const p = m.path || m.datalayer_path || "";
       const t_topic = m.topic || m.tedge_topic || "";
       const trans = m.transform || "Measurement";
+      const fieldName = m.field_name || "-";
+      const unit = m.unit || "-";
+
       const isWrite = m.direction === "tedge_to_dl";
-      const dirIcon = isWrite ? "⬅" : "➡";
+      // Codex Icons statt Emojis für die Richtung
+      const dirIcon = isWrite ? "arrow-left" : "arrow-right";
       const dirTitle = isWrite
         ? t("datalayer.dir_tedge_to_dl")
         : t("datalayer.dir_dl_to_tedge");
       const dirColor = isWrite ? "#FD8200" : "var(--brand-primary)";
 
+      // Cumulocity Label Logik anwenden
+      let labelClass = "label-info"; // Standard (blau) für Event/Unbekannt
+      const transLower = trans.toLowerCase();
+      if (transLower === "measurement") labelClass = "label-success"; // Grün
+      if (transLower === "alarm") labelClass = "label-warning"; // Gelb
+
       return `
             <tr class="mapping-row" style="cursor: pointer;" onclick="editDatalayerMapping('${m.id}')" title="Klicken zum Bearbeiten">
-                <td class="cell-path" title="${p}">${p}</td>
-                <td class="cell-topic" title="${t_topic}">${t_topic}</td>
+                
+                <td class="cell-path text-truncate" title="${p}">${p}</td>
+                
+                <td class="cell-topic text-truncate" title="${t_topic}">${t_topic}</td>
+                
                 <td class="text-center" title="${dirTitle}" style="font-size: 16px; color: ${dirColor};">
-                    ${dirIcon}
+                    <i c8yIcon="${dirIcon}"></i>
                 </td>
-                <td><span class="transform-badge ${trans.toLowerCase()}">${trans}</span></td>
+                
+                <td>
+                    <span class="label ${labelClass}">${trans.toUpperCase()}</span>
+                </td>
+                
+                <td>${fieldName}</td>
+                
+                <td>${unit}</td>
+                
                 <td class="text-center" onclick="event.stopPropagation();">
-                    <label class="c8y-switch">
-                        <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+                    <label class="c8y-switch" style="margin: 0 auto;">
+                        <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="updateEnabled('${m.id}', this.checked)">
                         <span></span>
                     </label>
                 </td>
+                
                 <td class="text-right" onclick="event.stopPropagation();">
-                    <button class="btn-delete" style="background-color: #d9534f; color: white; border: none; border-radius: 4px; width: 26px; height: 26px; font-weight: bold; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px;" onclick="deleteDatalayerMapping('${m.id}')" data-i18n-title="common.delete">✕</button>
+                    <button class="btn btn-dot text-danger" title="Löschen" data-i18n-title="common.delete" onclick="deleteDatalayerMapping('${m.id}')">
+                        <i c8yIcon="delete"></i>
+                    </button>
                 </td>
+                
             </tr>
         `;
     })
     .join("");
 
-  applyI18n();
+  // Wichtig: applyI18n ruft deine Data-Attribute aus und setzt die Sprache
+  if (typeof applyI18n === "function") {
+    applyI18n();
+  }
 }
 
 /** 8. Mapping löschen */

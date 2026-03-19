@@ -1,0 +1,20 @@
+{
+  "device": {
+    "id": "",
+    "name": "",
+    "type": "ctrlX-CORE"
+  },
+  "c8y": {
+    "c8y-url": null,
+    "tenant": null,
+    "enabled": false
+  },
+  "aws": {
+    "aws-url": null,
+    "enabled": false
+  },
+  "az": {
+    "azure-url": null,
+    "enabled": false
+  }
+}

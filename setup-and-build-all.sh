@@ -70,68 +70,6 @@ else
 	fi
 fi
 
-# Bridge-Service bauen
-echo "=============================================="
-echo "Step 3: Build Rust Bridge"
-echo "=============================================="
-
-BRIDGE_LOG="logs/build-rust-bridge-$(date +%Y%m%d-%H%M%S).log"
-echo "Log file: $BRIDGE_LOG"
-echo ""
-
-{
-	echo "=============================================="
-	echo "Rust Datalayer Bridge Build"
-	echo "Started: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-	echo "=============================================="
-	echo ""
-	cd bridge-service-rust
-	echo "[1/3] Building bridge..."
-	if cargo build --release 2>&1; then
-		echo ""
-		echo "[✓] Bridge compiled successfully"
-		BRIDGE_BIN="target/release/tedge-datalayer-bridge"
-		if [ -f "$BRIDGE_BIN" ]; then
-			BRIDGE_SIZE=$(du -h "$BRIDGE_BIN" | cut -f1)
-			echo "[✓] Binary created: $BRIDGE_BIN ($BRIDGE_SIZE)"
-		fi
-		echo ""
-		echo "[2/3] Running tests..."
-		if cargo test 2>&1; then
-			echo "[✓] All tests passed"
-		else
-			echo "[!] Some tests failed (non-critical)"
-		fi
-		echo ""
-		echo "[3/3] Checking binary..."
-		if [ -f "$BRIDGE_BIN" ]; then
-			echo "Binary information:"
-			file "$BRIDGE_BIN"
-			ls -lh "$BRIDGE_BIN"
-			echo ""
-			echo "[✓] Bridge is ready for snap packaging"
-		else
-			echo "[✗] Binary not found!"; exit 1
-		fi
-	else
-		echo "[✗] Bridge build failed!"; exit 1
-	fi
-	cd ..
-	echo ""
-	echo "=============================================="
-	echo "Rust Bridge Build Complete"
-	echo "Completed: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-	echo "=============================================="
-} 2>&1 | tee "$BRIDGE_LOG"
-
-if [ ${PIPESTATUS[0]} -eq 0 ]; then
-	echo "[✓] Rust bridge built and tested successfully!"
-	echo "[i] Build log: $BRIDGE_LOG"
-else
-	echo "[✗] Rust bridge build or test failed!"
-	echo "[i] Build log: $BRIDGE_LOG"
-	exit 1
-fi
 
 # Build-Info erzeugen
 echo "=============================================="
@@ -225,10 +163,23 @@ else
   echo "[WARNUNG] Clippy ist nicht installiert. Rust-Linting wird übersprungen."
 fi
 
-# JS/HTML prüfen
-echo "[i] Prüfe Formatierung mit Prettier..."
-find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | \
-  xargs "$PRETTIER_CMD" --check
+# JS/HTML prüfen und ggf. automatisch formatieren
+if [ "${1:-}" = "--fix" ]; then
+  echo "[i] Führe Prettier mit --write aus (automatische Korrektur)..."
+  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
+else
+  echo "[i] Prüfe Formatierung mit Prettier..."
+  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
+fi
+
+# Rust automatisch formatieren (cargo fmt)
+echo "[i] Führe cargo fmt für alle Rust-Projekte aus..."
+if [ -d "bridge-service-rust" ]; then
+  (cd bridge-service-rust && cargo fmt)
+fi
+if [ -d "web-server-rust" ]; then
+  (cd web-server-rust && cargo fmt)
+fi
 
 # Rust prüfen
 echo "[i] Prüfe Rust-Formatierung..."
@@ -263,13 +214,7 @@ echo "Building thin-edge.io CTRLX App"
 echo "Version: ${VERSION}  Commit: ${GIT_COMMIT}"
 echo "======================================"
 
-# Optional full clean
-if [[ "${1:-}" == "clean" ]]; then
-    echo "Full clean: Entferne alle Build-Artefakte..."
-    snapcraft clean --destructive-mode || true
-else
-    echo "Inkrementeller Build (kein clean). Für vollständigen Clean: ./scripts/build-snap.sh clean"
-fi
+
 
 cat > "configs/build-info.txt" << EOF
 Version: ${VERSION}+${BUILD_NUMBER}
@@ -398,5 +343,4 @@ All done! Your thin-edge.io CTRLX app is ready for deployment.
 ==============================================
 EOF
 
-# Nicht mehr benötigte Einzelskripte löschen
-#rm -f scripts/setup-env.sh scripts/build-bridge.sh scripts/build-info.sh scripts/build-snap.sh scripts/test-snap.sh scripts/check-format.sh
+

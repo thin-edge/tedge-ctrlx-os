@@ -1185,3 +1185,60 @@ footer a:hover {
   box-shadow: 0 0 15px rgba(83, 205, 97, 0.1);
   transition: all 0.3s ease;
 }
+/* --- Tedge Custom Toggle Switch --- */
+.tedge-switch-group {
+  display: flex ;
+  align-items: center ;
+  gap: 12px ;
+  margin-bottom: 12px ;
+}
+.tedge-switch {
+  position: relative ;
+  display: inline-block;
+  width: 40px ;
+  height: 20px ;
+  margin: 0 ;
+  flex-shrink: 0 ;
+  cursor: pointer ;
+}
+.tedge-switch input[type="checkbox"] {
+  opacity: 0 ;
+  width: 0 ;
+  height: 0 ;
+  position: absolute ;
+  margin: 0 ;
+}
+.tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider {
+  background-color: var(--brand-primary) !important;
+}
+.tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider:before {
+  transform: translateX(20px);
+}
+.tedge-switch-slider {
+  position: absolute ;
+  top: 0 ;
+  left: 0 ;
+  right: 0 ;
+  bottom: 0 ;
+  background-color: #ccc;
+  border-radius: 20px ;
+  transition: 0.3s;
+}
+.tedge-switch-slider:before {
+  position: absolute ;
+  content: "";
+  height: 16px ;
+  width: 16px ;
+  left: 2px ;
+  bottom: 2px ;
+  background-color: white ;
+  border-radius: 50% ;
+  transition: 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.tedge-switch-label {
+  font-size: 14px ;
+  margin: 0 ;
+  white-space: nowrap ;
+  cursor: pointer;
+}

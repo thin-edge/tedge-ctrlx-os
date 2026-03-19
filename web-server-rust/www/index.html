@@ -300,21 +300,26 @@
               <input type="text" id="c8y-tenant" placeholder="t12345678" />
               <small>Example: t12345678</small>
             </div>
-            <div class="form-group">
-              <label>
+            <div class="tedge-switch-group">
+              <label class="tedge-switch">
                 <input type="checkbox" id="c8y-enabled" />
-                <span data-i18n="cloud.c8y_mapper"
-                  >Enable Cumulocity IoT Mapper</span
-                >
+                <span class="tedge-switch-slider"></span>
               </label>
+              <span class="tedge-switch-label" data-i18n="cloud.c8y_mapper"
+                >Enable Cumulocity IoT Mapper</span
+              >
             </div>
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="saveC8yConfig()"
-              data-i18n="cloud.save"
+            <div
+              style="display: flex; justify-content: flex-end; margin-top: 16px"
             >
-              Save Configuration
-            </button>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="saveC8yConfig()"
+                data-i18n="cloud.save"
+              >
+                Save Configuration
+              </button>
+            </div>
           </div>
 
           <div id="aws-config" class="cloud-config">
@@ -327,11 +332,14 @@
               />
               <small>Example: xxxxxxxxxx.iot.us-east-1.amazonaws.com</small>
             </div>
-            <div class="form-group">
-              <label>
+            <div class="tedge-switch-group">
+              <label class="tedge-switch">
                 <input type="checkbox" id="aws-enabled" />
-                <span data-i18n="cloud.aws_mapper">Enable AWS IoT Mapper</span>
+                <span class="tedge-switch-slider"></span>
               </label>
+              <span class="tedge-switch-label" data-i18n="cloud.aws_mapper"
+                >Enable AWS IoT Mapper</span
+              >
             </div>
             <button
               class="btn btn-primary btn-sm"
@@ -352,11 +360,14 @@
               />
               <small>Example: your-iot-hub.azure-devices.net</small>
             </div>
-            <div class="form-group">
-              <label>
+            <div class="tedge-switch-group">
+              <label class="tedge-switch">
                 <input type="checkbox" id="az-enabled" />
-                <span data-i18n="cloud.az_mapper">Enable Azure IoT Mapper</span>
+                <span class="tedge-switch-slider"></span>
               </label>
+              <span class="tedge-switch-label" data-i18n="cloud.az_mapper"
+                >Enable Azure IoT Mapper</span
+              >
             </div>
             <button
               class="btn btn-primary btn-sm"
@@ -973,20 +984,38 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
             style="
               display: flex;
               align-items: center;
-              gap: 16px;
+              justify-content: space-between;
               margin-bottom: 16px;
               flex-wrap: wrap;
+              gap: 16px;
             "
           >
-            <span id="datalayer-status-badge" style="font-weight: 600"
-              >⚪ <span data-i18n="status.loading">Lädt…</span></span
+            <div
+              style="
+                font-weight: 600;
+                display: inline-flex;
+                align-items: center;
+                gap: 16px;
+              "
             >
+              <span style="display: inline-flex; align-items: center; gap: 4px">
+                <span id="datalayer-dot-service">⚪</span>
+                <span data-i18n="status.services">Dienste</span>
+              </span>
+
+              <span style="display: inline-flex; align-items: center; gap: 4px">
+                <span id="datalayer-status-text" data-i18n="status.loading"
+                  >⚪ Lädt...</span
+                >
+              </span>
+            </div>
+
             <button
-              class="btn btn-outline-secondary btn-sm"
+              class="btn btn-primary btn-sm"
               onclick="loadDatalayerStatus()"
               data-i18n="datalayer.refresh"
             >
-              Status aktualisieren
+              Aktualisieren
             </button>
           </div>
 
@@ -1018,11 +1047,17 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                     padding-top: 20px;
                   "
                 >
-                  <label class="c8y-checkbox" style="margin: 0">
-                    <input type="checkbox" id="datalayer-enabled" />
-                    <span></span>
-                    <span data-i18n="datalayer.enabled">Enabled</span>
-                  </label>
+                  <div class="tedge-switch-group" style="margin-bottom: 0">
+                    <label class="tedge-switch">
+                      <input type="checkbox" id="datalayer-enabled" />
+                      <span class="tedge-switch-slider"></span>
+                    </label>
+                    <span
+                      class="tedge-switch-label"
+                      data-i18n="datalayer.enabled"
+                      >Enabled</span
+                    >
+                  </div>
                 </div>
               </div>
 
@@ -1046,17 +1081,19 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                       data-i18n-placeholder="datalayer.password_hint"
                     />
                   </div>
-                  <div class="form-group" style="margin-top: 10px">
-                    <label class="c8y-checkbox">
+                  <div class="tedge-switch-group">
+                    <label class="tedge-switch">
                       <input
                         type="checkbox"
                         id="datalayer-accept-invalid-certs"
                       />
-                      <span></span>
-                      <span data-i18n="datalayer.accept_invalid_certs"
-                        >Accept invalid TLS certificates</span
-                      >
+                      <span class="tedge-switch-slider"></span>
                     </label>
+                    <span
+                      class="tedge-switch-label"
+                      data-i18n="datalayer.accept_invalid_certs"
+                      >Accept invalid TLS certificates</span
+                    >
                   </div>
                 </div>
                 <div class="status-col">
@@ -1080,12 +1117,16 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                       value="5000"
                     />
                   </div>
+
                   <div
-                    class="action-buttons"
-                    style="margin-top: 25px; text-align: right"
+                    style="
+                      display: flex;
+                      justify-content: flex-end;
+                      margin-top: 16px;
+                    "
                   >
                     <button
-                      class="btn btn-primary"
+                      class="btn btn-primary btn-sm"
                       onclick="saveDatalayerConfig()"
                       data-i18n="device.save"
                     >
@@ -1255,20 +1296,37 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                     justify-content: flex-end;
                   "
                 >
-                  <button
-                    class="btn btn-outline-secondary"
-                    onclick="cancelMapping()"
-                    data-i18n="device.cancel"
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: flex-end;
+                      margin-top: 16px;
+                    "
                   >
-                    Abbrechen
-                  </button>
-                  <button
-                    class="btn btn-primary"
-                    onclick="saveNewMapping()"
-                    data-i18n="device.save"
+                    <button
+                      class="btn btn-outline-secondary"
+                      onclick="cancelMapping()"
+                      data-i18n="device.cancel"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: flex-end;
+                      margin-top: 16px;
+                    "
                   >
-                    Speichern
-                  </button>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="saveNewMapping()"
+                      data-i18n="device.save"
+                    >
+                      Speichern
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1318,28 +1376,21 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                 margin-bottom: -2px;
               "
             ></div>
-            <table class="table c8y-table">
+            <table class="table table-striped table-hover c8y-table">
               <thead>
                 <tr>
                   <th data-i18n="datalayer.path">Pfad</th>
                   <th data-i18n="datalayer.topic">Topic</th>
-                  <th data-i18n="datalayer.direction">Richtung</th>
+                  <th class="text-center" data-i18n="datalayer.direction">Richtung</th>
                   <th data-i18n="datalayer.transform">Typ</th>
-                  <th class="text-center" data-i18n="datalayer.enabled">
-                    Aktiv
-                  </th>
-                  <th></th>
-                </tr>
+                  <th data-i18n="datalayer.field_name">Feldname</th>
+                  <th data-i18n="datalayer.unit">Einheit</th>
+                  <th class="text-center" data-i18n="datalayer.enabled">Aktiv</th>
+                  <th class="text-right"></th> </tr>
               </thead>
               <tbody id="datalayer-mapping-table-body"></tbody>
             </table>
-            <div
-              style="
-                height: 2px;
-                background: var(--c8y-palette-gray-60);
-                margin-top: -2px;
-              "
-            ></div>
+            <div style="height: 2px; background: var(--c8y-palette-gray-60); margin-top: -2px;"></div>
           </div>
         </section>
       </div>

@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "mqtt")]
 use std::sync::Arc;
 #[cfg(feature = "mqtt")]
-use std::time::Duration;
+#[allow(unused_imports)]
 use uuid::Uuid;
 
 // --- Config Structs ---
@@ -54,7 +54,7 @@ pub struct DatalayerMapping {
 
 // Hilfsfunktion für Serde
 fn generate_uuid() -> String {
-    Uuid::new_v4().to_string()
+    uuid::Uuid::new_v4().to_string()
 }
 
 fn default_direction() -> MappingDirection {
@@ -168,9 +168,6 @@ impl DatalayerEngine {
     pub fn is_enabled(&self) -> bool {
         self.config.enabled && !self.config.base_url.is_empty()
     }
-    pub fn config(&self) -> &DatalayerConfig {
-        &self.config
-    }
 
     pub async fn fetch_token(&mut self) -> bool {
         let user = match &self.config.username {
@@ -276,17 +273,80 @@ pub async fn run_datalayer_loop(
             let messages = engine.poll_mappings().await;
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
-                for (t, p) in messages {
-                    let _ = cli.publish(mqtt::Message::new(t, p, 0)).await;
+                for (topic, payload) in messages {
+                    // 1. Das passende Mapping finden
+                    if let Some(mapping) = engine.config.mappings.iter().find(|m| m.topic == topic)
+                    {
+                        // Den Anzeigenamen ermitteln (Fallback auf die ID, falls field_name leer ist)
+                        // Annahme: field_name ist vom Typ Option<String>. Falls es ein normaler String ist,
+                        // ändere dies zu: let field_name = mapping.field_name.clone();
+                        let field_name = mapping.effective_field_name();
+
+                        // 2. Die Transformation anwenden
+                        let (final_topic, final_payload) = match mapping.transform {
+                            MappingTransform::Measurement => {
+                                // Payload vom Data Layer parsen (entfernt die \")
+                                let mut parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
+
+                                // Falls der Data Layer ein Objekt schickt (z.B. {"rSimuTemp": 26.0}),
+                                // extrahieren wir nur die nackte Zahl
+                                if let Some(obj) = parsed_value.as_object() {
+                                    if let Some(val) = obj.values().next() {
+                                        parsed_value = val.clone();
+                                    }
+                                }
+
+                                // Sauberes JSON bauen: {"rSimuTemp": 26.0}
+                                let json_data =
+                                    serde_json::json!({ &field_name: parsed_value }).to_string();
+
+                                // Wir nutzen das Topic, das du in der UI konfiguriert hast
+                                (mapping.topic.clone(), json_data)
+                            }
+                            MappingTransform::Event => {
+                                let json_data = serde_json::json!({
+                                    "text": format!("Event: {} ist {}", field_name, payload),
+                                    "type": "ctrlx_event"
+                                })
+                                .to_string();
+
+                                // Bei Events nutzen wir das Standard-tedge-Topic, falls in der UI nichts Spezifisches steht
+                                let ev_topic = if mapping.topic.contains("events") {
+                                    mapping.topic.clone()
+                                } else {
+                                    "tedge/events/ctrlx_event".to_string()
+                                };
+                                (ev_topic, json_data)
+                            }
+                            MappingTransform::Alarm => {
+                                let json_data = serde_json::json!({
+                                    "text": format!("Alarm an {}: Wert ist {}", field_name, payload),
+                                    "severity": "major"
+                                }).to_string();
+
+                                let al_topic = if mapping.topic.contains("alarms") {
+                                    mapping.topic.clone()
+                                } else {
+                                    "tedge/alarms/major/ctrlx_alarm".to_string()
+                                };
+                                (al_topic, json_data)
+                            }
+                            _ => (mapping.topic.clone(), payload),
+                        };
+
+                        // 3. Abschicken
+                        let _ = cli
+                            .publish(mqtt::Message::new(final_topic, final_payload, 0))
+                            .await;
+                    }
                 }
             }
         }
-        tokio::time::sleep(Duration::from_millis(
-            engine.config().poll_interval_ms as u64,
-        ))
-        .await;
     }
 }
+
 #[cfg(feature = "mqtt")]
 pub async fn handle_mqtt_message(
     msg: &mqtt::Message,
