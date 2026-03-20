@@ -2,7 +2,18 @@
   "enabled": false,
   "baseUrl": "https://localhost",
   "pollIntervalMs": 5000,
-  "mappings": [],
+  "mappings": [
+    {
+      "id": "66e7547f-e9c3-4666-81c5-ca236d69e36c",
+      "path": "asd",
+      "topic": "asd",
+      "direction": "dl_to_tedge",
+      "transform": "raw",
+      "field_name": "asd",
+      "unit": "asd",
+      "enabled": true
+    }
+  ],
   "username": null,
   "password": null,
   "token": null,

@@ -1753,10 +1753,10 @@ function updateTopicPrefix() {
   if (direction === "tedge_to_dl") {
     topic += "cmd/plc/" + lastPart;
   } else {
-    if (transform === "Measurement") topic += "m/plc/" + lastPart;
-    else if (transform === "Event") topic += "e/plc/" + lastPart;
-    else if (transform === "Alarm") topic += "a/plc/" + lastPart;
-    else topic += "m/plc/" + lastPart; // fallback
+    if (transform === "Measurement") topic += "m/" + lastPart;
+    else if (transform === "Event") topic += "e/" + lastPart;
+    else if (transform === "Alarm") topic += "a/" + lastPart;
+    else topic += "m/" + lastPart; // fallback
   }
   topicInput.value = topic;
 }
@@ -1794,17 +1794,55 @@ function editDatalayerMapping(id) {
   const titleEl = document.getElementById("mapping-form-title");
   if (titleEl) titleEl.textContent = t("datalayer.edit_mapping_title");
 
+  // Delete-Button nur anzeigen, wenn Mapping existiert (id vorhanden)
+  const delBtn = document.getElementById("delete-mapping-btn");
+  if (delBtn) delBtn.style.display = id ? "inline-block" : "none";
   section.scrollIntoView({ behavior: "smooth" });
+
+  // Speichere aktuelle Mapping-ID für Delete
+  window._currentMappingId = id;
+  // Löscht das aktuell geladene Mapping aus dem Edit-Formular
+  async function deleteCurrentMapping() {
+    const id = window._currentMappingId;
+    if (!id) return;
+    if (!confirm(t("datalayer.confirm_delete") || "Mapping löschen?")) return;
+    try {
+      const r = await fetchWithAuth(
+        `api/datalayer/mappings/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const d = await r.json();
+      if (d.success) {
+        showNotification(t("notify.dl_mapping_deleted"), "success");
+        cancelMapping();
+        loadDatalayerMappings();
+        loadDatalayerStatus();
+      } else {
+        showNotification(d.error || t("notify.dl_mapping_del_err"), "error");
+      }
+    } catch (e) {
+      showNotification(t("notify.dl_mapping_del_err"), "error");
+    }
+  }
 }
 
 /** 5. Mapping speichern (Neu oder Edit) */
 async function saveNewMapping() {
   const idInput = document.getElementById("datalayer-mapping-id").value;
+  const isEdit = !!idInput;
+
+  // Topic holen und abschließenden Slash entfernen, falls vorhanden
+  let topicRaw = document
+    .getElementById("datalayer-mapping-topic")
+    .value.trim();
+  if (topicRaw.endsWith("/")) {
+    topicRaw = topicRaw.replace(/\/+$/, "");
+  }
 
   const body = {
     id: idInput,
     path: document.getElementById("datalayer-mapping-path").value.trim(),
-    topic: document.getElementById("datalayer-mapping-topic").value.trim(),
+    topic: topicRaw,
     direction: document.getElementById("datalayer-mapping-direction").value,
     transform: document.getElementById("datalayer-mapping-transform").value,
     field_name:
@@ -1820,14 +1858,27 @@ async function saveNewMapping() {
   }
 
   try {
-    const r = await fetchWithAuth("api/datalayer/mappings/add", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    const d = await r.json();
+    let r, d;
+    if (isEdit) {
+      // Update bestehendes Mapping
+      r = await fetchWithAuth(
+        `api/datalayer/mappings/${encodeURIComponent(idInput)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(body),
+        },
+      );
+    } else {
+      // Neues Mapping anlegen
+      r = await fetchWithAuth("api/datalayer/mappings/add", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    }
+    d = await r.json();
 
     if (d.success) {
-      const msg = idInput
+      const msg = isEdit
         ? "Mapping erfolgreich aktualisiert"
         : t("notify.dl_mapping_added");
       showNotification(msg, "success");
@@ -1858,6 +1909,10 @@ function cancelMapping() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  // Delete-Button wieder ausblenden
+  const delBtn = document.getElementById("delete-mapping-btn");
+  if (delBtn) delBtn.style.display = "none";
+  window._currentMappingId = null;
 }
 
 /** 7. Tabelle rendern */
@@ -1871,66 +1926,64 @@ function renderDatalayerMappings() {
     return;
   }
 
-  tbody.innerHTML = _dlMappings
-    .map((m) => {
-      const p = m.path || m.datalayer_path || "";
-      const t_topic = m.topic || m.tedge_topic || "";
-      const trans = m.transform || "Measurement";
-      const fieldName = m.field_name || "-";
-      const unit = m.unit || "-";
+  tbody.innerHTML = "";
+  _dlMappings.forEach((m) => {
+    const p = m.path || m.datalayer_path || "";
+    const t_topic = m.topic || m.tedge_topic || "";
+    const trans = m.transform || "Measurement";
+    const fieldName = m.field_name || "-";
+    const isWrite = m.direction === "tedge_to_dl";
+    const dirIcon = isWrite ? "fa-arrow-left" : "fa-arrow-right";
+    const dirTitle = isWrite
+      ? t("datalayer.dir_tedge_to_dl")
+      : t("datalayer.dir_dl_to_tedge");
+    const dirColor = isWrite ? "#FD8200" : "var(--brand-primary)";
+    let labelClass = "label-info";
+    const transLower = trans.toLowerCase();
+    if (transLower === "measurement") labelClass = "label-success";
+    if (transLower === "alarm") labelClass = "label-warning";
 
-      const isWrite = m.direction === "tedge_to_dl";
-      // Codex Icons statt Emojis für die Richtung
-      const dirIcon = isWrite ? "arrow-left" : "arrow-right";
-      const dirTitle = isWrite
-        ? t("datalayer.dir_tedge_to_dl")
-        : t("datalayer.dir_dl_to_tedge");
-      const dirColor = isWrite ? "#FD8200" : "var(--brand-primary)";
+    const tr = document.createElement("tr");
+    tr.className = "mapping-row";
+    tr.style.cursor = "pointer";
+    tr.title = "Klicken zum Bearbeiten";
+    tr.addEventListener("click", (e) => {
+      // Verhindere, dass Klicks auf Buttons/Switches das Edit auslösen
+      if (
+        e.target.closest("button") ||
+        e.target.closest("input[type=checkbox]")
+      )
+        return;
+      editDatalayerMapping(m.id);
+    });
 
-      // Cumulocity Label Logik anwenden
-      let labelClass = "label-info"; // Standard (blau) für Event/Unbekannt
-      const transLower = trans.toLowerCase();
-      if (transLower === "measurement") labelClass = "label-success"; // Grün
-      if (transLower === "alarm") labelClass = "label-warning"; // Gelb
-
-      return `
-            <tr class="mapping-row" style="cursor: pointer;" onclick="editDatalayerMapping('${m.id}')" title="Klicken zum Bearbeiten">
-                
-                <td class="cell-path text-truncate" title="${p}">${p}</td>
-                
-                <td class="cell-topic text-truncate" title="${t_topic}">${t_topic}</td>
-                
-                <td class="text-center" title="${dirTitle}" style="font-size: 16px; color: ${dirColor};">
-                    <i c8yIcon="${dirIcon}"></i>
-                </td>
-                
-                <td>
-                    <span class="label ${labelClass}">${trans.toUpperCase()}</span>
-                </td>
-                
-                <td>${fieldName}</td>
-                
-                <td>${unit}</td>
-                
-                <td class="text-center" onclick="event.stopPropagation();">
-                    <label class="c8y-switch" style="margin: 0 auto;">
-                        <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="updateEnabled('${m.id}', this.checked)">
-                        <span></span>
-                    </label>
-                </td>
-                
-                <td class="text-right" onclick="event.stopPropagation();">
-                    <button class="btn btn-dot text-danger" title="Löschen" data-i18n-title="common.delete" onclick="deleteDatalayerMapping('${m.id}')">
-                        <i c8yIcon="delete"></i>
-                    </button>
-                </td>
-                
-            </tr>
-        `;
-    })
-    .join("");
-
-  // Wichtig: applyI18n ruft deine Data-Attribute aus und setzt die Sprache
+    tr.innerHTML = `
+      <td class="cell-path text-truncate" title="${p}">${p}</td>
+      <td class="cell-topic text-truncate" title="${t_topic}">${t_topic}</td>
+      <td class="text-center" title="${dirTitle}" style="font-size: 16px; color: ${dirColor};">
+        <i class="fa-solid ${dirIcon}"></i>
+      </td>
+      <td>
+        <span class="label ${labelClass}">${trans.toUpperCase()}</span>
+      </td>
+      <td>${fieldName}</td>
+      <td class="text-center">
+        <label class="tedge-switch">
+          <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
+          <span class="tedge-switch-slider"></span>
+        </label>
+      </td>
+      <td class="text-right">
+        <button class="btn btn-dot text-danger" title="Löschen" data-i18n-title="common.delete" onclick="event.stopPropagation(); deleteDatalayerMapping('${m.id}')">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if (_dlMappings.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="node-empty-hint" style="text-align:center; padding:20px;" data-i18n="datalayer.no_mappings">${t("datalayer.no_mappings")}</td></tr>`;
+  }
   if (typeof applyI18n === "function") {
     applyI18n();
   }

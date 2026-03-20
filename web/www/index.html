@@ -6,6 +6,11 @@
     <base href="/thin-edge-io/" />
     <title data-i18n="header.title">thin-edge.io Configuration</title>
     <link rel="stylesheet" href="styles.css" />
+    <!-- FontAwesome für Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
     <script>
       // Dark Mode vor dem Rendern anwenden, um Flackern zu vermeiden
@@ -1301,6 +1306,7 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                       display: flex;
                       justify-content: flex-end;
                       margin-top: 16px;
+                      gap: 10px;
                     "
                   >
                     <button
@@ -1310,15 +1316,15 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                     >
                       Abbrechen
                     </button>
-                  </div>
-
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: flex-end;
-                      margin-top: 16px;
-                    "
-                  >
+                    <button
+                      class="btn btn-danger btn-sm"
+                      id="delete-mapping-btn"
+                      style="display: none"
+                      onclick="deleteCurrentMapping()"
+                      data-i18n="common.delete"
+                    >
+                      Löschen
+                    </button>
                     <button
                       class="btn btn-primary btn-sm"
                       onclick="saveNewMapping()"
@@ -1386,7 +1392,7 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                   </th>
                   <th data-i18n="datalayer.transform">Typ</th>
                   <th data-i18n="datalayer.field_name">Feldname</th>
-                  <th data-i18n="datalayer.unit">Einheit</th>
+                  <!-- <th data-i18n="datalayer.unit">Einheit</th> entfernt -->
                   <th class="text-center" data-i18n="datalayer.enabled">
                     Aktiv
                   </th>
