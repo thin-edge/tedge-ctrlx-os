@@ -216,6 +216,7 @@ const I18N = {
     "datalayer.col_direction": "Richtung",
     "datalayer.add_mapping_title": "Mapping hinzufügen",
     "datalayer.edit_mapping_title": "Mapping bearbeiten",
+    "common.delete": "Löschen",
     "notify.dl_config_err": "Fehler beim Speichern der Datalayer-Konfiguration",
     "notify.dl_mapping_added": "Mapping hinzugefügt",
     "notify.dl_mapping_add_err": "Fehler beim Hinzufügen des Mappings",
@@ -432,6 +433,7 @@ const I18N = {
     "datalayer.col_direction": "Direction",
     "datalayer.add_mapping_title": "Add Mapping",
     "datalayer.edit_mapping_title": "Edit Mapping",
+    "common.delete": "Delete",
     // Notifications
     "notify.dl_config_err": "Error saving datalayer configuration",
     "notify.dl_mapping_added": "Mapping added",
@@ -1753,9 +1755,9 @@ function updateTopicPrefix() {
   if (direction === "tedge_to_dl") {
     topic += "cmd/plc/" + lastPart;
   } else {
-    if (transform === "Measurement") topic += "m/" + lastPart;
-    else if (transform === "Event") topic += "e/" + lastPart;
-    else if (transform === "Alarm") topic += "a/" + lastPart;
+    if (transform === "measurement") topic += "m/" + lastPart;
+    else if (transform === "event") topic += "e/" + lastPart;
+    else if (transform === "alarm") topic += "a/" + lastPart;
     else topic += "m/" + lastPart; // fallback
   }
   topicInput.value = topic;
@@ -1801,29 +1803,29 @@ function editDatalayerMapping(id) {
 
   // Speichere aktuelle Mapping-ID für Delete
   window._currentMappingId = id;
-// Löscht das aktuell geladene Mapping aus dem Edit-Formular
-async function deleteCurrentMapping() {
-  const id = window._currentMappingId;
-  if (!id) return;
-  if (!confirm(t("datalayer.confirm_delete") || "Mapping löschen?")) return;
-  try {
-    const r = await fetchWithAuth(
-      `api/datalayer/mappings/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
-    const d = await r.json();
-    if (d.success) {
-      showNotification(t("notify.dl_mapping_deleted"), "success");
-      cancelMapping();
-      loadDatalayerMappings();
-      loadDatalayerStatus();
-    } else {
-      showNotification(d.error || t("notify.dl_mapping_del_err"), "error");
+  // Löscht das aktuell geladene Mapping aus dem Edit-Formular
+  async function deleteCurrentMapping() {
+    const id = window._currentMappingId;
+    if (!id) return;
+    if (!confirm(t("datalayer.confirm_delete") || "Mapping löschen?")) return;
+    try {
+      const r = await fetchWithAuth(
+        `api/datalayer/mappings/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const d = await r.json();
+      if (d.success) {
+        showNotification(t("notify.dl_mapping_deleted"), "success");
+        cancelMapping();
+        loadDatalayerMappings();
+        loadDatalayerStatus();
+      } else {
+        showNotification(d.error || t("notify.dl_mapping_del_err"), "error");
+      }
+    } catch (e) {
+      showNotification(t("notify.dl_mapping_del_err"), "error");
     }
-  } catch (e) {
-    showNotification(t("notify.dl_mapping_del_err"), "error");
   }
-}
 }
 
 /** 5. Mapping speichern (Neu oder Edit) */
@@ -1832,7 +1834,9 @@ async function saveNewMapping() {
   const isEdit = !!idInput;
 
   // Topic holen und abschließenden Slash entfernen, falls vorhanden
-  let topicRaw = document.getElementById("datalayer-mapping-topic").value.trim();
+  let topicRaw = document
+    .getElementById("datalayer-mapping-topic")
+    .value.trim();
   if (topicRaw.endsWith("/")) {
     topicRaw = topicRaw.replace(/\/+$/, "");
   }
@@ -1859,10 +1863,13 @@ async function saveNewMapping() {
     let r, d;
     if (isEdit) {
       // Update bestehendes Mapping
-      r = await fetchWithAuth(`api/datalayer/mappings/${encodeURIComponent(idInput)}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
+      r = await fetchWithAuth(
+        `api/datalayer/mappings/${encodeURIComponent(idInput)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(body),
+        },
+      );
     } else {
       // Neues Mapping anlegen
       r = await fetchWithAuth("api/datalayer/mappings/add", {
@@ -1944,7 +1951,11 @@ function renderDatalayerMappings() {
     tr.title = "Klicken zum Bearbeiten";
     tr.addEventListener("click", (e) => {
       // Verhindere, dass Klicks auf Buttons/Switches das Edit auslösen
-      if (e.target.closest("button") || e.target.closest("input[type=checkbox]")) return;
+      if (
+        e.target.closest("button") ||
+        e.target.closest("input[type=checkbox]")
+      )
+        return;
       editDatalayerMapping(m.id);
     });
 

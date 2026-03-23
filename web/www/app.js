@@ -216,6 +216,7 @@ const I18N = {
     "datalayer.col_direction": "Richtung",
     "datalayer.add_mapping_title": "Mapping hinzufügen",
     "datalayer.edit_mapping_title": "Mapping bearbeiten",
+    "common.delete": "Löschen",
     "notify.dl_config_err": "Fehler beim Speichern der Datalayer-Konfiguration",
     "notify.dl_mapping_added": "Mapping hinzugefügt",
     "notify.dl_mapping_add_err": "Fehler beim Hinzufügen des Mappings",
@@ -432,6 +433,7 @@ const I18N = {
     "datalayer.col_direction": "Direction",
     "datalayer.add_mapping_title": "Add Mapping",
     "datalayer.edit_mapping_title": "Edit Mapping",
+    "common.delete": "Delete",
     // Notifications
     "notify.dl_config_err": "Error saving datalayer configuration",
     "notify.dl_mapping_added": "Mapping added",
@@ -1753,9 +1755,9 @@ function updateTopicPrefix() {
   if (direction === "tedge_to_dl") {
     topic += "cmd/plc/" + lastPart;
   } else {
-    if (transform === "Measurement") topic += "m/" + lastPart;
-    else if (transform === "Event") topic += "e/" + lastPart;
-    else if (transform === "Alarm") topic += "a/" + lastPart;
+    if (transform === "measurement") topic += "m/" + lastPart;
+    else if (transform === "event") topic += "e/" + lastPart;
+    else if (transform === "alarm") topic += "a/" + lastPart;
     else topic += "m/" + lastPart; // fallback
   }
   topicInput.value = topic;

@@ -7,7 +7,10 @@
     <title data-i18n="header.title">thin-edge.io Configuration</title>
     <link rel="stylesheet" href="styles.css" />
     <!-- FontAwesome für Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
     <script>
       // Dark Mode vor dem Rendern anwenden, um Flackern zu vermeiden
@@ -1226,13 +1229,6 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                     id="datalayer-mapping-direction"
                     class="form-control"
                     onchange="updateTopicPrefix()"
-                    style="
-                      padding: 6px 10px;
-                      border: 1px solid var(--c8y-palette-gray-60);
-                      border-radius: 4px;
-                      background: var(--c8y-palette-high);
-                      color: var(--c8y-palette-gray-10);
-                    "
                   >
                     <option
                       value="dl_to_tedge"
@@ -1298,7 +1294,14 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                     justify-content: flex-end;
                   "
                 >
-                  <div style="display: flex; justify-content: flex-end; margin-top: 16px; gap: 10px;">
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: flex-end;
+                      margin-top: 16px;
+                      gap: 10px;
+                    "
+                  >
                     <button
                       class="btn btn-outline-secondary"
                       onclick="cancelMapping()"
@@ -1307,9 +1310,9 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                       Abbrechen
                     </button>
                     <button
-                      class="btn btn-danger btn-sm"
+                      class="btn btn-outline-danger"
                       id="delete-mapping-btn"
-                      style="display: none;"
+                      style="display: none"
                       onclick="deleteCurrentMapping()"
                       data-i18n="common.delete"
                     >

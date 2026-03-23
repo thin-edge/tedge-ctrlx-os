@@ -23,6 +23,35 @@
   }
 }
 
+.form-group select,
+.form-control select,
+select.form-control,
+select {
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  font-size: @font-size-base;
+  font-family: @font-family-base;
+  border: 1px solid @gray-60;
+  border-radius: @border-radius-base;
+  background: @palette-high;
+  color: @gray-10;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-sizing: border-box;
+}
+
+.form-group select:focus,
+.form-control select:focus,
+select.form-control:focus,
+select:focus {
+  outline: none;
+  border-color: @brand-primary;
+  box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
+}
+
 .form-control-sm {
   font-size: 13px;
   padding: 5px 8px;
@@ -508,28 +537,28 @@ main {
 .btn-outline-warning {
   .btn-base();
   background:   var(--c8y-palette-high);
-  color:        #a07000;
-  border:       1px solid var(--c8y-palette-status-warning);
+  color:        var(--brand-primary);
+  border:       1px solid var(--brand-primary);
   transition:   background 0.15s, border-color 0.15s, color 0.15s;
 
   &:hover {
-    background:   #fff3cd;
-    border-color: #c68400;
-    color:        #7a5500;
+    background:   var(--brand-light);
+    border-color: var(--brand-dark);
+    color:        var(--brand-dark);
   }
 }
 
 .btn-outline-danger {
   .btn-base();
   background:   var(--c8y-palette-high);
-  color:        var(--c8y-palette-status-danger);
-  border:       1px solid var(--c8y-palette-status-danger);
+  color:        var(--brand-primary);
+  border:       1px solid var(--brand-primary);
   transition:   background 0.15s, border-color 0.15s, color 0.15s;
 
   &:hover {
-    background:   #fdecea;
-    border-color: #b22a27;
-    color:        #b22a27;
+    background:   var(--brand-light);
+    border-color: var(--brand-dark);
+    color:        var(--brand-dark);
   }
 }
 
@@ -755,6 +784,16 @@ footer {
   .form-group {
     input[type="text"],
     input[type="password"] {
+      background:   @dark-gray-80;
+      color:        @dark-gray-20;
+      border-color: @dark-gray-60;
+
+      &:focus {
+        border-color: var(--brand-primary);
+        box-shadow:   0 0 0 3px rgba(96,165,250,.2);
+      }
+    }
+    select {
       background:   @dark-gray-80;
       color:        @dark-gray-20;
       border-color: @dark-gray-60;

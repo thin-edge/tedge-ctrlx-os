@@ -20,6 +20,33 @@
   border-color: #53cd61;
   box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
 }
+.form-group select,
+.form-control select,
+select.form-control,
+select {
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
+  border: 1px solid #D4D9DE;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #212121;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-sizing: border-box;
+}
+.form-group select:focus,
+.form-control select:focus,
+select.form-control:focus,
+select:focus {
+  outline: none;
+  border-color: #53cd61;
+  box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
+}
 .form-control-sm {
   font-size: 13px;
   padding: 5px 8px;
@@ -370,14 +397,14 @@ main {
   margin-top: 6px;
   text-decoration: none;
   background: var(--c8y-palette-high);
-  color: #a07000;
-  border: 1px solid var(--c8y-palette-status-warning);
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .btn-outline-warning:hover {
-  background: #fff3cd;
-  border-color: #c68400;
-  color: #7a5500;
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  color: var(--brand-dark);
 }
 .btn-outline-danger {
   display: inline-flex;
@@ -394,14 +421,14 @@ main {
   margin-top: 6px;
   text-decoration: none;
   background: var(--c8y-palette-high);
-  color: var(--c8y-palette-status-danger);
-  border: 1px solid var(--c8y-palette-status-danger);
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .btn-outline-danger:hover {
-  background: #fdecea;
-  border-color: #b22a27;
-  color: #b22a27;
+  background: var(--brand-light);
+  border-color: var(--brand-dark);
+  color: var(--brand-dark);
 }
 .tabs {
   display: flex;
@@ -625,6 +652,15 @@ footer a:hover {
 }
 [data-theme="dark"] .form-group input[type="text"]:focus,
 [data-theme="dark"] .form-group input[type="password"]:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+[data-theme="dark"] .form-group select {
+  background: #2d3748;
+  color: #e2e8f0;
+  border-color: #4b5563;
+}
+[data-theme="dark"] .form-group select:focus {
   border-color: var(--brand-primary);
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
