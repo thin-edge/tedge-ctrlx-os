@@ -1,6 +1,6 @@
 #!/bin/bash
 # Device ID Management Script for thin-edge.io Snap
-# Handles automatic detection, manual setting, and certificate creation
+# Handles automatic detection, manual setting, certificate creation, and inventory update
 
 set -e
 
@@ -55,12 +55,24 @@ get_system_serial() {
 # Function to get current device ID from certificate
 get_current_device_id() {
     if [ -f "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" ]; then
-        # Extract CN from certificate
-        # OpenSSL may output "CN = Testname" (with spaces) or "CN=Testname" (no spaces)
         openssl x509 -in "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" -noout -subject 2>/dev/null | \
             sed -n 's/.*CN\s*=\s*\([^,/]*\).*/\1/p' | sed 's/[[:space:]]*$//' || echo ""
     else
         echo ""
+    fi
+}
+
+# NEU: Aktualisiert die inventory.json mit der echten Seriennummer
+update_inventory() {
+    local device_id="$1"
+    local inventory_file="$TEDGE_CONFIG_DIR/device/inventory.json"
+    
+    if [ -f "$inventory_file" ]; then
+        echo "Updating inventory.json with Device ID: $device_id" >&2
+        # Nutze sed um den Wert von "serialNumber" sicher zu ersetzen
+        sed -i "s/\"serialNumber\":[[:space:]]*\".*\"/\"serialNumber\": \"$device_id\"/" "$inventory_file"
+    else
+        echo "WARNING: inventory.json not found at $inventory_file" >&2
     fi
 }
 
@@ -83,6 +95,9 @@ create_certificate() {
     if "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" cert create --device-id "$device_id" 2>&1; then
         echo "SUCCESS: Certificate created for $device_id" >&2
         
+        # NEU: Inventory JSON aktualisieren
+        update_inventory "$device_id"
+        
         # Restart services
         if command -v snapctl >/dev/null 2>&1; then
             echo "Restarting thin-edge.io services..." >&2
@@ -100,12 +115,10 @@ create_certificate() {
 # Main command handler
 case "${1:-}" in
     get-serial)
-        # Get system serial number
         get_system_serial
         ;;
     
     get-current)
-        # Get current device ID from certificate
         current=$(get_current_device_id)
         if [ -n "$current" ]; then
             echo "$current"
@@ -116,7 +129,6 @@ case "${1:-}" in
         ;;
     
     create)
-        # Create certificate with provided or auto-detected ID
         device_id="${2:-}"
         if [ -z "$device_id" ]; then
             device_id=$(get_system_serial)
@@ -126,7 +138,6 @@ case "${1:-}" in
         ;;
     
     recreate)
-        # Recreate certificate with current or new ID
         device_id="${2:-}"
         if [ -z "$device_id" ]; then
             device_id=$(get_current_device_id)
@@ -139,7 +150,6 @@ case "${1:-}" in
         ;;
     
     set)
-        # Set new device ID and create certificate
         device_id="$2"
         if [ -z "$device_id" ]; then
             echo "ERROR: Device ID required" >&2
@@ -150,7 +160,6 @@ case "${1:-}" in
         ;;
     
     status)
-        # Show current status
         echo "=== Device ID Status ==="
         echo "System Serial: $(get_system_serial)"
         current=$(get_current_device_id)
@@ -175,12 +184,6 @@ case "${1:-}" in
         echo "  recreate [device-id] Recreate certificate"
         echo "  set <device-id>      Set new device ID and create certificate"
         echo "  status               Show current device ID status"
-        echo ""
-        echo "Examples:"
-        echo "  $0 status"
-        echo "  $0 create"
-        echo "  $0 set ctrlx-my-device-123"
-        echo "  $0 recreate"
         exit 1
         ;;
 esac

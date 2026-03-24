@@ -119,6 +119,7 @@ apps:
     environment:
       TZ: Europe/Berlin
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+      PATH: $SNAP/bin:$SNAP/usr/bin:$PATH
     plugs:
       - network
       - network-bind
@@ -137,6 +138,7 @@ apps:
     environment:
       TZ: Europe/Berlin
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
+      PATH: $SNAP/bin:$SNAP/usr/bin:$PATH
     plugs:
       - network
       - network-bind
@@ -202,7 +204,7 @@ apps:
         - setup-directories
         - mosquitto
         - tedge-agent
-
+      
   # Plugins
   c8y-firmware-plugin:
     command: scripts/tedge-service-wrapper.sh c8y-firmware-plugin
@@ -227,7 +229,9 @@ apps:
       - network
 
   tedge-file-log-plugin:
-    command: scripts/tedge-service-wrapper.sh tedge-file-log-plugin
+    command: bin/tedge-file-log-plugin --config-dir $SNAP_DATA/tedge
+    environment:
+      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
     plugs:
       - network
 
@@ -298,6 +302,7 @@ hooks:
       - hardware-observe  # Needed to read system serial number for device ID
       - log-observe       # Needed for snapctl logs in webserver
       - network
+      - network-observe
   configure:
     plugs:
       - network
@@ -306,6 +311,7 @@ hooks:
       - network
       - hardware-observe
       - log-observe
+      - network-observe
 
 # Slot definitions for ctrlX integration
 slots:
@@ -594,5 +600,3 @@ parts:
       # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
       cp $CRAFT_PRIME/web/www/icon.png $CRAFT_PRIME/meta/icon.png
       cp $CRAFT_PRIME/web/www/icon.svg $CRAFT_PRIME/meta/icon.svg
-
-

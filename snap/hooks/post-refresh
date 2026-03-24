@@ -12,18 +12,19 @@ mkdir -p "$SNAP_DATA/tedge/run"
 mkdir -p "$SNAP_DATA/tedge/tmp"
 mkdir -p "$SNAP_DATA/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA/tedge/log-plugins"
+mkdir -p "$SNAP_DATA/tedge/plugins"
+mkdir -p "$SNAP_DATA/tedge/device"
 mkdir -p "$SNAP_DATA/tedge/.agent"
 mkdir -p "$SNAP_COMMON/tedge/log"
 mkdir -p "$SNAP_COMMON/tedge/cache"
 
-# CRITICAL FIX: Create lock directory in SNAP_COMMON (persists across updates!)
+# CRITICAL FIX: Create lock directory in SNAP_COMMON
 echo "Creating lock directory in SNAP_COMMON..." >&2
 mkdir -p "$SNAP_COMMON/tedge/run/lock"
 chmod 777 "$SNAP_COMMON/tedge/run/lock"
 
 # Create symlink from SNAP_DATA to SNAP_COMMON lock directory
 echo "Creating symlink for lock directory..." >&2
-# Remove old directory or symlink (rmdir for empty dir, rm -rf as fallback)
 if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
   rmdir "$SNAP_DATA/tedge/run/lock" 2>/dev/null || rm -rf "$SNAP_DATA/tedge/run/lock"
 else
@@ -40,6 +41,59 @@ chmod 777 "$SNAP_COMMON/tedge/log"
 echo "Updating revision-specific tedge config paths..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>/dev/null || true
+
+# =========================================================================
+# --- CRITICAL FIX: Repariere Plugin-Konfigurationen nach Update ---
+# =========================================================================
+echo "Regenerating stable plugin configurations..." >&2
+STABLE_CURRENT="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current"
+STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
+
+# Stelle sicher, dass inventory.json auch beim Update existiert, falls gelöscht
+if [ ! -f "$SNAP_DATA/tedge/device/inventory.json" ]; then
+cat <<EOF > "$SNAP_DATA/tedge/device/inventory.json"
+{
+  "c8y_Hardware": {
+    "model": "Bosch ctrlX CORE",
+    "serialNumber": "auto-detected",
+    "revision": "1.0"
+  }
+}
+EOF
+fi
+
+cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "tedge.toml"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "default"
+
+[[files]]
+path = "${STABLE_CURRENT}/mosquitto/mosquitto.conf"
+type = "mosquitto.conf"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/device/inventory.json"
+type = "inventory.json"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
+type = "tedge-log-plugin"
+EOF
+
+cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
+[[files]]
+type = "software-management"
+path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
+EOF
+
+chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
+chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
+chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
+# =========================================================================
 
 echo "Post-refresh hook completed successfully" >&2
 

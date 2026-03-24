@@ -38,11 +38,6 @@ mkdir -p "$SNAP_DATA_PATH/package-run/thin-edge-io"
 chmod 777 "$SNAP_DATA_PATH/package-run"
 chmod 777 "$SNAP_DATA_PATH/package-run/thin-edge-io"
 
-
-
-
-
-
 # Lock-Verzeichnis in allen relevanten Snap-Revisionen anlegen (current, SNAP_DATA, common)
 for LOCKDIR in "$SNAP_DATA_PATH/tedge/run/lock" "$SNAP_DATA/tedge/run/lock" "$SNAP_COMMON_PATH/tedge/run/lock"; do
     echo "Creating lock directory: $LOCKDIR"

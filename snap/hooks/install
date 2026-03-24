@@ -6,7 +6,6 @@ set -e
 
 echo "=== thin-edge.io snap install hook starting ===" >&2
 
-
 mkdir -p "$SNAP_DATA/package-run"
 chmod 777 "$SNAP_DATA/package-run"
 
@@ -30,6 +29,8 @@ mkdir -p "$SNAP_DATA/tedge/run"
 mkdir -p "$SNAP_DATA/tedge/tmp"
 mkdir -p "$SNAP_DATA/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA/tedge/log-plugins"
+mkdir -p "$SNAP_DATA/tedge/plugins"
+mkdir -p "$SNAP_DATA/tedge/device"
 mkdir -p "$SNAP_DATA/tedge/.agent"
 mkdir -p "$SNAP_COMMON/tedge/log"
 mkdir -p "$SNAP_COMMON/tedge/cache"
@@ -41,7 +42,6 @@ chmod 777 "$SNAP_COMMON/tedge/run/lock"
 
 # Create symlink from SNAP_DATA to SNAP_COMMON lock directory
 echo "Creating symlink for lock directory..." >&2
-# Remove old directory or symlink (rmdir for empty dir, rm -rf as fallback)
 if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
   rmdir "$SNAP_DATA/tedge/run/lock" 2>/dev/null || rm -rf "$SNAP_DATA/tedge/run/lock"
 else
@@ -60,7 +60,7 @@ chmod 777 "$SNAP_DATA/tedge/tmp"
 chmod 777 "$SNAP_COMMON/tedge"
 chmod 777 "$SNAP_COMMON/tedge/log"
 
-# Initialize tedge with custom config directory using BOTH env var AND flag
+# Initialize tedge with custom config directory
 echo "Initializing tedge config directory at: $SNAP_DATA/tedge" >&2
 export TEDGE_CONFIG_DIR="$SNAP_DATA/tedge"
 if "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" init 2>&1 | tee -a /tmp/tedge-init.log >&2; then
@@ -76,28 +76,116 @@ echo "Configuring tedge paths..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
 
+# =========================================================================
+# --- CRITICAL FIX: Erzeuge saubere Plugin-Konfigurationen und Inventory ---
+# =========================================================================
+echo "Generating stable plugin configurations and inventory..." >&2
+STABLE_CURRENT="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current"
+STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
+
+# 1. Erstelle Standard inventory.json, falls nicht vorhanden
+if [ ! -f "$SNAP_DATA/tedge/device/inventory.json" ]; then
+cat <<EOF > "$SNAP_DATA/tedge/device/inventory.json"
+{
+  "c8y_Hardware": {
+    "model": "Bosch ctrlX CORE",
+    "serialNumber": "auto-detected",
+    "revision": "1.0"
+  }
+}
+EOF
+fi
+
+# 2. Configuration Plugin Erlaubnisliste (inkl. inventory.json und default)
+cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "tedge.toml"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "default"
+
+[[files]]
+path = "${STABLE_CURRENT}/mosquitto/mosquitto.conf"
+type = "mosquitto.conf"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/device/inventory.json"
+type = "inventory.json"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
+type = "tedge-log-plugin"
+EOF
+
+# 3. Log Plugin Erlaubnisliste
+cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
+[[files]]
+type = "software-management"
+path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
+EOF
+
+chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
+chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
+chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
+# =========================================================================
+
 # Auto-detect and set device ID from system serial number
 echo "Auto-detecting device ID from system information..." >&2
-
-# Use the new device ID management script
 if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
     echo "Running device ID management script..." >&2
     if "$SNAP/scripts/manage-device-id.sh" create 2>&1 | tee -a /tmp/tedge-cert.log >&2; then
         echo "Device certificate created successfully" >&2
     else
         echo "WARNING: Failed to create device certificate automatically" >&2
-        echo "You can manually create it with: snap run thin-edge-io.tedge cert create --device-id <your-id>" >&2
-        echo "Or use the web interface at: https://<your-ctrlx>/thin-edge-io/" >&2
     fi
 else
     echo "WARNING: Device ID management script not found" >&2
 fi
 
 echo "Install hook completed successfully" >&2
-echo "thin-edge.io snap installed successfully"
+
+# =========================================================================
+# NEU: Befülle die inventory.json mit echten Systemdaten
+# =========================================================================
+if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
+    echo "Running inventory update script..." >&2
+    "$SNAP/scripts/update-inventory.sh" 2>&1 || true
+fi
+# =========================================================================
+
+echo "Install hook completed successfully" >&2
+
+# Configure tedge paths for snap environment
+echo "Configuring tedge paths..." >&2
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" || true
+
+# =========================================================================
+# NEU: ctrlX & System Defaults für tedge.toml setzen
+# =========================================================================
+echo "Setting ctrlX specific defaults in tedge.toml..." >&2
+
+# 1. Gerätetyp für Cumulocity setzen
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.type "ctrlX-CORE" || true
+
+# 2. Standard-Paketmanager auf 'snap' setzen (für Software-Updates via Cloud)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set software.plugin.default "snap" || true
+
+# 3. Interne Ports sicher auf Localhost binden (Best Practice für Edge-Devices)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true
+# =========================================================================
+
+
+
 
 # Auto-connect snap interfaces
-# snapctl connect works from hooks since snapd 2.54
 echo "Connecting snap interfaces..." >&2
 snapctl connect :hardware-observe 2>/dev/null && echo "hardware-observe connected" >&2 || echo "WARNING: could not connect hardware-observe" >&2
 snapctl connect :log-observe 2>/dev/null && echo "log-observe connected" >&2 || echo "WARNING: could not connect log-observe" >&2
