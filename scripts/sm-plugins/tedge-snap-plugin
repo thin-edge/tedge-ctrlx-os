@@ -1,0 +1,23 @@
+#!/bin/sh
+# thin-edge.io Software Management Plugin für Snaps
+# Name: tedge-snap-plugin
+
+set -e
+
+# Der tedge-agent ruft dieses Skript mit Befehlen wie 'list' auf.
+case "$1" in
+    list)
+        # Wir lassen den Agenten wissen, dass wir da sind.
+        # Die eigentliche Liste schicken wir ja via update-inventory.sh
+        exit 0
+        ;;
+    install|remove|update)
+        # Falls du mal Software via Cloud installieren willst, 
+        # müsste hier die Logik für 'snap install ...' rein.
+        echo "Operation $1 not yet implemented" >&2
+        exit 1
+        ;;
+    *)
+        exit 1
+        ;;
+esac

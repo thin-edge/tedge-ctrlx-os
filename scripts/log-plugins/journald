@@ -1,0 +1,86 @@
+#!/bin/sh
+# thin-edge.io log plugin: journald
+#
+# Implements the thin-edge.io log plugin interface:
+#   list              - Lists all snap service log types
+#   get <type> [--since <seconds>] [--until <seconds>]
+#                     - Retrieves journald logs for the given snap service
+#
+# See: https://thin-edge.github.io/thin-edge.io/extend/log-management/
+#
+# Uses journalctl to retrieve logs from snap services.
+# The snap name is derived from the SNAP_INSTANCE_NAME env variable (set by snap runtime).
+
+set -eu
+
+SNAP_NAME="${SNAP_INSTANCE_NAME:-thin-edge-io}"
+
+list() {
+    # Report the snap services whose logs we can retrieve via journalctl
+    printf '%s\n' \
+        "${SNAP_NAME}.tedge-agent" \
+        "${SNAP_NAME}.tedge-mapper-c8y" \
+        "${SNAP_NAME}.tedge-mapper-aws" \
+        "${SNAP_NAME}.tedge-mapper-az" \
+        "${SNAP_NAME}.tedge-datalayer-bridge" \
+        "${SNAP_NAME}.mosquitto" \
+        "${SNAP_NAME}.webserver" \
+        "${SNAP_NAME}.tedge-watchdog"
+}
+
+get() {
+    log_type="$1"
+    shift
+
+    since=""
+    until_ts=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --since) since="$2"; shift ;;
+            --until) until_ts="$2"; shift ;;
+        esac
+        shift
+    done
+
+    # Build journalctl arguments
+    ARGS="-u ${log_type} --no-pager -o short-iso"
+
+    if [ -n "$since" ]; then
+        # Convert seconds-since-epoch to date string for journalctl
+        SINCE_DATE=$(date -d "@${since}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+            || date -r "${since}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+            || echo "")
+        if [ -n "$SINCE_DATE" ]; then
+            ARGS="$ARGS --since \"${SINCE_DATE}\""
+        fi
+    fi
+
+    if [ -n "$until_ts" ]; then
+        UNTIL_DATE=$(date -d "@${until_ts}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+            || date -r "${until_ts}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
+            || echo "")
+        if [ -n "$UNTIL_DATE" ]; then
+            ARGS="$ARGS --until \"${UNTIL_DATE}\""
+        fi
+    fi
+
+    eval journalctl $ARGS 2>/dev/null || true
+}
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 list | get <type> [--since <seconds>] [--until <seconds>]" >&2
+    exit 1
+fi
+
+SUBCOMMAND="$1"
+shift
+
+case "$SUBCOMMAND" in
+    list) list ;;
+    get)  get "$@" ;;
+    *)
+        echo "Unsupported command: $SUBCOMMAND" >&2
+        exit 1
+        ;;
+esac

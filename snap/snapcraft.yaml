@@ -40,10 +40,15 @@ base: core22
 confinement: strict
 icon: web/www/icon.png
 
-# Map hard-coded system paths used by tedge-agent binaries into writable snap locations
+# Map hard-coded system paths used by tedge-agent binaries into snap locations.
+# IMPORTANT: log-plugins and config-plugins bind from $SNAP (read-only) so that
+# AppArmor allows executing them in strict confinement. $SNAP_DATA would cause
+# Permission denied (os error 13) when tedge-agent tries to spawn the plugins.
 layout:
   /usr/share/tedge/log-plugins:
-    bind: $SNAP_DATA/tedge/log-plugins
+    bind: $SNAP/scripts/log-plugins
+  /usr/share/tedge/config-plugins:
+    bind: $SNAP/scripts/config-plugins
   /usr/share/tedge/sm-plugins:
     bind: $SNAP_DATA/tedge/sm-plugins
   #/lib/systemd/system/tedge-watchdog.service:
@@ -124,6 +129,7 @@ apps:
       - network
       - network-bind
       - system-observe
+      - log-observe    # Needed so log plugins can call journalctl for service logs
     passthrough:
       restart-delay: 10s
       after:
@@ -435,6 +441,10 @@ parts:
       '*': scripts/
     stage:
       - scripts/*
+      - scripts/log-plugins/
+      - scripts/log-plugins/file
+      - scripts/log-plugins/journald
+      - scripts/config-plugins/
 
   hooks:
     plugin: dump

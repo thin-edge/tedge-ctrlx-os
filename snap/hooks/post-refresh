@@ -88,11 +88,35 @@ cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 [[files]]
 type = "software-management"
 path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
+
+[[files]]
+type = "tedge-agent"
+path = "${STABLE_COMMON}/tedge/log/tedge-agent.log"
+
+[[files]]
+type = "tedge-mapper-c8y"
+path = "${STABLE_COMMON}/tedge/log/tedge-mapper-c8y.log"
+
+[[files]]
+type = "mosquitto"
+path = "${STABLE_COMMON}/tedge/log/mosquitto.log"
+
+[[files]]
+type = "webserver"
+path = "${STABLE_COMMON}/tedge/log/webserver.log"
 EOF
 
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
+
+# =========================================================================
+# Korrigiere stale data.path und sudo.enable nach Update
+# =========================================================================
+echo "Correcting stale tedge config values after update..." >&2
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>/dev/null || true
 # =========================================================================
 
 echo "Post-refresh hook completed successfully" >&2

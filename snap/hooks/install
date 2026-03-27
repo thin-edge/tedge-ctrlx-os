@@ -119,16 +119,40 @@ path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
 type = "tedge-log-plugin"
 EOF
 
-# 3. Log Plugin Erlaubnisliste
+# 3. Log Plugin Erlaubnisliste (für den built-in "file" Plugin)
 cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 [[files]]
 type = "software-management"
 path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
+
+[[files]]
+type = "tedge-agent"
+path = "${STABLE_COMMON}/tedge/log/tedge-agent.log"
+
+[[files]]
+type = "tedge-mapper-c8y"
+path = "${STABLE_COMMON}/tedge/log/tedge-mapper-c8y.log"
+
+[[files]]
+type = "mosquitto"
+path = "${STABLE_COMMON}/tedge/log/mosquitto.log"
+
+[[files]]
+type = "webserver"
+path = "${STABLE_COMMON}/tedge/log/webserver.log"
 EOF
 
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
+
+# =========================================================================
+# 4. sudo.enable=false: Snap läuft als root, sudo ist in strict confinement
+#    nicht verfügbar. Plugins liegen in $SNAP/scripts/log-plugins (via Layout)
+#    und werden direkt (ohne sudo) von tedge-agent ausgeführt.
+# =========================================================================
+echo "Setting sudo.enable=false for snap environment..." >&2
+# (wird weiter unten im ctrlX-Defaults-Block gesetzt)
 # =========================================================================
 
 # Auto-detect and set device ID from system serial number
@@ -180,6 +204,13 @@ echo "Setting ctrlX specific defaults in tedge.toml..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true
+
+# 4. sudo.enable=false: Snap läuft als root, sudo ist in strict confinement nicht verfügbar.
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false || true
+
+# 5. data.path korrekt setzen (SNAP_COMMON ist snap-update-sicher)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
 # =========================================================================
 
 
