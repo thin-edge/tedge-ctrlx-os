@@ -211,6 +211,9 @@ echo "Setting ctrlX specific defaults in tedge.toml..." >&2
 # 5. data.path korrekt setzen (SNAP_COMMON ist snap-update-sicher)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
+
+# 6. log.plugin_paths direkt auf $SNAP zeigen (AppArmor erlaubt exec von /snap/**, nicht von /usr/share/**)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" || true
 # =========================================================================
 
 

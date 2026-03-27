@@ -344,6 +344,10 @@ pub async fn run_datalayer_loop(
                 }
             }
         }
+        tokio::time::sleep(std::time::Duration::from_millis(
+            engine.config.poll_interval_ms as u64,
+        ))
+        .await;
     }
 }
 

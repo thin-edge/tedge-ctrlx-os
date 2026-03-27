@@ -114,9 +114,19 @@ chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
 # Korrigiere stale data.path und sudo.enable nach Update
 # =========================================================================
 echo "Correcting stale tedge config values after update..." >&2
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>/dev/null || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>/dev/null || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+# log.plugin_paths nach Update auf neue Revision zeigen lassen
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+
+# Direktes Patchen der tedge.toml als Fallback (falls tedge config set fehlschlägt)
+TEDGE_TOML="$SNAP_DATA/tedge/tedge.toml"
+if [ -f "$TEDGE_TOML" ]; then
+    # Ersetze /data/tedge (alten ctrlX-Wert) durch den korrekten SNAP_COMMON-Pfad
+    sed -i "s|path = \"/data/tedge\"|path = \"$SNAP_COMMON/tedge\"|g" "$TEDGE_TOML" 2>/dev/null || true
+    echo "Direct TOML patch for data.path applied" >&2
+fi
 # =========================================================================
 
 echo "Post-refresh hook completed successfully" >&2
