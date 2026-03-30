@@ -157,36 +157,53 @@
               </div>
               <div class="status-grid">
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('mosquitto')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('mosquitto')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="mqtt-status" class="status unknown"></span>
-                    <span class="label">  MQTT Broker:</span>
-                    
+                    <span class="label"> MQTT Broker:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-agent')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-agent')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="agent-status" class="status unknown"></span>
-                    <span class="label">  Tedge Agent:</span>
-                    
+                    <span class="label"> Tedge Agent:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-datalayer-bridge')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-datalayer-bridge')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="bridge-status" class="status unknown"></span>
-                    <span class="label">  Datalayer Bridge:</span>
+                    <span class="label"> Datalayer Bridge:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-watchdog')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-watchdog')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="watchdog-status" class="status unknown"></span>
-                    <span class="label">  Watchdog:</span>
-                    
+                    <span class="label"> Watchdog:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-log-upload-manager')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-log-upload-manager')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="log-upload-status" class="status unknown"></span>
-                    <span class="label">  Log Manager:</span>
+                    <span class="label"> Log Manager:</span>
                   </a>
                 </div>
               </div>
@@ -215,22 +232,33 @@
               </div>
               <div class="status-grid">
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-mapper-c8y')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-mapper-c8y')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="mapper-c8y-status" class="status unknown"></span>
-                    <span class="label">  Cumulocity:</span>
-                    
+                    <span class="label"> Cumulocity:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-mapper-aws')" data-i18n-title="notify.restart_link_title">
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-mapper-aws')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
                     <span id="mapper-aws-status" class="status unknown"></span>
-                    <span class="label">  AWS IoT:</span>
+                    <span class="label"> AWS IoT:</span>
                   </a>
                 </div>
                 <div class="status-item">
-                  <a class="restart-link" onclick="restartService('tedge-mapper-az')" data-i18n-title="notify.restart_link_title">
-                    <span id="mapper-az-status" class="status unknown"></span><span class="label">  Azure IoT:</span>
-                    
+                  <a
+                    class="restart-link"
+                    onclick="restartService('tedge-mapper-az')"
+                    data-i18n-title="notify.restart_link_title"
+                  >
+                    <span id="mapper-az-status" class="status unknown"></span
+                    ><span class="label"> Azure IoT:</span>
                   </a>
                 </div>
               </div>
@@ -260,18 +288,15 @@
               <div class="status-grid">
                 <div class="status-item">
                   <span id="c8y-status" class="status unknown"></span>
-                  <span class="label">  Cumulocity IoT:</span>
-                  
+                  <span class="label"> Cumulocity IoT:</span>
                 </div>
                 <div class="status-item">
                   <span id="aws-status" class="status unknown"></span>
-                  <span class="label">  AWS IoT:</span>
-                  
+                  <span class="label"> AWS IoT:</span>
                 </div>
                 <div class="status-item">
                   <span id="az-status" class="status unknown"></span>
-                  <span class="label">  Azure IoT:</span>
-                  
+                  <span class="label"> Azure IoT:</span>
                 </div>
               </div>
             </div>

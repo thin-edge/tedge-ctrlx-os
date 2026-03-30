@@ -1400,7 +1400,7 @@ async function onMqttPortToggle(checked) {
 async function loadC8yMqttPort() {
   // Read current mqtt.client.port from tedge config list output if available
   try {
-      const r = await fetchWithAuth("api/tedge-config-list");
+    const r = await fetchWithAuth("api/tedge-config-list");
     if (!r.ok) return;
     const data = await r.json();
     if (!data.output) return;
