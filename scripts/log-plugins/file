@@ -13,10 +13,11 @@
 
 set -eu
 
-# Determine the tedge binary path and config directory robustly:
-# In snap context, $SNAP and $SNAP_DATA are always set by the snap runtime.
-if [ -n "${SNAP:-}" ] && [ -x "${SNAP}/bin/tedge" ]; then
-    TEDGE_BIN="${SNAP}/bin/tedge"
+# Determine the tedge-file-log-plugin binary and config directory.
+# IMPORTANT: must be called as its own binary (not as 'tedge tedge-file-log-plugin')
+# so that the clap multicall mechanism dispatches via argv[0].
+if [ -n "${SNAP:-}" ] && [ -x "${SNAP}/bin/tedge-file-log-plugin" ]; then
+    PLUGIN_BIN="${SNAP}/bin/tedge-file-log-plugin"
     CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
 else
     # Fallback: derive snap root from /proc/mounts bind-mount of this directory
@@ -27,14 +28,14 @@ else
             | head -1)
         SNAP_ROOT="/snap/${SNAP_ROOT}/current"
     fi
-    if [ -n "$SNAP_ROOT" ] && [ -x "${SNAP_ROOT}/bin/tedge" ]; then
-        TEDGE_BIN="${SNAP_ROOT}/bin/tedge"
+    if [ -n "$SNAP_ROOT" ] && [ -x "${SNAP_ROOT}/bin/tedge-file-log-plugin" ]; then
+        PLUGIN_BIN="${SNAP_ROOT}/bin/tedge-file-log-plugin"
         CONFIG_DIR="/var/snap/thin-edge-io/current/tedge"
     else
-        # Last resort: system tedge
-        TEDGE_BIN=$(command -v tedge 2>/dev/null || echo "tedge")
+        # Last resort: system installation
+        PLUGIN_BIN=$(command -v tedge-file-log-plugin 2>/dev/null || echo "tedge-file-log-plugin")
         CONFIG_DIR="/etc/tedge"
     fi
 fi
 
-exec "$TEDGE_BIN" tedge-file-log-plugin --config-dir "$CONFIG_DIR" "$@"
+exec "$PLUGIN_BIN" --config-dir "$CONFIG_DIR" "$@"

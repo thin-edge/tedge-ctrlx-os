@@ -117,7 +117,8 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-# log.plugin_paths nach Update auf neue Revision zeigen lassen
+# log.plugin_paths: update to the new versioned revision path after snap refresh.
+#    AppArmor only allows exec from versioned paths (/snap/name/[0-9]*/...), NOT from 'current' symlink.
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 
 # Direktes Patchen der tedge.toml als Fallback (falls tedge config set fehlschlägt)

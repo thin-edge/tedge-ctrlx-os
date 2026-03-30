@@ -378,7 +378,7 @@ parts:
       
       # Clean to avoid cache issues
       cargo clean
-      
+
       # Build all thin-edge.io binaries in release mode
       cargo build --release $TARGET_FLAG --bin tedge --bin tedge-p11-server
       
@@ -532,9 +532,6 @@ parts:
         STRIP_CMD="strip"
       fi
       
-      # Clean to avoid cache issues
-      cargo clean
-      
       # Build with the host's Rust installation
       cargo build --release $TARGET_FLAG
       
@@ -575,9 +572,6 @@ parts:
         OUTPUT_DIR="target/release"
         STRIP_CMD="strip"
       fi
-      
-      # Clean to avoid cache issues
-      cargo clean
       
       # Build with the host's Rust installation
       cargo build --release $TARGET_FLAG
