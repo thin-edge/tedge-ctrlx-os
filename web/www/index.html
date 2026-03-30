@@ -927,7 +927,9 @@ Click "Load Logs" to load the latest entries.</pre
             "
           >
             <div class="form-group" style="margin: 0">
-              <label for="snapconfig-file-select" data-i18n="snapconfig.file">Datei</label>
+              <label for="snapconfig-file-select" data-i18n="snapconfig.file"
+                >Datei</label
+              >
               <select
                 id="snapconfig-file-select"
                 style="
@@ -940,15 +942,18 @@ Click "Load Logs" to load the latest entries.</pre
                   font-family: var(--c8y-font-family-base);
                 "
               >
-                <option value="datalayer-mappings.json">datalayer-mappings.json</option>
+                <option value="datalayer-mappings.json">
+                  datalayer-mappings.json
+                </option>
                 <option value="inventory.json">inventory.json</option>
                 <option value="mosquitto.conf">mosquitto.conf</option>
-                <option value="tedge.toml">tedge.toml</option>  
-                <option value="tedge-log-plugin.toml">tedge-log-plugin.toml</option>
-                <option value="tedge-configuration-plugin.toml">tedge-configuration-plugin.toml</option>
-                
-
-
+                <option value="tedge.toml">tedge.toml</option>
+                <option value="tedge-log-plugin.toml">
+                  tedge-log-plugin.toml
+                </option>
+                <option value="tedge-configuration-plugin.toml">
+                  tedge-configuration-plugin.toml
+                </option>
               </select>
             </div>
             <div class="action-buttons" style="margin: 0">
@@ -975,12 +980,15 @@ Click "Load Logs" to load the latest entries.</pre
               </button>
             </div>
           </div>
-          <div id="snapconfig-path-hint" style="
-            font-size: 11px;
-            color: var(--c8y-palette-gray-40, #999);
-            margin-bottom: 8px;
-            font-family: monospace;
-          "></div>
+          <div
+            id="snapconfig-path-hint"
+            style="
+              font-size: 11px;
+              color: var(--c8y-palette-gray-40, #999);
+              margin-bottom: 8px;
+              font-family: monospace;
+            "
+          ></div>
           <textarea
             id="snapconfig-editor"
             spellcheck="false"

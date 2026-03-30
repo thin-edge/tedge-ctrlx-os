@@ -1691,7 +1691,9 @@ async function loadSnapConfigFile() {
 
   const file = select.value;
   try {
-    const r = await fetchWithAuth(`api/snapconfig?file=${encodeURIComponent(file)}`);
+    const r = await fetchWithAuth(
+      `api/snapconfig?file=${encodeURIComponent(file)}`,
+    );
     const data = await r.json();
     if (hint) hint.textContent = data.path || "";
     if (data.error && !data.content) {

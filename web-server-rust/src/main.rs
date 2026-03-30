@@ -2634,8 +2634,9 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
     let path = match resolve_snap_config_path(&file_name, &snap_data) {
         Some(p) => p,
         None => {
-            return Ok(HttpResponse::BadRequest()
-                .json(serde_json::json!({"error": format!("Unknown config file: {}", file_name)})));
+            return Ok(HttpResponse::BadRequest().json(
+                serde_json::json!({"error": format!("Unknown config file: {}", file_name)}),
+            ));
         }
     };
 
@@ -2702,8 +2703,13 @@ async fn save_snap_config_file(
 /// Whitelist-based path resolver — only allows known safe config files
 fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> {
     match file_name {
-        "tedge-log-plugin.toml" => Some(format!("{}/tedge/plugins/tedge-log-plugin.toml", snap_data)),
-        "tedge-configuration-plugin.toml" => Some(format!("{}/tedge/plugins/tedge-configuration-plugin.toml", snap_data)),
+        "tedge-log-plugin.toml" => {
+            Some(format!("{}/tedge/plugins/tedge-log-plugin.toml", snap_data))
+        }
+        "tedge-configuration-plugin.toml" => Some(format!(
+            "{}/tedge/plugins/tedge-configuration-plugin.toml",
+            snap_data
+        )),
         "mosquitto.conf" => Some(format!("{}/mosquitto/mosquitto.conf", snap_data)),
         "tedge.toml" => Some(format!("{}/tedge/tedge.toml", snap_data)),
         "inventory.json" => Some(format!("{}/tedge/device/inventory.json", snap_data)),
