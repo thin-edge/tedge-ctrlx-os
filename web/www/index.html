@@ -914,34 +914,76 @@ Click "Load Logs" to load the latest entries.</pre
           >
         </section>
 
-        <!-- Tedge Configuration -->
-        <section id="sec-tedge-config" class="card">
-          <h2 data-i18n="section.tedgeconfig">Tedge Configuration</h2>
+        <!-- Snap Config Editor -->
+        <section id="sec-snap-config" class="card">
+          <h2 data-i18n="section.snapconfig">Snap Konfigurationsdateien</h2>
           <div
             style="
               display: flex;
-              gap: 8px;
-              align-items: center;
+              flex-wrap: wrap;
+              gap: 12px;
+              align-items: flex-end;
               margin-bottom: 14px;
             "
           >
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="loadTedgeConfig()"
-              data-i18n="tedgeconfig.load"
-            >
-              Load Configuration
-            </button>
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              onclick="copyTedgeConfig()"
-              data-i18n="tedgeconfig.copy"
-            >
-              Copy
-            </button>
+            <div class="form-group" style="margin: 0">
+              <label for="snapconfig-file-select" data-i18n="snapconfig.file">Datei</label>
+              <select
+                id="snapconfig-file-select"
+                style="
+                  padding: 6px 10px;
+                  border: 1px solid var(--c8y-palette-gray-60);
+                  border-radius: 4px;
+                  font-size: 14px;
+                  background: var(--c8y-palette-high);
+                  color: var(--c8y-palette-gray-10);
+                  font-family: var(--c8y-font-family-base);
+                "
+              >
+                <option value="datalayer-mappings.json">datalayer-mappings.json</option>
+                <option value="inventory.json">inventory.json</option>
+                <option value="mosquitto.conf">mosquitto.conf</option>
+                <option value="tedge.toml">tedge.toml</option>  
+                <option value="tedge-log-plugin.toml">tedge-log-plugin.toml</option>
+                <option value="tedge-configuration-plugin.toml">tedge-configuration-plugin.toml</option>
+                
+
+
+              </select>
+            </div>
+            <div class="action-buttons" style="margin: 0">
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="loadSnapConfigFile()"
+                data-i18n="snapconfig.load"
+              >
+                Laden
+              </button>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="saveSnapConfigFile()"
+                data-i18n="snapconfig.save"
+              >
+                Speichern
+              </button>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="copySnapConfigContent()"
+                data-i18n="snapconfig.copy"
+              >
+                Kopieren
+              </button>
+            </div>
           </div>
-          <pre
-            id="tedge-config-viewer"
+          <div id="snapconfig-path-hint" style="
+            font-size: 11px;
+            color: var(--c8y-palette-gray-40, #999);
+            margin-bottom: 8px;
+            font-family: monospace;
+          "></div>
+          <textarea
+            id="snapconfig-editor"
+            spellcheck="false"
             style="
               background: var(--c8y-palette-gray-100, #1a1a2e);
               border: 1px solid var(--c8y-palette-gray-70, #444);
@@ -949,36 +991,18 @@ Click "Load Logs" to load the latest entries.</pre
               padding: 12px;
               font-size: 12px;
               font-family: monospace;
-              height: 400px;
+              height: 320px;
+              width: 100%;
+              box-sizing: border-box;
               overflow-y: auto;
-              white-space: pre-wrap;
-              word-break: break-all;
+              white-space: pre;
               color: var(--c8y-palette-gray-20, #ccc);
               margin: 0;
+              resize: vertical;
             "
-            data-i18n="tedgeconfig.placeholder"
-          >
-Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
-          >
-        </section>
-
-        <!-- System Information -->
-        <section id="sec-sysinfo" class="card">
-          <h2 data-i18n="section.sysinfo">System Information</h2>
-          <div class="info-grid">
-            <div>
-              <strong data-i18n="sysinfo.version">Version:</strong>
-              <span id="tedge-version">-</span>
-            </div>
-            <div>
-              <strong data-i18n="sysinfo.build">Build:</strong>
-              <span id="build-number">-</span>
-            </div>
-            <div>
-              <strong data-i18n="sysinfo.arch">Architecture:</strong>
-              <span id="arch">-</span>
-            </div>
-          </div>
+            data-i18n-placeholder="snapconfig.placeholder"
+            placeholder='Datei auswählen und „Laden" klicken.'
+          ></textarea>
         </section>
 
         <!-- ctrlX Datalayer -->
@@ -1402,6 +1426,25 @@ Auf "Load Configuration" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
                 margin-top: -2px;
               "
             ></div>
+          </div>
+        </section>
+
+        <!-- System Information -->
+        <section id="sec-sysinfo" class="card">
+          <h2 data-i18n="section.sysinfo">System Information</h2>
+          <div class="info-grid">
+            <div>
+              <strong data-i18n="sysinfo.version">Version:</strong>
+              <span id="tedge-version">-</span>
+            </div>
+            <div>
+              <strong data-i18n="sysinfo.build">Build:</strong>
+              <span id="build-number">-</span>
+            </div>
+            <div>
+              <strong data-i18n="sysinfo.arch">Architecture:</strong>
+              <span id="arch">-</span>
+            </div>
           </div>
         </section>
       </div>

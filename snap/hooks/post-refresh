@@ -62,28 +62,6 @@ cat <<EOF > "$SNAP_DATA/tedge/device/inventory.json"
 EOF
 fi
 
-cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
-[[files]]
-path = "${STABLE_CURRENT}/tedge/tedge.toml"
-type = "tedge.toml"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/tedge.toml"
-type = "default"
-
-[[files]]
-path = "${STABLE_CURRENT}/mosquitto/mosquitto.conf"
-type = "mosquitto.conf"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/device/inventory.json"
-type = "inventory.json"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
-type = "tedge-log-plugin"
-EOF
-
 cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 [[files]]
 type = "software-management"
@@ -112,6 +90,28 @@ path = "${STABLE_COMMON}/tedge/log/tedge-web-config.log"
 [[files]]
 type = "log-upload-manager"
 path = "${STABLE_COMMON}/tedge/log/tedge-log-upload-manager.log"
+EOF
+
+cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "tedge.toml"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/tedge.toml"
+type = "default"
+
+[[files]]
+path = "${STABLE_CURRENT}/mosquitto/mosquitto.conf"
+type = "mosquitto.conf"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/device/inventory.json"
+type = "inventory.json"
+
+[[files]]
+path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
+type = "tedge-log-plugin"
 EOF
 
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"

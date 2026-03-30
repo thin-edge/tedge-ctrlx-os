@@ -2100,54 +2100,6 @@ fn update_system_toml_level(content: &str, service: &str, level: &str) -> String
     lines.join("\n")
 }
 
-async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
-    let (_user, role, _token) = extract_user_info(&req);
-    if !role.can_read() {
-        return Ok(HttpResponse::Forbidden()
-            .json(serde_json::json!({"error": "Insufficient permissions"})));
-    }
-
-    let is_snap = env::var("SNAP").is_ok();
-    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
-
-    let result = web::block(move || {
-        let tedge_bin = if is_snap {
-            "/snap/thin-edge-io/current/bin/tedge"
-        } else {
-            "tedge"
-        };
-
-        let mut cmd = Command::new(tedge_bin);
-        if is_snap && !snap_data.is_empty() {
-            cmd.args(["--config-dir", &snap_data]);
-        }
-        cmd.arg("config").arg("list");
-
-        info!("[TEDGE-CONFIG] Running: tedge config list");
-        match cmd.output() {
-            Ok(out) => {
-                if out.status.success() {
-                    String::from_utf8_lossy(&out.stdout).to_string()
-                } else {
-                    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                    format!(
-                        "[Fehler beim Ausführen von 'tedge config list']\n{}",
-                        stderr.trim()
-                    )
-                }
-            }
-            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
-        }
-    })
-    .await;
-
-    match result {
-        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
-        Err(e) => Ok(HttpResponse::InternalServerError()
-            .json(serde_json::json!({"error": format!("{}", e)}))),
-    }
-}
-
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
@@ -2662,6 +2614,107 @@ async fn read_datalayer_node(
     }
 }
 
+/// GET /api/snapconfig?file=<name>  — reads an allowed snap config file
+async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let file_name = req
+        .query_string()
+        .split('&')
+        .find(|s| s.starts_with("file="))
+        .and_then(|s| s.strip_prefix("file="))
+        .unwrap_or("")
+        .to_string();
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let path = match resolve_snap_config_path(&file_name, &snap_data) {
+        Some(p) => p,
+        None => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"error": format!("Unknown config file: {}", file_name)})));
+        }
+    };
+
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "file": file_name,
+            "path": path,
+            "content": content
+        }))),
+        Err(e) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "file": file_name,
+            "path": path,
+            "content": "",
+            "error": format!("{}", e)
+        }))),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct SaveSnapConfigBody {
+    file: String,
+    content: String,
+}
+
+/// POST /api/snapconfig  — writes an allowed snap config file
+async fn save_snap_config_file(
+    req: HttpRequest,
+    body: web::Json<SaveSnapConfigBody>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Insufficient permissions"
+        })));
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let path = match resolve_snap_config_path(&body.file, &snap_data) {
+        Some(p) => p,
+        None => {
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": format!("Unknown config file: {}", body.file)
+            })));
+        }
+    };
+
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    match std::fs::write(&path, &body.content) {
+        Ok(_) => {
+            info!("[SNAP-CONFIG] Saved {}", body.file);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("{}", e)
+        }))),
+    }
+}
+
+/// Whitelist-based path resolver — only allows known safe config files
+fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> {
+    match file_name {
+        "tedge-log-plugin.toml" => Some(format!("{}/tedge/plugins/tedge-log-plugin.toml", snap_data)),
+        "tedge-configuration-plugin.toml" => Some(format!("{}/tedge/plugins/tedge-configuration-plugin.toml", snap_data)),
+        "mosquitto.conf" => Some(format!("{}/mosquitto/mosquitto.conf", snap_data)),
+        "tedge.toml" => Some(format!("{}/tedge/tedge.toml", snap_data)),
+        "inventory.json" => Some(format!("{}/tedge/device/inventory.json", snap_data)),
+        "datalayer-mappings.json" => {
+            // liegt direkt in SNAP_DATA (nicht in einem Unterordner)
+            Some(format!("{}/datalayer-mappings.json", snap_data))
+        }
+        _ => None,
+    }
+}
+
 /// GET /api/datalayer/status  — connection status
 async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -2818,11 +2871,12 @@ async fn main() -> io::Result<()> {
                             )
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
-                            .route("/tedge-config-list", web::get().to(get_tedge_config_list))
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))
                             .route("/log-level", web::post().to(set_log_level))
+                            .route("/snapconfig", web::get().to(get_snap_config_file))
+                            .route("/snapconfig", web::post().to(save_snap_config_file))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")

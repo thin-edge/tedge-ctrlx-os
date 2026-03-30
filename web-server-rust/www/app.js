@@ -181,6 +181,16 @@ const I18N = {
     "cert.create_err": "Fehler beim Erstellen des Zertifikats",
     // Datalayer section
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
+    // Snap Config Editor
+    "section.snapconfig": "Snap Konfigurationsdateien",
+    "snapconfig.file": "Datei",
+    "snapconfig.load": "Laden",
+    "snapconfig.save": "Speichern",
+    "snapconfig.copy": "Kopieren",
+    "snapconfig.placeholder": 'Datei auswählen und „Laden" klicken.',
+    "snapconfig.saved": "Datei gespeichert.",
+    "snapconfig.save_err": "Fehler beim Speichern der Datei.",
+    "snapconfig.load_err": "Fehler beim Laden der Datei.",
     "datalayer.refresh": "Aktualisieren",
     "datalayer.connection_settings": "Verbindungseinstellungen",
     "datalayer.enabled": "Aktiviert",
@@ -305,15 +315,6 @@ const I18N = {
     "logs.copy": "Copy",
     "logs.copied": "Logs copied to clipboard",
     "logs.placeholder": 'Click "Load Logs" to load the latest entries.',
-    // Tedge Config
-    "section.tedgeconfig": "Tedge Configuration",
-    "tedgeconfig.load": "Load Configuration",
-    "tedgeconfig.copy": "Copy",
-    "tedgeconfig.placeholder":
-      'Click "Load Configuration" to display the current configuration.',
-    "tedgeconfig.loading": "Loading configuration…",
-    "tedgeconfig.error": (msg) => `Error loading configuration: ${msg}`,
-    "tedgeconfig.copied": "Configuration copied to clipboard",
     // Sysinfo
     "sysinfo.version": "Version:",
     "sysinfo.build": "Build:",
@@ -393,6 +394,16 @@ const I18N = {
     "cert.create_err": "Error creating certificate",
     // Datalayer section
     "section.datalayer": "ctrlX Data Points (Datalayer)",
+    // Snap Config Editor
+    "section.snapconfig": "Snap Configuration Files",
+    "snapconfig.file": "File",
+    "snapconfig.load": "Load",
+    "snapconfig.save": "Save",
+    "snapconfig.copy": "Copy",
+    "snapconfig.placeholder": 'Select a file and click "Load".',
+    "snapconfig.saved": "File saved.",
+    "snapconfig.save_err": "Error saving file.",
+    "snapconfig.load_err": "Error loading file.",
     "datalayer.refresh": "Refresh Status",
     "datalayer.connection_settings": "Connection Settings",
     "datalayer.enabled": "Enabled",
@@ -960,30 +971,6 @@ async function applyLogLevel() {
   }
 }
 
-// Load tedge config list
-async function loadTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  viewer.textContent = t("tedgeconfig.loading");
-  try {
-    const response = await fetch("api/tedge-config-list");
-    if (response.status === 403) {
-      viewer.textContent = t("tedgeconfig.error", "Keine Berechtigung");
-      return;
-    }
-    const data = await response.json();
-    if (data.output) {
-      viewer.textContent = data.output;
-    } else {
-      viewer.textContent = t(
-        "tedgeconfig.error",
-        data.error || "Unbekannter Fehler",
-      );
-    }
-  } catch (error) {
-    viewer.textContent = t("tedgeconfig.error", error.message);
-  }
-}
-
 function copyLogs() {
   const viewer = document.getElementById("log-viewer");
   if (!viewer.textContent) return;
@@ -1001,27 +988,6 @@ function copyLogs() {
       document.execCommand("copy");
       sel.removeAllRanges();
       showNotification(t("logs.copied") || "Logs copied", "success");
-    });
-}
-
-function copyTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  if (!viewer.textContent) return;
-  navigator.clipboard
-    .writeText(viewer.textContent)
-    .then(() => {
-      showNotification(t("tedgeconfig.copied"), "success");
-    })
-    .catch(() => {
-      // Fallback für ältere Browser
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(viewer);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      document.execCommand("copy");
-      sel.removeAllRanges();
-      showNotification(t("tedgeconfig.copied"), "success");
     });
 }
 
@@ -1714,6 +1680,70 @@ async function loadDatalayerConfig() {
     console.error("Fehler beim Laden der Datalayer-Konfig:", e);
   }
 }
+
+// ─── Snap Config Editor ──────────────────────────────────────────────────────
+
+async function loadSnapConfigFile() {
+  const select = document.getElementById("snapconfig-file-select");
+  const editor = document.getElementById("snapconfig-editor");
+  const hint = document.getElementById("snapconfig-path-hint");
+  if (!select || !editor) return;
+
+  const file = select.value;
+  try {
+    const r = await fetchWithAuth(`api/snapconfig?file=${encodeURIComponent(file)}`);
+    const data = await r.json();
+    if (hint) hint.textContent = data.path || "";
+    if (data.error && !data.content) {
+      editor.value = `[Fehler: ${data.error}]`;
+    } else {
+      editor.value = data.content || "";
+    }
+  } catch (e) {
+    showNotification(t("snapconfig.load_err"), "error");
+    console.error("Fehler beim Laden:", e);
+  }
+}
+
+async function saveSnapConfigFile() {
+  const select = document.getElementById("snapconfig-file-select");
+  const editor = document.getElementById("snapconfig-editor");
+  if (!select || !editor) return;
+
+  const file = select.value;
+  const content = editor.value;
+  try {
+    const r = await fetchWithAuth("api/snapconfig", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file, content }),
+    });
+    const data = await r.json();
+    if (data.success) {
+      showNotification(t("snapconfig.saved"), "success");
+    } else {
+      showNotification(data.error || t("snapconfig.save_err"), "error");
+    }
+  } catch (e) {
+    showNotification(t("snapconfig.save_err"), "error");
+    console.error("Fehler beim Speichern:", e);
+  }
+}
+
+function copySnapConfigContent() {
+  const editor = document.getElementById("snapconfig-editor");
+  if (!editor || !editor.value) return;
+  navigator.clipboard.writeText(editor.value).catch(() => {
+    const ta = document.createElement("textarea");
+    ta.value = editor.value;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  });
+}
+
+// ─── Snap Config Editor Ende ─────────────────────────────────────────────────
 
 /** 3. Mapping aus dem Browser vorbereiten (Add to mapping) */
 function prepareMapping(path) {
