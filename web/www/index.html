@@ -157,28 +157,37 @@
               </div>
               <div class="status-grid">
                 <div class="status-item">
-                  <span class="label">MQTT Broker:</span>
-                  <span id="mqtt-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('mosquitto')" data-i18n-title="notify.restart_link_title">
+                    <span id="mqtt-status" class="status unknown"></span>
+                    <span class="label">  MQTT Broker:</span>
+                    
+                  </a>
                 </div>
                 <div class="status-item">
-                  <span class="label">Tedge Agent:</span>
-                  <span id="agent-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-agent')" data-i18n-title="notify.restart_link_title">
+                    <span id="agent-status" class="status unknown"></span>
+                    <span class="label">  Tedge Agent:</span>
+                    
+                  </a>
                 </div>
                 <div class="status-item">
-                  <span class="label">Datalayer Bridge:</span>
-                  <span id="bridge-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-datalayer-bridge')" data-i18n-title="notify.restart_link_title">
+                    <span id="bridge-status" class="status unknown"></span>
+                    <span class="label">  Datalayer Bridge:</span>
+                  </a>
                 </div>
                 <div class="status-item">
-                  <span class="label">Watchdog:</span>
-                  <span id="watchdog-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-watchdog')" data-i18n-title="notify.restart_link_title">
+                    <span id="watchdog-status" class="status unknown"></span>
+                    <span class="label">  Watchdog:</span>
+                    
+                  </a>
+                </div>
+                <div class="status-item">
+                  <a class="restart-link" onclick="restartService('tedge-log-upload-manager')" data-i18n-title="notify.restart_link_title">
+                    <span id="log-upload-status" class="status unknown"></span>
+                    <span class="label">  Log Manager:</span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -206,22 +215,23 @@
               </div>
               <div class="status-grid">
                 <div class="status-item">
-                  <span class="label">Cumulocity:</span>
-                  <span id="mapper-c8y-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-mapper-c8y')" data-i18n-title="notify.restart_link_title">
+                    <span id="mapper-c8y-status" class="status unknown"></span>
+                    <span class="label">  Cumulocity:</span>
+                    
+                  </a>
                 </div>
                 <div class="status-item">
-                  <span class="label">AWS IoT:</span>
-                  <span id="mapper-aws-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-mapper-aws')" data-i18n-title="notify.restart_link_title">
+                    <span id="mapper-aws-status" class="status unknown"></span>
+                    <span class="label">  AWS IoT:</span>
+                  </a>
                 </div>
                 <div class="status-item">
-                  <span class="label">Azure IoT:</span>
-                  <span id="mapper-az-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <a class="restart-link" onclick="restartService('tedge-mapper-az')" data-i18n-title="notify.restart_link_title">
+                    <span id="mapper-az-status" class="status unknown"></span><span class="label">  Azure IoT:</span>
+                    
+                  </a>
                 </div>
               </div>
             </div>
@@ -249,27 +259,34 @@
               </div>
               <div class="status-grid">
                 <div class="status-item">
-                  <span class="label">Cumulocity IoT:</span>
-                  <span id="c8y-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <span id="c8y-status" class="status unknown"></span>
+                  <span class="label">  Cumulocity IoT:</span>
+                  
                 </div>
                 <div class="status-item">
-                  <span class="label">AWS IoT:</span>
-                  <span id="aws-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <span id="aws-status" class="status unknown"></span>
+                  <span class="label">  AWS IoT:</span>
+                  
                 </div>
                 <div class="status-item">
-                  <span class="label">Azure IoT:</span>
-                  <span id="az-status" class="status unknown"
-                    >⚪ Loading...</span
-                  >
+                  <span id="az-status" class="status unknown"></span>
+                  <span class="label">  Azure IoT:</span>
+                  
                 </div>
               </div>
             </div>
           </div>
-          <div class="action-buttons" style="margin-top: 14px">
+          <div
+            class="action-buttons"
+            style="
+              margin-top: 14px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 8px;
+            "
+          >
             <button
               class="btn btn-outline-secondary btn-sm"
               onclick="refreshStatus()"
@@ -278,6 +295,40 @@
             >
               Refresh Status
             </button>
+            <!-- Legende -->
+            <div
+              style="
+                display: flex;
+                gap: 10px;
+                font-size: 11px;
+                color: var(--c8y-palette-gray-40);
+              "
+            >
+              <span
+                ><span class="status running" style="font-size: 13px"
+                  >&#9679;</span
+                >
+                <span data-i18n="status.legend.running">Läuft</span></span
+              >
+              <span
+                ><span class="status stopped" style="font-size: 13px"
+                  >&#9679;</span
+                >
+                <span data-i18n="status.legend.stopped">Gestoppt</span></span
+              >
+              <span
+                ><span class="status inactive" style="font-size: 13px"
+                  >&#9679;</span
+                >
+                <span data-i18n="status.legend.inactive">Inaktiv</span></span
+              >
+              <span
+                ><span class="status unknown" style="font-size: 13px"
+                  >&#9679;</span
+                >
+                <span data-i18n="status.legend.unknown">Unbekannt</span></span
+              >
+            </div>
           </div>
         </section>
 
@@ -607,6 +658,54 @@
               Connects the device to Cumulocity IoT. Output appears in the log
               viewer below.
             </p>
+            <!-- MQTT Port Toggle -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 14px;
+                padding: 10px 14px;
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 6px;
+                background: var(--c8y-palette-gray-90, #1e1e30);
+              "
+            >
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span
+                  id="c8y-port-label-8883"
+                  style="
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: var(--brand-primary);
+                  "
+                  data-i18n="connect.port_core"
+                  >Core MQTT (8883)</span
+                >
+                <label class="tedge-switch" style="margin: 0">
+                  <input
+                    type="checkbox"
+                    id="c8y-mqtt-port-toggle"
+                    onchange="onMqttPortToggle(this.checked)"
+                  />
+                  <span class="tedge-switch-slider"></span>
+                </label>
+                <span
+                  id="c8y-port-label-9883"
+                  style="font-size: 13px; color: var(--c8y-palette-gray-40)"
+                  data-i18n="connect.port_service"
+                  >MQTT Service (9883)</span
+                >
+              </div>
+              <span
+                id="c8y-port-status"
+                style="
+                  font-size: 11px;
+                  color: var(--c8y-palette-gray-50);
+                  margin-left: auto;
+                "
+              ></span>
+            </div>
             <div
               style="
                 display: flex;
@@ -803,6 +902,34 @@
                 Test Alarm
               </button>
             </div>
+            <!-- Mapping Topic (nur bei Port 9883) -->
+            <div
+              id="c8y-mapping-topic-wrap"
+              style="display: none; margin-top: 14px"
+            >
+              <div class="form-group" style="margin: 0">
+                <label
+                  for="c8y-mapping-topic"
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--c8y-palette-gray-40);
+                    margin-bottom: 4px;
+                    display: block;
+                  "
+                  data-i18n="connect.mapping_topic_label"
+                  >Mapping Topic</label
+                >
+                <input
+                  type="text"
+                  id="c8y-mapping-topic"
+                  class="form-control"
+                  placeholder="z.B. te/device/main///m/myMeasurement"
+                  style="font-family: monospace; font-size: 13px"
+                />
+              </div>
+            </div>
           </div>
         </section>
 
@@ -911,6 +1038,54 @@
             data-i18n="logs.placeholder"
           >
 Click "Load Logs" to load the latest entries.</pre
+          >
+        </section>
+
+        <!-- Tedge Configuration -->
+        <section id="sec-tedge-config" class="card">
+          <h2 data-i18n="section.tedgeconfig">Tedge Configuration</h2>
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              align-items: center;
+              margin-bottom: 14px;
+            "
+          >
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="loadTedgeConfig()"
+              data-i18n="tedgeconfig.load"
+            >
+              Konfiguration laden
+            </button>
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              onclick="copyTedgeConfig()"
+              data-i18n="tedgeconfig.copy"
+            >
+              Kopieren
+            </button>
+          </div>
+          <pre
+            id="tedge-config-viewer"
+            style="
+              background: var(--c8y-palette-gray-100, #1a1a2e);
+              border: 1px solid var(--c8y-palette-gray-70, #444);
+              border-radius: 4px;
+              padding: 12px;
+              font-size: 12px;
+              font-family: monospace;
+              height: 400px;
+              overflow-y: auto;
+              white-space: pre-wrap;
+              word-break: break-all;
+              color: var(--c8y-palette-gray-20, #ccc);
+              margin: 0;
+            "
+            data-i18n="tedgeconfig.placeholder"
+          >
+Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
           >
         </section>
 

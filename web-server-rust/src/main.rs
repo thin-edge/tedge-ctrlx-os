@@ -94,6 +94,8 @@ struct ServiceStatus {
     agent: String,
     bridge: String,
     watchdog: String,
+    webserver: String,
+    log_upload_manager: String,
     mapper_c8y: String,
     mapper_aws: String,
     mapper_az: String,
@@ -501,6 +503,8 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         agent: "unknown".to_string(),
         bridge: "unknown".to_string(),
         watchdog: "unknown".to_string(),
+        webserver: "unknown".to_string(),
+        log_upload_manager: "unknown".to_string(),
         mapper_c8y: "unknown".to_string(),
         mapper_aws: "unknown".to_string(),
         mapper_az: "unknown".to_string(),
@@ -571,6 +575,8 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
         status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
         status.mapper_az = check_snapctl("tedge-mapper-az").to_string();
+        status.webserver = check_snapctl("tedge-web-config").to_string();
+        status.log_upload_manager = check_snapctl("tedge-log-upload-manager").to_string();
 
         // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)
         // Uses mosquitto_sub; runs all 3 in parallel to avoid cumulative timeout
@@ -622,12 +628,14 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         "agent": status.agent,
         "bridge": status.bridge,
         "watchdog": status.watchdog,
+        "webserver": status.webserver,
+        "log_upload_manager": status.log_upload_manager,
         "c8y": status.c8y,
         "aws": status.aws,
         "az": status.az,
-        "mapper_c8y": status.c8y,
-        "mapper_aws": status.aws,
-        "mapper_az": status.az
+        "mapper_c8y": status.mapper_c8y,
+        "mapper_aws": status.mapper_aws,
+        "mapper_az": status.mapper_az
     })))
 }
 
@@ -957,6 +965,62 @@ async fn save_device_config(
     })))
 }
 
+#[derive(Debug, Deserialize)]
+struct RestartSingleServiceBody {
+    service: String,
+}
+
+async fn restart_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false, "error": "Admin required"
+        })));
+    }
+    let allowed = [
+        "mosquitto",
+        "tedge-agent",
+        "tedge-datalayer-bridge",
+        "tedge-watchdog",
+        "tedge-web-config",
+        "tedge-log-upload-manager",
+        "tedge-mapper-c8y",
+        "tedge-mapper-aws",
+        "tedge-mapper-az",
+    ];
+    let svc = body.service.trim().to_string();
+    if !allowed.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Unknown service"
+        })));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Only available in snap environment"
+        })));
+    }
+    info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
+    let full = format!("thin-edge-io.{}", svc);
+    match std::process::Command::new("snapctl")
+        .args(["restart", &full])
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "service": svc})))
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            Ok(HttpResponse::InternalServerError()
+                .json(serde_json::json!({"success": false, "error": stderr})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)}))),
+    }
+}
+
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
 
@@ -1031,9 +1095,78 @@ struct ConnectPath {
 }
 
 #[derive(Debug, Deserialize)]
+struct SetMqttPortBody {
+    port: u16,
+}
+
+/// POST /api/set-mqtt-port  — sets c8y.mqtt.port via tedge config set
+async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Insufficient permissions - admin access required"
+        })));
+    }
+
+    if body.port != 8883 && body.port != 9883 {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid port: only 8883 or 9883 allowed"
+        })));
+    }
+
+    let is_snap = env::var("SNAP").is_ok();
+    let tedge_bin = if is_snap {
+        format!("{}/bin/tedge", env::var("SNAP").unwrap_or_default())
+    } else {
+        "tedge".to_string()
+    };
+    let tedge_config_dir = if is_snap {
+        format!("{}/tedge", env::var("SNAP_DATA").unwrap_or_default())
+    } else {
+        "/etc/tedge".to_string()
+    };
+    let port_str = body.port.to_string();
+
+    info!("[MQTT-PORT] Setting mqtt.client.port to {}", body.port);
+    let result = web::block(move || {
+        Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "config",
+                "set",
+                "mqtt.client.port",
+                &port_str,
+            ])
+            .output()
+    })
+    .await;
+
+    match result {
+        Ok(Ok(out)) if out.status.success() => {
+            info!("[MQTT-PORT] Set to {}", body.port);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": body.port})))
+        }
+        Ok(Ok(out)) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+            error!("[MQTT-PORT] Failed: {}", stderr);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"success": false, "error": stderr})))
+        }
+        Ok(Err(e)) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)}))),
+    }
+}
+
+#[derive(Debug, Deserialize)]
 struct TestMessageBody {
     #[serde(rename = "type")]
     msg_type: String, // "measurement" | "event" | "alarm"
+    #[serde(default)]
+    topic: String, // optional override topic (for port 9883)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1439,7 +1572,11 @@ async fn publish_test_message(
 
     let (topic, payload) = match body.msg_type.as_str() {
         "measurement" => (
-            "te/device/main///m/test".to_string(),
+            if body.topic.is_empty() {
+                "te/device/main///m/test".to_string()
+            } else {
+                body.topic.clone()
+            },
             format!(
                 r#"{{"temperature":{:.1},"time":"{}"}}"#,
                 20.0 + (now_secs % 10) as f64,
@@ -1447,14 +1584,22 @@ async fn publish_test_message(
             ),
         ),
         "event" => (
-            "te/device/main///e/test_event".to_string(),
+            if body.topic.is_empty() {
+                "te/device/main///e/test_event".to_string()
+            } else {
+                body.topic.clone()
+            },
             format!(
                 r#"{{"text":"Test event from thin-edge.io web config","time":"{}"}}"#,
                 chrono_like_ts(now_secs),
             ),
         ),
         "alarm" => (
-            "te/device/main///a/test_alarm".to_string(),
+            if body.topic.is_empty() {
+                "te/device/main///a/test_alarm".to_string()
+            } else {
+                body.topic.clone()
+            },
             format!(
                 r#"{{"severity":"warning","text":"Test alarm from thin-edge.io web config","time":"{}"}}"#,
                 chrono_like_ts(now_secs),
@@ -2098,6 +2243,54 @@ fn update_system_toml_level(content: &str, service: &str, level: &str) -> String
     }
 
     lines.join("\n")
+}
+
+async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+
+    let result = web::block(move || {
+        let tedge_bin = if is_snap {
+            "/snap/thin-edge-io/current/bin/tedge"
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "config", "list"]);
+        info!("[TEDGE-CONFIG] Running: tedge config list");
+        match cmd.output() {
+            Ok(out) => {
+                if out.status.success() {
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                } else {
+                    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                    format!(
+                        "[Fehler beim Ausführen von 'tedge config list']\n{}",
+                        stderr.trim()
+                    )
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
 }
 
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
@@ -2863,9 +3056,11 @@ async fn main() -> io::Result<()> {
                             .route("/config/az", web::post().to(save_az_config))
                             .route("/config/device", web::post().to(save_device_config))
                             .route("/restart", web::post().to(restart_services))
+                            .route("/restart-service", web::post().to(restart_single_service))
                             .route("/connect/{cloud}", web::post().to(connect_cloud))
                             .route("/disconnect/{cloud}", web::post().to(disconnect_cloud))
                             .route("/reconnect/{cloud}", web::post().to(reconnect_cloud))
+                            .route("/set-mqtt-port", web::post().to(set_mqtt_port))
                             .route("/test-message", web::post().to(publish_test_message))
                             .route("/cert/upload/c8y", web::post().to(upload_cert_c8y))
                             .route("/device-id", web::get().to(get_device_id))
@@ -2877,6 +3072,7 @@ async fn main() -> io::Result<()> {
                             )
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
+                            .route("/tedge-config-list", web::get().to(get_tedge_config_list))
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))

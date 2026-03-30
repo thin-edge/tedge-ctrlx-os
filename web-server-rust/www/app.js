@@ -19,6 +19,14 @@ const I18N = {
     "section.cloud": "Cloud-Konfiguration",
     "section.device": "Gerätekonfiguration & Zertifikat",
     "section.connect": "Gerät verbinden",
+    "connect.mqtt_port_label": "MQTT Port",
+    "connect.port_core": "Core MQTT (8883)",
+    "connect.port_service": "MQTT Service (9883)",
+    "connect.port_applied": (p) => `Port ${p} gesetzt`,
+    "connect.port_err": "Fehler beim Setzen des Ports",
+    "connect.mapping_topic_label": "Mapping Topic",
+    "connect.mapping_topic_hint":
+      "Topic für Test-Nachrichten über MQTT Service (Port 9883)",
     "section.logs": "Logs & Diagnose",
     "section.sysinfo": "Systeminformationen",
     // Status
@@ -32,6 +40,10 @@ const I18N = {
     "status.stopped": "🔴 Gestoppt",
     "status.inactive": "⚫ Inaktiv",
     "status.unknown": "⚪ Unbekannt",
+    "status.legend.running": "Läuft",
+    "status.legend.stopped": "Gestoppt",
+    "status.legend.inactive": "Inaktiv",
+    "status.legend.unknown": "Unbekannt",
     "status.refresh": "Aktualisieren",
     // Cloud config
     "cloud.save": "Speichern",
@@ -123,6 +135,8 @@ const I18N = {
     "notify.refreshing": "Status wird aktualisiert...",
     "notify.restart_confirm":
       "Thin-edge.io-Dienste wirklich neu starten? Hierfür sind Admin-Rechte erforderlich.",
+    "notify.restart_svc": (s) => `Service "${s}" wirklich neu starten?`,
+    "notify.restart_link_title": "Neu starten",
     "notify.restarting": "Dienste werden neu gestartet...",
     "notify.restart_err": "Dienste konnten nicht neu gestartet werden",
     "notify.no_perm_status": "Keine Berechtigung für diesen Vorgang",
@@ -246,6 +260,14 @@ const I18N = {
     "section.cloud": "Cloud Configuration",
     "section.device": "Device Configuration & Certificate",
     "section.connect": "Connect Device",
+    "connect.mqtt_port_label": "MQTT Port",
+    "connect.port_core": "Core MQTT (8883)",
+    "connect.port_service": "MQTT Service (9883)",
+    "connect.port_applied": (p) => `Port ${p} applied`,
+    "connect.port_err": "Error setting MQTT port",
+    "connect.mapping_topic_label": "Mapping Topic",
+    "connect.mapping_topic_hint":
+      "Topic for test messages via MQTT Service (Port 9883)",
     "section.logs": "Logs & Diagnostics",
     "section.sysinfo": "System Information",
     // Status
@@ -259,6 +281,10 @@ const I18N = {
     "status.stopped": "🔴 Stopped",
     "status.inactive": "⚫ Inactive",
     "status.unknown": "⚪ Unknown",
+    "status.legend.running": "Running",
+    "status.legend.stopped": "Stopped",
+    "status.legend.inactive": "Inactive",
+    "status.legend.unknown": "Unknown",
     "status.refresh": "Refresh",
     // Cloud config
     "cloud.save": "Save",
@@ -338,6 +364,8 @@ const I18N = {
     "notify.refreshing": "Refreshing status...",
     "notify.restart_confirm":
       "Are you sure you want to restart thin-edge.io services? This requires admin permissions.",
+    "notify.restart_svc": (s) => `Restart service "${s}"?`,
+    "notify.restart_link_title": "Restart",
     "notify.restarting": "Services are restarting...",
     "notify.restart_err": "Could not restart services",
     "notify.no_perm_status": "Insufficient permissions for this action",
@@ -396,6 +424,15 @@ const I18N = {
     "section.datalayer": "ctrlX Data Points (Datalayer)",
     // Snap Config Editor
     "section.snapconfig": "Snap Configuration Files",
+    // Tedge Config section
+    "section.tedgeconfig": "Tedge Configuration",
+    "tedgeconfig.load": "Load Configuration",
+    "tedgeconfig.copy": "Copy",
+    "tedgeconfig.placeholder":
+      'Click "Load Configuration" to view all tedge settings.',
+    "tedgeconfig.loading": "Loading configuration…",
+    "tedgeconfig.error": (msg) => `Error loading configuration: ${msg}`,
+    "tedgeconfig.copied": "Configuration copied to clipboard",
     "snapconfig.file": "File",
     "snapconfig.load": "Load",
     "snapconfig.save": "Save",
@@ -521,20 +558,25 @@ function applyI18n() {
   });
   // Re-translate all status badges (running/stopped/inactive/unknown)
   document.querySelectorAll(".status.running").forEach((el) => {
-    el.textContent = t("status.running");
+    el.textContent = "\u25cf";
+    el.title = t("status.running");
   });
   document.querySelectorAll(".status.stopped").forEach((el) => {
-    el.textContent = t("status.stopped");
+    el.textContent = "\u25cf";
+    el.title = t("status.stopped");
   });
   document.querySelectorAll(".status.inactive").forEach((el) => {
-    el.textContent = t("status.inactive");
+    el.textContent = "\u25cf";
+    el.title = t("status.inactive");
   });
   document.querySelectorAll(".status.unknown").forEach((el) => {
-    el.textContent = t("status.loading");
+    el.textContent = "\u25cf";
+    el.title = t("status.unknown");
   });
-  // "unknown" from server (can't determine) → show as "unknown" text
+  // "unknown" from server (can't determine) → same tooltip
   document.querySelectorAll('[id$="-status"].status.unknown').forEach((el) => {
-    el.textContent = t("status.unknown");
+    el.textContent = "\u25cf";
+    el.title = t("status.unknown");
   });
   // Log viewer placeholder
   const lv = document.getElementById("log-viewer");
@@ -668,9 +710,10 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStatus();
   loadConfiguration();
   updateLogLevelDropdown();
-  loadDatalayerStatus(); // Dein neuer Aufruf
+  loadDatalayerStatus();
   loadDatalayerConfig();
   loadDatalayerMappings();
+  loadC8yMqttPort();
 });
 
 // Load service status
@@ -690,6 +733,11 @@ async function loadStatus() {
     updateStatusBadge("agent-status", data.agent || "unknown");
     updateStatusBadge("bridge-status", data.bridge || "unknown");
     updateStatusBadge("watchdog-status", data.watchdog || "unknown");
+    updateStatusBadge("webserver-status", data.webserver || "unknown");
+    updateStatusBadge(
+      "log-upload-status",
+      data.log_upload_manager || "unknown",
+    );
     updateStatusBadge("mapper-c8y-status", data.mapper_c8y || "unknown");
     updateStatusBadge("mapper-aws-status", data.mapper_aws || "unknown");
     updateStatusBadge("mapper-az-status", data.mapper_az || "unknown");
@@ -711,13 +759,16 @@ function updateStatusBadge(elementId, status) {
   const element = document.getElementById(elementId);
   if (!element) return;
   element.className = "status " + status;
-  const icons = {
+  element.textContent = "\u25cf"; // ●
+  element.style.fontSize = "26px";
+  element.style.lineHeight = "1";
+  const labels = {
     running: t("status.running"),
     stopped: t("status.stopped"),
     inactive: t("status.inactive"),
     unknown: t("status.unknown"),
   };
-  element.textContent = icons[status] || t("status.unknown");
+  element.title = labels[status] || t("status.unknown");
 }
 
 // Load configuration
@@ -971,6 +1022,51 @@ async function applyLogLevel() {
   }
 }
 
+// Load tedge config list
+async function loadTedgeConfig() {
+  const viewer = document.getElementById("tedge-config-viewer");
+  if (!viewer) return;
+  viewer.textContent = t("tedgeconfig.loading");
+  try {
+    const response = await fetchWithAuth("api/tedge-config-list");
+    if (response.status === 403) {
+      viewer.textContent = t("tedgeconfig.error", "Keine Berechtigung");
+      return;
+    }
+    const data = await response.json();
+    if (data.output) {
+      viewer.textContent = data.output;
+    } else {
+      viewer.textContent = t(
+        "tedgeconfig.error",
+        data.error || "Unbekannter Fehler",
+      );
+    }
+  } catch (error) {
+    viewer.textContent = t("tedgeconfig.error", error.message);
+  }
+}
+
+function copyTedgeConfig() {
+  const viewer = document.getElementById("tedge-config-viewer");
+  if (!viewer || !viewer.textContent) return;
+  navigator.clipboard
+    .writeText(viewer.textContent)
+    .then(() => {
+      showNotification(t("tedgeconfig.copied"), "success");
+    })
+    .catch(() => {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(viewer);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("copy");
+      sel.removeAllRanges();
+      showNotification(t("tedgeconfig.copied"), "success");
+    });
+}
+
 function copyLogs() {
   const viewer = document.getElementById("log-viewer");
   if (!viewer.textContent) return;
@@ -989,6 +1085,27 @@ function copyLogs() {
       sel.removeAllRanges();
       showNotification(t("logs.copied") || "Logs copied", "success");
     });
+}
+
+// Restart a single snap service
+async function restartService(service) {
+  if (!confirm(t("notify.restart_svc", service))) return;
+  try {
+    const res = await fetchWithAuth("api/restart-service", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showNotification(t("notify.restarting"), "info");
+      setTimeout(loadStatus, 3500);
+    } else {
+      showNotification(data.error || t("notify.restart_err"), "error");
+    }
+  } catch (e) {
+    showNotification(t("notify.restart_err") + ": " + e.message, "error");
+  }
 }
 
 // Restart services
@@ -1241,6 +1358,64 @@ async function loadCertDetailsInline() {
   } catch (_) {}
 }
 
+// MQTT Port Toggle (c8y: 8883 = Core, 9883 = MQTT Service)
+async function onMqttPortToggle(checked) {
+  const port = checked ? 9883 : 8883;
+  // show/hide mapping topic field
+  const wrap = document.getElementById("c8y-mapping-topic-wrap");
+  if (wrap) wrap.style.display = checked ? "block" : "none";
+
+  const label8883 = document.getElementById("c8y-port-label-8883");
+  const label9883 = document.getElementById("c8y-port-label-9883");
+  const status = document.getElementById("c8y-port-status");
+  const activeStyle =
+    "font-size: 13px; font-weight: 600; color: var(--brand-primary);";
+  const inactiveStyle = "font-size: 13px; color: var(--c8y-palette-gray-40);";
+  if (label8883)
+    label8883.style.cssText = checked ? inactiveStyle : activeStyle;
+  if (label9883)
+    label9883.style.cssText = checked ? activeStyle : inactiveStyle;
+  if (status) status.textContent = "…";
+  try {
+    const r = await fetchWithAuth("api/set-mqtt-port", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ port }),
+    });
+    const data = await r.json();
+    if (data.success) {
+      if (status) status.textContent = t("connect.port_applied", port);
+      showNotification(t("connect.port_applied", port), "success");
+    } else {
+      if (status)
+        status.textContent = "⚠ " + (data.error || t("connect.port_err"));
+      showNotification(data.error || t("connect.port_err"), "error");
+    }
+  } catch (e) {
+    if (status) status.textContent = "⚠ " + t("connect.port_err");
+    showNotification(t("connect.port_err"), "error");
+  }
+}
+
+async function loadC8yMqttPort() {
+  // Read current mqtt.client.port from tedge config list output if available
+  try {
+      const r = await fetchWithAuth("api/tedge-config-list");
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.output) return;
+    const match = data.output.match(/mqtt\.client\.port\s*=\s*(\d+)/);
+    if (match) {
+      const port = parseInt(match[1], 10);
+      const toggle = document.getElementById("c8y-mqtt-port-toggle");
+      if (toggle) {
+        toggle.checked = port === 9883;
+        onMqttPortToggle(toggle.checked);
+      }
+    }
+  } catch (_) {}
+}
+
 // Connect cloud via tedge connect <cloud>
 async function connectCloud(cloud) {
   const names = { c8y: "Cumulocity IoT", aws: "AWS IoT", az: "Azure IoT" };
@@ -1346,14 +1521,24 @@ async function sendTestMessage(type) {
   };
   const label = labels[type] || type;
 
+  // Mapping Topic nur mitschicken wenn Port 9883 aktiv
+  const toggle = document.getElementById("c8y-mqtt-port-toggle");
+  const mappingTopic =
+    toggle && toggle.checked
+      ? document.getElementById("c8y-mapping-topic")?.value.trim() || ""
+      : "";
+
   const viewer = document.getElementById("log-viewer");
   if (viewer) viewer.textContent = `Sending ${label}...`;
 
   try {
+    const body = { type };
+    if (mappingTopic) body.topic = mappingTopic;
+
     const response = await fetch("api/test-message", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type }),
+      body: JSON.stringify(body),
     });
     const data = await response.json();
 
@@ -1691,7 +1876,9 @@ async function loadSnapConfigFile() {
 
   const file = select.value;
   try {
-    const r = await fetchWithAuth(`api/snapconfig?file=${encodeURIComponent(file)}`);
+    const r = await fetchWithAuth(
+      `api/snapconfig?file=${encodeURIComponent(file)}`,
+    );
     const data = await r.json();
     if (hint) hint.textContent = data.path || "";
     if (data.error && !data.content) {

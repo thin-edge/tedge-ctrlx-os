@@ -138,6 +138,15 @@ if [ -f "$TEDGE_TOML" ]; then
 fi
 # =========================================================================
 
+# =========================================================================
+# Inventory mit echten Systemdaten befüllen
+# =========================================================================
+if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
+    echo "Running inventory update script..." >&2
+    "$SNAP/scripts/update-inventory.sh" 2>&1 || true
+fi
+# =========================================================================
+
 echo "Post-refresh hook completed successfully" >&2
 
 # Re-connect snap interfaces after update

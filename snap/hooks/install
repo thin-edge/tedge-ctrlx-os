@@ -176,26 +176,6 @@ else
     echo "WARNING: Device ID management script not found" >&2
 fi
 
-echo "Install hook completed successfully" >&2
-
-# =========================================================================
-# NEU: Befülle die inventory.json mit echten Systemdaten
-# =========================================================================
-if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
-    echo "Running inventory update script..." >&2
-    "$SNAP/scripts/update-inventory.sh" 2>&1 || true
-fi
-# =========================================================================
-
-echo "Install hook completed successfully" >&2
-
-# Configure tedge paths for snap environment
-echo "Configuring tedge paths..." >&2
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" || true
-
 # =========================================================================
 # NEU: ctrlX & System Defaults für tedge.toml setzen
 # =========================================================================
@@ -226,8 +206,16 @@ echo "Setting ctrlX specific defaults in tedge.toml..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" || true
 # =========================================================================
 
+# =========================================================================
+# inventory.json mit echten Systemdaten befüllen
+# =========================================================================
+if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
+    echo "Running inventory update script..." >&2
+    "$SNAP/scripts/update-inventory.sh" 2>&1 || true
+fi
+# =========================================================================
 
-
+echo "Install hook completed successfully" >&2
 
 # Auto-connect snap interfaces
 echo "Connecting snap interfaces..." >&2
