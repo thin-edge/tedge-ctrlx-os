@@ -37,4 +37,4 @@ export RUST_LOG="${RUST_LOG:-debug}"
 echo "Logging level: $RUST_LOG"
 # Start the webserver
 echo "Starting tedge-web-config..."
-exec "$SNAP/bin/tedge-web-config" 2>&1 | tee -a "$SNAP_DATA/webserver.log"
+exec "$SNAP/bin/tedge-web-config" 2>&1 | tee -a "$SNAP_COMMON/tedge/log/tedge-web-config.log"

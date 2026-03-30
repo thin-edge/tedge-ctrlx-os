@@ -58,4 +58,4 @@ BRIDGE_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
     fi
 } > "$RUNTIME_CONF"
 
-exec "$SNAP/usr/sbin/mosquitto" -c "$RUNTIME_CONF" "$@" 2>&1 | tee -a "$SNAP_DATA/mosquitto.log"
+exec "$SNAP/usr/sbin/mosquitto" -c "$RUNTIME_CONF" "$@" 2>&1 | tee -a "$SNAP_COMMON/tedge/log/mosquitto.log"

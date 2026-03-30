@@ -1,0 +1,331 @@
+//! tedge-log-upload-manager
+//!
+//! Implements the thin-edge.io log upload protocol for the ctrlX CORE snap:
+//!  1. Reads tedge-log-plugin.toml and announces available log types every 10 min
+//!  2. Listens for log upload requests from the cloud (via c8y-mapper)
+//!  3. Collects matching log files, uploads them to the local tedge file-transfer service
+//!  4. Reports success or failure back via MQTT
+
+use anyhow::{Context, Result};
+use glob::glob;
+use reqwest::Client;
+use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
+use serde::Deserialize;
+use std::{env, path::PathBuf, time::Duration};
+use tokio::{fs, time};
+
+const MQTT_CLIENT_ID: &str = "tedge-log-upload-manager";
+const LOG_UPLOAD_TOPIC: &str = "te/device/main///cmd/log_upload";
+const LOG_UPLOAD_SUBSCRIBE: &str = "te/device/main///cmd/log_upload/+";
+const ANNOUNCE_INTERVAL_SECS: u64 = 600; // 10 minutes
+
+// ─── Config Types ────────────────────────────────────────────────────────────
+
+#[derive(Deserialize, Debug, Default)]
+struct LogPluginConfig {
+    #[serde(default)]
+    files: Vec<LogFileEntry>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct LogFileEntry {
+    #[serde(rename = "type")]
+    log_type: String,
+    path: String,
+}
+
+// ─── MQTT Payload Types ───────────────────────────────────────────────────────
+
+/// Quick status-only parse to decide whether to process the message at all
+#[derive(Deserialize)]
+struct StatusOnly {
+    #[serde(default)]
+    status: String,
+}
+
+/// Incoming log upload request from c8y-mapper
+#[derive(Deserialize, Debug)]
+struct LogUploadRequest {
+    #[serde(rename = "tedgeUrl")]
+    tedge_url: String,
+    #[serde(rename = "type")]
+    log_type: String,
+    #[serde(default = "default_lines")]
+    lines: usize,
+}
+
+fn default_lines() -> usize {
+    1000
+}
+
+/// Build a status-update payload by cloning the original request and overriding only
+/// `status` (and optionally `reason`). This ensures required fields like `tedgeUrl`
+/// are always echoed back so the c8y-mapper can parse the response.
+fn make_status_payload(original: &serde_json::Value, status: &str, reason: Option<&str>) -> String {
+    let mut v = original.clone();
+    if let Some(obj) = v.as_object_mut() {
+        obj.insert("status".into(), serde_json::Value::String(status.into()));
+        match reason {
+            Some(r) => {
+                obj.insert("reason".into(), serde_json::Value::String(r.into()));
+            }
+            None => {
+                obj.remove("reason");
+            }
+        }
+    }
+    v.to_string()
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+fn get_config_path() -> PathBuf {
+    let snap_data =
+        env::var("SNAP_DATA").unwrap_or_else(|_| "/var/snap/thin-edge-io/current".to_string());
+    PathBuf::from(snap_data).join("tedge/plugins/tedge-log-plugin.toml")
+}
+
+async fn read_log_plugin_config(config_path: &PathBuf) -> Result<LogPluginConfig> {
+    let content = fs::read_to_string(config_path)
+        .await
+        .with_context(|| format!("Cannot read {}", config_path.display()))?;
+    toml::from_str(&content).context("Failed to parse tedge-log-plugin.toml")
+}
+
+/// Publish retained log-types announcement
+async fn announce_log_types(client: &AsyncClient, config_path: &PathBuf) {
+    match read_log_plugin_config(config_path).await {
+        Ok(config) => {
+            let types: Vec<&str> = config.files.iter().map(|f| f.log_type.as_str()).collect();
+            let payload = serde_json::json!({ "types": types }).to_string();
+            match client
+                .publish(LOG_UPLOAD_TOPIC, QoS::AtLeastOnce, true, payload)
+                .await
+            {
+                Ok(_) => log::info!("Announced log types: {:?}", types),
+                Err(e) => log::error!("Failed to announce log types: {e}"),
+            }
+        }
+        Err(e) => log::warn!("Could not read log plugin config (not fatal): {e}"),
+    }
+}
+
+/// Expand glob pattern, read matching files (sorted oldest→newest), return last `max_lines` lines
+async fn collect_log_content(path_pattern: &str, max_lines: usize) -> Result<String> {
+    let mut paths: Vec<(PathBuf, std::time::SystemTime)> = glob(path_pattern)
+        .with_context(|| format!("Invalid glob: {path_pattern}"))?
+        .filter_map(|r| r.ok())
+        .filter_map(|p| {
+            let mtime = std::fs::metadata(&p).ok()?.modified().ok()?;
+            Some((p, mtime))
+        })
+        .collect();
+
+    if paths.is_empty() {
+        anyhow::bail!("No log files found matching: {path_pattern}");
+    }
+
+    // Oldest file first so chronological order is preserved
+    paths.sort_by_key(|(_, t)| *t);
+
+    let mut all_lines: Vec<String> = Vec::new();
+    for (path, _) in &paths {
+        match fs::read_to_string(path).await {
+            Ok(content) => all_lines.extend(content.lines().map(String::from)),
+            Err(e) => log::warn!("Skipping {}: {e}", path.display()),
+        }
+    }
+
+    let start = all_lines.len().saturating_sub(max_lines);
+    Ok(all_lines[start..].join("\n"))
+}
+
+// ─── Request Handler ──────────────────────────────────────────────────────────
+
+async fn handle_log_upload_request(
+    client: &AsyncClient,
+    http: &Client,
+    topic: &str,
+    payload: &[u8],
+    config_path: &PathBuf,
+) {
+    // Skip empty payloads (MQTT retained-clear messages)
+    if payload.is_empty() {
+        return;
+    }
+
+    // Check status first with a lightweight parse to avoid noisy errors
+    // for our own executing/successful callbacks coming back via MQTT.
+    let status: String = match serde_json::from_slice::<StatusOnly>(payload) {
+        Ok(s) => s.status,
+        Err(_) => return, // unparseable → not our message
+    };
+    if status != "scheduled" && status != "init" {
+        return;
+    }
+
+    // Full parse only for actionable states
+    let request: LogUploadRequest = match serde_json::from_slice(payload) {
+        Ok(r) => r,
+        Err(e) => {
+            log::error!("Cannot parse log upload request on {topic}: {e}");
+            return;
+        }
+    };
+
+    log::info!(
+        "Log upload request: type='{}', lines={}, url={}",
+        request.log_type,
+        request.lines,
+        request.tedge_url
+    );
+
+    // Parse original payload as Value so we can echo it back in all responses
+    let original: serde_json::Value = serde_json::from_slice(payload).unwrap_or_default();
+
+    // Acknowledge: "executing" — non-retained, no need to clear
+    let _ = client
+        .publish(
+            topic,
+            QoS::AtLeastOnce,
+            false,
+            make_status_payload(&original, "executing", None),
+        )
+        .await;
+
+    // Find the matching log file entry
+    let config = match read_log_plugin_config(config_path).await {
+        Ok(c) => c,
+        Err(e) => {
+            publish_final(client, topic, &original, "failed", Some(&e.to_string())).await;
+            return;
+        }
+    };
+
+    let entry = match config.files.iter().find(|f| f.log_type == request.log_type) {
+        Some(e) => e.clone(),
+        None => {
+            let reason = format!("Unknown log type: '{}'", request.log_type);
+            log::error!("{reason}");
+            publish_final(client, topic, &original, "failed", Some(&reason)).await;
+            return;
+        }
+    };
+
+    // Collect log content
+    let content = match collect_log_content(&entry.path, request.lines).await {
+        Ok(c) => c,
+        Err(e) => {
+            let reason = format!("Failed to read logs for '{}': {e}", request.log_type);
+            log::error!("{reason}");
+            publish_final(client, topic, &original, "failed", Some(&reason)).await;
+            return;
+        }
+    };
+
+    // Upload via thin-edge file-transfer service (HTTP PUT)
+    match http
+        .put(&request.tedge_url)
+        .header("Content-Type", "text/plain")
+        .body(content)
+        .send()
+        .await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            log::info!("Upload successful for type='{}'", request.log_type);
+            publish_final(client, topic, &original, "successful", None).await;
+        }
+        Ok(resp) => {
+            let reason = format!("HTTP upload returned {}", resp.status());
+            log::error!("{reason}");
+            publish_final(client, topic, &original, "failed", Some(&reason)).await;
+        }
+        Err(e) => {
+            let reason = format!("HTTP upload error: {e}");
+            log::error!("{reason}");
+            publish_final(client, topic, &original, "failed", Some(&reason)).await;
+        }
+    }
+}
+
+/// Publish a final (successful/failed) status. Uses retain=true so the retained
+/// "scheduled" message on the broker is replaced and the command won't be re-delivered.
+async fn publish_final(
+    client: &AsyncClient,
+    topic: &str,
+    original: &serde_json::Value,
+    status: &str,
+    reason: Option<&str>,
+) {
+    let payload = make_status_payload(original, status, reason);
+    let _ = client.publish(topic, QoS::AtLeastOnce, true, payload).await;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    let mqtt_host = env::var("TEDGE_MQTT_BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let mqtt_port: u16 = env::var("TEDGE_MQTT_CLIENT_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(1883);
+    let config_path = get_config_path();
+
+    log::info!(
+        "tedge-log-upload-manager starting — broker={}:{}, config={}",
+        mqtt_host,
+        mqtt_port,
+        config_path.display()
+    );
+
+    let mut mqttopts = MqttOptions::new(MQTT_CLIENT_ID, &mqtt_host, mqtt_port);
+    mqttopts.set_keep_alive(Duration::from_secs(30));
+    mqttopts.set_clean_session(true);
+
+    let (client, mut eventloop) = AsyncClient::new(mqttopts, 100);
+    let http = Client::new();
+
+    client
+        .subscribe(LOG_UPLOAD_SUBSCRIBE, QoS::AtLeastOnce)
+        .await?;
+    log::info!("Subscribed to {LOG_UPLOAD_SUBSCRIBE}");
+
+    // Initial announce right after startup
+    announce_log_types(&client, &config_path).await;
+
+    // Periodic re-announce every 10 minutes
+    let announce_client = client.clone();
+    let announce_config = config_path.clone();
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(ANNOUNCE_INTERVAL_SECS));
+        interval.tick().await; // skip first tick (already announced above)
+        loop {
+            interval.tick().await;
+            announce_log_types(&announce_client, &announce_config).await;
+        }
+    });
+
+    // Main event loop
+    loop {
+        match eventloop.poll().await {
+            Ok(Event::Incoming(Packet::Publish(p))) => {
+                let topic = p.topic.clone();
+                let payload = p.payload.to_vec();
+                let c = client.clone();
+                let h = http.clone();
+                let cp = config_path.clone();
+                tokio::spawn(async move {
+                    handle_log_upload_request(&c, &h, &topic, &payload, &cp).await
+                });
+            }
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("MQTT connection error: {e} — retrying in 5s");
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+        }
+    }
+}

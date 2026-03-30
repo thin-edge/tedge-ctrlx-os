@@ -3,6 +3,14 @@ name = "tedge-datalayer-bridge"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "tedge-datalayer-bridge"
+path = "src/main.rs"
+
+[[bin]]
+name = "tedge-log-upload-manager"
+path = "src/log_upload_manager.rs"
+
 [dependencies]
 paho-mqtt = "0.12"
 tokio = { version = "1.45", features = ["full"] }
@@ -17,6 +25,8 @@ uuid = { version = "1.11", features = ["v4"] }
 futures = "0.3.32"
 rumqttc = "0.24"
 actix-web = "4.0"
+toml = "0.8"
+glob = "0.3"
 
 [features]
 default = ["mqtt"]

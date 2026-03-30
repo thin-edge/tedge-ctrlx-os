@@ -278,6 +278,21 @@ apps:
         - setup-directories
         - mosquitto
 
+  tedge-log-upload-manager:
+    command: scripts/tedge-service-wrapper.sh tedge-log-upload-manager
+    daemon: simple
+    restart-condition: always
+    plugs:
+      - network
+      - log-observe
+    environment:
+      TZ: Europe/Berlin
+      RUST_LOG: info
+    passthrough:
+      after:
+        - setup-directories
+        - mosquitto
+
   # Configuration Webserver (Rust)
   webserver:
     command: scripts/webserver-wrapper.sh
@@ -538,11 +553,13 @@ parts:
       # Create bin directory
       mkdir -p $CRAFT_PART_INSTALL/bin
       
-      # Copy binary
+      # Copy binaries
       cp $OUTPUT_DIR/tedge-datalayer-bridge $CRAFT_PART_INSTALL/bin/
+      cp $OUTPUT_DIR/tedge-log-upload-manager $CRAFT_PART_INSTALL/bin/
       
-      # Strip binary to reduce size
+      # Strip binaries to reduce size
       $STRIP_CMD $CRAFT_PART_INSTALL/bin/tedge-datalayer-bridge
+      $STRIP_CMD $CRAFT_PART_INSTALL/bin/tedge-log-upload-manager
 
   webserver:
     plugin: nil

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "mqtt")]
 use std::sync::Arc;
+use std::time::Instant;
 #[cfg(feature = "mqtt")]
 #[allow(unused_imports)]
 use uuid::Uuid;
@@ -128,6 +129,7 @@ pub struct DatalayerEngine {
     http_client: Client,
     last_values: HashMap<String, Value>,
     pub cached_token: Option<String>,
+    token_fail_until: Option<Instant>,
 }
 
 impl DatalayerEngine {
@@ -143,6 +145,7 @@ impl DatalayerEngine {
             http_client,
             last_values: HashMap::new(),
             cached_token: None,
+            token_fail_until: None,
         }
     }
 
@@ -170,34 +173,57 @@ impl DatalayerEngine {
     }
 
     pub async fn fetch_token(&mut self) -> bool {
+        // Backoff: don't retry for 60s after a failure to avoid log spam
+        if let Some(until) = self.token_fail_until {
+            if Instant::now() < until {
+                return false;
+            }
+        }
+
         let user = match &self.config.username {
-            Some(u) if !u.is_empty() => u,
+            Some(u) if !u.is_empty() => u.clone(),
             _ => return false,
         };
-        let pass = self.config.password.as_deref().unwrap_or("");
+        let pass = self.config.password.clone().unwrap_or_default();
         let url = format!(
             "{}/identity-manager/api/v2/auth/token",
             self.config.base_url.trim_end_matches('/')
         );
         let params = [
             ("grant_type", "password"),
-            ("username", user),
-            ("password", pass),
+            ("username", user.as_str()),
+            ("password", pass.as_str()),
         ];
 
         match self.http_client.post(&url).form(&params).send().await {
-            Ok(r) if r.status().is_success() => {
-                if let Ok(j) = r.json::<Value>().await {
-                    if let Some(t) = j["access_token"].as_str() {
-                        self.cached_token = Some(t.to_string());
-                        info!("[DATALAYER] Token refreshed");
-                        return true;
+            Ok(r) => {
+                let status = r.status();
+                if status.is_success() {
+                    match r.json::<Value>().await {
+                        Ok(j) => {
+                            if let Some(t) = j["access_token"].as_str() {
+                                self.cached_token = Some(t.to_string());
+                                self.token_fail_until = None;
+                                info!("[DATALAYER] Token refreshed successfully");
+                                return true;
+                            }
+                            warn!("[DATALAYER] Token fetch: success but no 'access_token' in response: {}", j);
+                        }
+                        Err(e) => {
+                            warn!("[DATALAYER] Token fetch: could not parse response JSON: {e}")
+                        }
                     }
+                } else {
+                    let body = r.text().await.unwrap_or_default();
+                    warn!("[DATALAYER] Token fetch failed: HTTP {status} — {body}");
                 }
+                // Back off for 60s before retrying
+                self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(60));
                 false
             }
-            _ => {
-                warn!("[DATALAYER] Token fetch failed");
+            Err(e) => {
+                warn!("[DATALAYER] Token fetch failed: connection error — {e}");
+                self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(60));
                 false
             }
         }
