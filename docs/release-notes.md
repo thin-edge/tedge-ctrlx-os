@@ -1,10 +1,10 @@
 # thin-edge.io CTRLX App - Release Notes
 
-## Version 1.7.1 - February 2026
+## Version 1.7.1 - March 2026
 
-### Initial Release for ctrlX AUTOMATION
+### ctrlX AUTOMATION Release
 
-This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
+This is the official release of thin-edge.io as a ctrlX AUTOMATION app.
 
 ---
 
@@ -17,13 +17,32 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 - ✅ **Health Monitoring**: Integrated watchdog service for service health monitoring
 - ✅ **Secure Communication**: TLS-encrypted connections with certificate-based authentication
 
-### Components Included
+### Custom Components (ctrlX-specific)
 
-#### Core Services
-- **tedge CLI** (v1.7.1): Command-line tool for configuration and management
-- **tedge-agent** (v1.7.1): Main agent service for device operations
-- **tedge-mapper** (v1.7.1): Protocol mappers for c8y, aws, and azure
-- **tedge-watchdog** (v1.7.1): Health monitoring and automatic recovery
+#### Web UI & REST API
+- ✅ **Configuration Web UI**: Browser-accessible dashboard served at `/thin-edge-io/` via ctrlX sidebar
+- ✅ **ctrlX Authentication Integration**: Caddyfile reverse proxy with Bearer Token validation and scope-based RBAC
+- ✅ **Role-Based Access Control**: Admin / Editor / Viewer roles (scopes: `thin-edge-io.rwx`, `.rw`, `.r`)
+- ✅ **REST API**: Full management API with 30+ endpoints (status, config, connect, logs, cert, datalayer)
+- ✅ **Token-Login URL**: `/thin-edge-io/login?token=${bearertoken}` for ctrlX sidebar integration
+- ✅ **i18n**: German and English translations in `package-assets/i18n/`
+
+#### ctrlX Data Layer
+- ✅ **tedge-datalayer-bridge**: Bridges MQTT telemetry into ctrlX Data Layer nodes
+- ✅ **Configurable Mappings**: MQTT topic ↔ Data Layer path mappings via `datalayer-mappings.json`
+- ✅ **Browse & Read API**: Web UI and REST API for browsing Data Layer nodes
+
+#### Log Management
+- ✅ **tedge-log-upload-manager**: Coordinates log file uploads to cloud platforms
+
+### Core Components
+
+#### thin-edge.io Services (v1.7.1)
+- **mosquitto**: Local MQTT broker (bound to 127.0.0.1:1883)
+- **tedge CLI**: Command-line tool for configuration and management
+- **tedge-agent**: Main agent service for device operations
+- **tedge-mapper-c8y / aws / az**: Protocol mappers for c8y, aws, and azure
+- **tedge-watchdog**: Health monitoring and automatic recovery (wrapper script)
 
 #### Plugins
 - **c8y-firmware-plugin**: Firmware update management for Cumulocity
@@ -35,7 +54,7 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 ### Platform Support
 - ✅ **ctrlX COREvirtual** (amd64 architecture)
 - ✅ **ctrlX CORE** Hardware (arm64 architecture)
-- ✅ **Base**: Ubuntu Core 24
+- ✅ **Base**: Ubuntu Core 22 (core22)
 - ✅ **Snap Confinement**: Strict mode for enhanced security
 
 ---
@@ -69,23 +88,11 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 
 ## Known Issues
 
-### Limitations
-1. **ctrlX Data Layer Integration**: Not yet implemented
-   - *Workaround*: Use MQTT for data exchange
-
-2. **Web UI**: No integrated web interface for configuration
-   - *Workaround*: Use CLI tool via SSH or terminal
-
-3. **ctrlX Identity Management**: Not integrated
-   - *Workaround*: Use built-in certificate-based authentication
-
-4. **ctrlX Diagnostics**: Limited integration with ctrlX diagnostics system
-   - *Workaround*: Use snap logs for troubleshooting
-
 ### Minor Issues
 - Some MQTT topic patterns may need manual configuration for complex scenarios
 - Log rotation configuration requires manual setup
 - No automatic cloud platform detection
+- `mqtt.client.port` was incorrectly set to 8883 in older installs — fixed in install hook (always 1883 for local broker); `c8y.mqtt.port` is now used for the cloud MQTT port
 
 ---
 
@@ -122,8 +129,16 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 - ✅ Certificate-based authentication
 - ✅ Strict snap confinement
 - ✅ No root privileges required
-- ✅ Minimal network permissions
+- ✅ Minimal network permissions (network, network-bind, system-observe, log-observe, hardware-observe, mount-observe)
 - ✅ Process isolation
+- ✅ ctrlX Bearer Token authentication for all Web UI access
+- ✅ Role-based access control (Admin / Editor / Viewer)
+- ✅ Webserver bound to 127.0.0.1 only — access only via ctrlX Caddyfile proxy
+- ✅ Local MQTT broker bound to 127.0.0.1:1883 only
+
+### Bug Fix: mqtt.client.port
+- **Issue**: `POST /api/set-mqtt-port` incorrectly set `mqtt.client.port` (local broker port) to 8883/9883, causing `tedge-agent` to fail connecting to local Mosquitto with "Connection refused (os error 111)"
+- **Fix**: Endpoint now correctly sets `c8y.mqtt.port` (cloud MQTT port); install hook explicitly sets `mqtt.client.port` to 1883
 
 ### Compliance
 - Follows Ubuntu snap security guidelines
@@ -136,13 +151,15 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 
 ### Major Dependencies
 - Rust 1.85 (stable)
-- tokio 1.44 (async runtime)
-- rumqttc 0.25.1 (MQTT client)
+- tokio 1.45 (async runtime)
+- rumqttc 0.24 (MQTT client, bridge service)
+- paho-mqtt 0.12 (MQTT client, webserver)
 - reqwest 0.12 (HTTP client)
-- rustls 0.23 (TLS implementation)
+- rustls (TLS via rustls-tls feature)
+- actix-web 4.8 (HTTP server)
+- actix-files 0.6 (static file serving)
 - serde 1.0 (serialization)
-- clap 4.5 (CLI parsing)
-- axum 0.8.1 (HTTP server)
+- uuid 1.11 (ID generation)
 
 ### System Dependencies
 - OpenSSL 3.x
@@ -153,7 +170,9 @@ This is the first official release of thin-edge.io as a ctrlX AUTOMATION app.
 
 ## Upgrade Notes
 
-This is the first release, no upgrade path from previous versions.
+This is the first release. No upgrade path from previous versions.
+
+**Note for re-installs**: If a previous version incorrectly set `mqtt.client.port` to 8883 or 9883, the install hook now resets it to 1883 automatically.
 
 ---
 
@@ -165,17 +184,17 @@ None - Initial release.
 
 ## Roadmap
 
-### Planned for Next Release (v1.8.0)
-- 🔄 ctrlX Data Layer integration
-- 🔄 Web UI for configuration
-- 🔄 ctrlX Identity Management integration
-- 🔄 Enhanced ctrlX diagnostics integration
-- 🔄 Localization support (DE/EN)
+### Planned for Next Release (v1.8.x)
+- 🔄 ctrlX License Management integration
+- 🔄 Enhanced ctrlX Diagnostics/Logbook integration
+- 🔄 CSRF protection for POST requests
+- 🔄 Audit logging for all configuration changes
+- 🔄 Rate limiting per user
 
 ### Future Considerations
-- Integration with ctrlX logbook
-- Support for ctrlX license management
-- ctrlX scheduler integration for real-time tasks
+- `active-solution` plug for persistent configuration
+- Session management with cookies
+- ctrlX scheduler integration
 - Enhanced backup/restore integration
 
 ---
@@ -183,11 +202,13 @@ None - Initial release.
 ## Documentation
 
 ### Available Documentation
-- ✅ User Manual (manual.md)
+- ✅ User Manual (`docs/manual.md`)
+- ✅ Architecture Overview (`docs/architecture-overview.md`)
+- ✅ Auth Integration (`docs/auth-integration.md`)
 - ✅ README with quick start guide
-- ✅ FOSS attribution (fossinfo.json)
+- ✅ FOSS attribution (`package-assets/fossinfo.json`)
 - ✅ Build instructions
-- ✅ API reference
+- ✅ Full REST API reference (in manual.md)
 - ✅ Troubleshooting guide
 
 ### Online Resources

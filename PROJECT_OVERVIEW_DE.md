@@ -8,27 +8,55 @@ thin-edge-io-app/
 │   └── snapcraft.yaml          # Snap-Konfiguration mit allen Komponenten
 │
 ├── configs/
+│   ├── package-manifest.json   # CTRLX Package-Manifest (inkl. Proxy & Scopes)
+│   ├── caddyfile               # Reverse-Proxy mit ctrlX Auth-Integration
+│   └── build-info.txt          # Build-Metadaten
+│
+├── package-assets/
 │   ├── package-manifest.json   # CTRLX Package-Manifest
 │   ├── portlist-description.json        # Port-Konfiguration
 │   ├── unixsocket-description.json      # Unix-Socket-Beschreibung
 │   ├── slotplug-description.json        # Snap-Interface-Konfiguration
 │   ├── fossinfo.json           # FOSS-Komponenten-Informationen
-│   └── foss-offer.txt          # FOSS-Quelltextangebot
+│   ├── foss-offer.txt          # FOSS-Quelltextangebot
+│   ├── i18n/                   # Internationalisierung
+│   ├── icons/                  # App-Icons
+│   └── proxy/                  # Proxy-Konfigurationsdateien
 │
-├── scripts/
-│   └── setup-config.sh         # Konfigurations-Hilfsskript
+├── web-server-rust/             # Konfigurations-Webserver (Rust/Actix-Web)
+│   └── src/main.rs             # RBAC mit ctrlX-Rollenintegration
+│
+├── bridge-service-rust/         # ctrlX Data Layer Bridge + Log-Upload-Manager
+│   └── src/                    # tedge-datalayer-bridge, tedge-log-upload-manager
+│
+├── web/www/                     # Web-UI (HTML/JS/CSS)
+│   └── index.html, app.js, styles.css
+│
+├── scripts/                     # Alle Wrapper- und Hilfsskripte
+│   ├── setup-config.sh         # Konfigurations-Hilfsskript
+│   ├── mosquitto-wrapper.sh    # Mosquitto MQTT Broker Wrapper
+│   ├── connect-wrapper.sh      # Snap-aware tedge connect/disconnect
+│   ├── watchdog-wrapper.sh     # Health-Monitoring Wrapper
+│   ├── webserver-wrapper.sh    # Webserver Starter
+│   ├── tedge-service-wrapper.sh # Allgemeiner Service-Wrapper
+│   ├── manage-device-id.sh     # Geräte-ID Verwaltung
+│   ├── log-plugins/            # Log-Plugin-Skripte
+│   ├── config-plugins/         # Config-Plugin-Skripte
+│   └── sm-plugins/             # Software-Management-Plugins
 │
 ├── docs/
 │   ├── architecture-overview.md         # Architektur-Übersicht (für CTRLX-Validierung)
+│   ├── auth-integration.md     # ctrlX Authentifizierungs-Integration
 │   ├── manual.md               # Benutzerhandbuch
 │   ├── release-notes.md        # Release-Notizen
 │   └── test-setup-description.md        # Test-Setup-Beschreibung
 │
+├── datalayer-mappings.json      # Data Layer Pfad-Mappings
+├── tedge-web-config.json        # Webserver-Konfiguration
+├── setup-and-build-all.sh      # Automatisiertes Setup & Build Skript
 ├── .vscode/
 │   └── tasks.json              # VS Code Build-Tasks
 │
-├── build-snap-amd64.sh         # Build-Skript für ctrlX COREvirtual
-├── build-snap-arm64.sh         # Build-Skript für ctrlX CORE Hardware
 ├── README.md                   # Haupt-Dokumentation
 ├── .gitignore                  # Git-Ignore-Datei
 └── .editorconfig               # Editor-Konfiguration
@@ -39,8 +67,19 @@ thin-edge-io-app/
 ### thin-edge.io Services
 1. **tedge** - Hauptkonfigurationstool (CLI)
 2. **tedge-agent** - Gerätemanagement-Agent
-3. **tedge-mapper** - Protokoll-Übersetzer (c8y/aws/azure)
-4. **tedge-watchdog** - Health-Monitoring-Service
+3. **tedge-mapper-c8y/aws/az** - Protokoll-Übersetzer (c8y/aws/azure)
+4. **tedge-watchdog** - Health-Monitoring-Service (als Wrapper-Skript)
+5. **mosquitto** - Lokaler MQTT-Broker
+
+### Eigene Services (Rust)
+1. **webserver** (`web-server-rust`) - Konfigurations-Web-UI mit RBAC
+   - Rollenbasierte Zugriffskontrolle (Admin / Editor / Viewer)
+   - ctrlX Auth-Header-Integration (`X-WEBAUTH-USER`, `X-WEBAUTH-ROLE`)
+   - REST-API unter Port 8888
+2. **tedge-datalayer-bridge** (`bridge-service-rust`) - ctrlX Data Layer Integration
+   - Bridget MQTT-Telemetriedaten in den ctrlX Data Layer
+3. **tedge-log-upload-manager** (`bridge-service-rust`) - Log-Upload-Verwaltung
+   - Koordiniert Log-Datei-Uploads an Cloud-Plattformen
 
 ### Plugins
 1. **c8y-firmware-plugin** - Firmware-Updates für Cumulocity
@@ -53,21 +92,23 @@ thin-edge-io-app/
 
 ✅ **Implementiert:**
 - Multi-Cloud-Konnektivität (Cumulocity, AWS, Azure)
-- Vollständiges Snap-Packaging für CTRLX
-- CTRLX-konforme Metadaten
+- Vollständiges Snap-Packaging für ctrlX (Strict Confinement)
+- ctrlX Auth-Integration via Caddyfile Reverse Proxy mit Scope-basiertem Rollen-Mapping
+- Rollenbasierte Zugriffskontrolle im Webserver (Admin/Editor/Viewer)
+- ctrlX Data Layer Integration (`tedge-datalayer-bridge`)
+- Konfigurations-Web-UI (Rust/Actix-Web + HTML/JS)
+- Log-Upload-Manager
+- CTRLX-konforme Metadaten (package-manifest, portlist, slotplug, fossinfo)
 - Build-Skripte für beide Architekturen (amd64/arm64)
-- Umfassende Dokumentation (DE/EN)
+- Umfassende Dokumentation (DE/EN, inkl. Auth-Integration)
 - FOSS-Compliance-Dokumentation
-- Sicherheitskonfiguration (Strict Confinement)
 - Health-Monitoring
-- Alle thin-edge.io Komponenten und Plugins
+- Geräte-ID-Verwaltung via Hardware-Serial
+- Snap-aware connect/disconnect/reconnect-Wrapper
 
-🔄 **Geplant (Roadmap):**
-- CTRLX Data Layer Integration
-- Web-UI für Konfiguration
-- CTRLX Identity Management Integration
-- Integration mit CTRLX Diagnostics/Logbook
-- CTRLX License Management
+🔄 **Noch ausstehend / Roadmap:**
+- CTRLX License Management Integration
+- Vertiefte ctrlX Diagnostics/Logbook-Integration
 
 ## Build-Prozess
 
@@ -179,7 +220,7 @@ thin-edge-io.tedge config list
 
 Die App ist vorbereitet für die CTRLX-Validierung mit:
 
-### Pflichtdokumente (in configs/ und docs/)
+### Pflichtdokumente (in package-assets/ und docs/)
 ✅ snapcraft.yaml  
 ✅ package-manifest.json  
 ✅ portlist-description.json  
@@ -191,25 +232,44 @@ Die App ist vorbereitet für die CTRLX-Validierung mit:
 ✅ release-notes.md  
 ✅ test-setup-description.md  
 ✅ architecture-overview.md  
+✅ auth-integration.md  
 
 ### Sicherheit
 - Strict Snap Confinement
 - TLS-verschlüsselte Verbindungen
 - Zertifikatsbasierte Authentifizierung
-- Minimale Berechtigungen (network, network-bind, system-observe)
+- Rollenbasierte Zugriffskontrolle via ctrlX Auth (Admin/Editor/Viewer)
+- Minimale Berechtigungen (network, network-bind, system-observe, log-observe)
+- Caddyfile Reverse Proxy mit Bearer-Token-Validierung
 
 ### Netzwerk
-- Nur ausgehende Verbindungen (8883, 443)
-- Keine eingehenden Ports
-- Interne API nur lokal zugänglich
+- Nur ausgehende Cloud-Verbindungen (8883, 443)
+- Webserver intern auf Port 8888 (via Caddyfile nach außen als `/thin-edge-io`)
+- Interne MQTT-Kommunikation nur lokal
 
 ## Technische Details
 
 ### Architektur
-- **Basis**: Ubuntu Core 24
+- **Basis**: Ubuntu Core 22 (core22)
 - **Sprache**: Rust 1.85
+- **Web-UI**: HTML5 / Vanilla JS
 - **Konfinement**: Strict
 - **Architekturen**: amd64, arm64
+
+### Snap-Services (Übersicht)
+| Service | Typ | Beschreibung |
+|---|---|---|
+| `setup-directories` | oneshot | Verzeichnis-Initialisierung beim Start |
+| `mosquitto` | daemon | Lokaler MQTT-Broker |
+| `tedge-agent` | daemon | Gerätemanagement-Agent |
+| `tedge-mapper-c8y/aws/az` | daemon | Cloud-Protokoll-Übersetzer |
+| `tedge-watchdog` | daemon | Health-Monitoring |
+| `tedge-datalayer-bridge` | daemon | ctrlX Data Layer Bridge |
+| `tedge-log-upload-manager` | daemon | Log-Upload-Koordinator |
+| `webserver` | daemon | Konfigurations-Web-UI (Port 8888) |
+| `tedge` | CLI | Hauptkonfigurationstool |
+| `tedge-connect` | CLI | Snap-aware connect/disconnect |
+| `manage-device-id` | CLI | Geräte-ID Verwaltung |
 
 ### Ressourcen
 - **RAM**: 50-100 MB (normal), bis 150 MB (Peak)
@@ -237,7 +297,7 @@ Die App ist vorbereitet für die CTRLX-Validierung mit:
 
 ## Version
 
-**1.7.1** - Februar 2026 (Initiales CTRLX Release)
+**1.7.1** - März 2026
 
 ---
 

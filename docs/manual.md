@@ -1,7 +1,7 @@
 # thin-edge.io CTRLX App - User Manual
 
 **Version**: 1.7.1  
-**Date**: February 2026  
+**Date**: March 2026  
 **App ID**: thin-edge-io  
 
 ---
@@ -37,10 +37,12 @@ This app is designed for:
 
 ### 1.3 Key Features
 
+- **Web-Based Configuration UI**: Browser-accessible dashboard served directly from the device
 - **Cloud Connectivity**: Connect to Cumulocity IoT, AWS IoT, or Azure IoT Hub
 - **Device Management**: Remote monitoring, configuration, and software updates
 - **Data Management**: Telemetry collection, processing, and forwarding
-- **Security**: TLS encryption, certificate-based authentication
+- **ctrlX Data Layer Bridge**: Optional bridge service for ctrlX Data Layer integration
+- **Security**: TLS encryption, certificate-based authentication, ctrlX RBAC
 - **Monitoring**: Health checks, service watchdog, log management
 
 ---
@@ -72,8 +74,9 @@ This app is designed for:
 - HTTPS (port 443) to cloud platform
 - MQTT over TLS (port 8883) to cloud platform
 
-**Optional:**
-- MQTT (port 1883) for local broker
+**Internal (not externally accessible):**
+- MQTT (port 1883) — local Mosquitto broker, bound to 127.0.0.1
+- HTTP (port 8888) — Web UI, proxied via ctrlX Caddyfile to `/thin-edge-io/`
 
 ---
 
@@ -107,6 +110,24 @@ Expected output shows all services as "active".
 ---
 
 ## 4. Configuration
+
+### 4.0 Web UI (Recommended)
+
+After installation, open the configuration UI directly in the ctrlX sidebar or navigate to:
+
+```
+https://<device-ip>/thin-edge-io/
+```
+
+The Web UI allows you to:
+- Select and configure cloud platform (Cumulocity, AWS, Azure)
+- Manage device identity and certificates
+- Connect, disconnect, and reconnect to cloud platforms
+- View live service logs and status
+- Read the full `tedge config list` output
+- Manage ctrlX Data Layer mappings
+
+> **Note**: The Web UI enforces ctrlX role-based access control. Users need the `thin-edge-io.r` scope (Viewer) for read-only access, `thin-edge-io.rw` (Editor) for configuration changes, or `thin-edge-io.rwx` (Admin) for full access including service restarts.
 
 ### 4.1 Cloud Platform Selection
 
@@ -330,7 +351,15 @@ thin-edge-io.tedge connect c8y --test
 thin-edge-io.tedge config list
 ```
 
-### 6.4 Resource Usage
+### 6.4 Web UI
+
+The Web UI at `https://<device-ip>/thin-edge-io/` provides:
+- **Status tab**: Live status of all snap services
+- **Logs tab**: Live log viewer with service and level selection
+- **Tedge Configuration tab**: Full `tedge config list` output
+- **System Information**: Build info, snap version, architecture, device serial
+
+### 6.5 Resource Usage
 
 ```bash
 # Check snap resource usage
@@ -454,19 +483,44 @@ te/device/{device_id}///a/{alarm_type}
 te/device/{device_id}///config/{operation}
 ```
 
-### 8.2 HTTP API
+### 8.2 Web UI REST API
 
-The tedge-agent exposes an HTTP API on port 8000 (internal):
+The webserver exposes a REST API on port 8888 (proxied to `/thin-edge-io/api/` by ctrlX Caddyfile):
 
-#### Health Check
-```
-GET http://localhost:8000/health
-```
-
-#### Status
-```
-GET http://localhost:8000/status
-```
+| Method | Endpoint | Roles | Description |
+|--------|----------|-------|-------------|
+| GET | `/api/status` | All | Service status |
+| GET | `/api/config` | All | Current tedge configuration |
+| POST | `/api/config/c8y` | Editor+ | Save Cumulocity configuration |
+| POST | `/api/config/aws` | Editor+ | Save AWS configuration |
+| POST | `/api/config/az` | Editor+ | Save Azure configuration |
+| POST | `/api/config/device` | Editor+ | Save device configuration |
+| GET | `/api/device-id` | All | Get device ID |
+| POST | `/api/device-id` | Editor+ | Set device ID |
+| POST | `/api/device-id/recreate` | Admin | Recreate certificate |
+| POST | `/api/device-id/create-auto` | Admin | Auto-create certificate |
+| GET | `/api/device-id/cert-info` | All | Certificate details |
+| POST | `/api/connect/{cloud}` | Admin | Connect to cloud |
+| POST | `/api/disconnect/{cloud}` | Admin | Disconnect from cloud |
+| POST | `/api/reconnect/{cloud}` | Admin | Reconnect to cloud |
+| POST | `/api/cert/upload/c8y` | Admin | Upload cert to Cumulocity |
+| POST | `/api/test-message` | Editor+ | Publish test MQTT message |
+| GET | `/api/logs` | All | Fetch service logs |
+| GET | `/api/tedge-config-list` | All | Full `tedge config list` output |
+| GET | `/api/build-info` | All | Build and version information |
+| GET | `/api/me` | All | Current user and role |
+| POST | `/api/restart` | Admin | Restart all services |
+| POST | `/api/restart-service` | Admin | Restart single service |
+| POST | `/api/set-mqtt-port` | Admin | Set `c8y.mqtt.port` (8883/9883) |
+| GET | `/api/datalayer/status` | All | Data Layer bridge status |
+| GET | `/api/datalayer/config` | All | Data Layer bridge configuration |
+| POST | `/api/datalayer/config` | Editor+ | Save Data Layer configuration |
+| GET | `/api/datalayer/mappings` | All | List MQTT ↔ Data Layer mappings |
+| POST | `/api/datalayer/mappings` | Editor+ | Save all mappings |
+| POST | `/api/datalayer/mappings/add` | Editor+ | Add a mapping |
+| DELETE | `/api/datalayer/mappings/{id}` | Admin | Delete a mapping |
+| GET | `/api/datalayer/browse` | All | Browse Data Layer nodes |
+| GET | `/api/datalayer/node` | All | Read a Data Layer node value |
 
 ---
 
@@ -480,9 +534,12 @@ GET http://localhost:8000/status
 
 ### 9.2 Network Security
 
-- All outbound connections use TLS 1.2+
-- MQTT connections use port 8883 (encrypted)
-- HTTP API only accessible internally
+- All cloud connections use TLS 1.2+
+- MQTT cloud connections use port 8883 (encrypted)
+- Local MQTT broker (port 1883) bound to 127.0.0.1 only
+- Web UI (port 8888) accessible only via ctrlX Caddyfile proxy — not directly exposed
+- ctrlX Bearer Token authentication enforced for all Web UI access
+- Role-based access control: Viewer / Editor / Admin scopes
 
 ### 9.3 Snap Confinement
 

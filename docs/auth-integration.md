@@ -90,8 +90,8 @@ thin-edge.io App wurde mit professioneller ctrlX Authentication Integration ausg
 | TCP Port | ✅ (3126) | ✅ (8888) |
 | Auth-Proxy | ✅ | ✅ |
 | Licensing | ✅ | ❌ (nicht erforderlich) |
-| i18n | ✅ | ❌ (geplant) |
-| Token-Login URL | ✅ | ❌ (geplant) |
+| i18n | ✅ | ✅ (DE/EN) |
+| Token-Login URL | ✅ | ✅ |
 
 ## Testing
 
@@ -134,7 +134,7 @@ curl -H "X-WEBAUTH-ROLE: admin" -X POST http://127.0.0.1:8888/api/restart
 
 ```bash
 # Build Snap
-cd /root/thin-edge-io-app
+cd /home/ubuntu/thin-edge-io-app
 ./build-snap-amd64.sh
 
 # Deploy auf ctrlX
@@ -205,10 +205,12 @@ cd web-server-rust && cargo check
 ## Dateiänderungen
 
 ### Neu erstellt:
-- `configs/caddyfile` (1035 Bytes) - Reverse Proxy mit Scope-Mapping
-- `configs/i18n/de-DE.json` (2.4 KB) - Deutsche Übersetzungen
-- `configs/i18n/en-US.json` (2.2 KB) - Englische Übersetzungen  
-- `docs/auth-integration.md` - Diese Dokumentation
+- `configs/caddyfile` — Reverse Proxy mit Scope-Mapping
+- `package-assets/i18n/de-DE.json` — Deutsche Übersetzungen
+- `package-assets/i18n/en-US.json` — Englische Übersetzungen
+- `package-assets/i18n/thin-edge-io.package-manifest.de-DE.json` — Manifest-Übersetzungen (DE)
+- `package-assets/i18n/thin-edge-io.package-manifest.en-US.json` — Manifest-Übersetzungen (EN)
+- `docs/auth-integration.md` — Diese Dokumentation
 
 ### Geändert:
 - `snap/snapcraft.yaml`

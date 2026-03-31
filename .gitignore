@@ -27,6 +27,11 @@ tmp/
 temp/
 *.tmp
 
+# Local runtime & development config (not tracked)
+datalayer-mappings.json
+tedge-web-config.json
+web.sh
+
 # Build directories
 build/
 dist/

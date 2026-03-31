@@ -1129,7 +1129,7 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
     };
     let port_str = body.port.to_string();
 
-    info!("[MQTT-PORT] Setting mqtt.client.port to {}", body.port);
+    info!("[MQTT-PORT] Setting c8y.mqtt.port to {}", body.port);
     let result = web::block(move || {
         Command::new(&tedge_bin)
             .args([
@@ -1137,7 +1137,7 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 &tedge_config_dir,
                 "config",
                 "set",
-                "mqtt.client.port",
+                "c8y.mqtt.port",
                 &port_str,
             ])
             .output()
@@ -1146,7 +1146,7 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
 
     match result {
         Ok(Ok(out)) if out.status.success() => {
-            info!("[MQTT-PORT] Set to {}", body.port);
+            info!("[MQTT-PORT] c8y.mqtt.port set to {}", body.port);
             Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": body.port})))
         }
         Ok(Ok(out)) => {

@@ -190,6 +190,8 @@ echo "Setting ctrlX specific defaults in tedge.toml..." >&2
 # 3. Interne Ports sicher auf Localhost binden (Best Practice für Edge-Devices)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
+# mqtt.client.port = lokaler Broker-Port (immer 1883, NICHT der Cloud-Port 8883/9883)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port "1883" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true
 

@@ -2,7 +2,7 @@
 
 **App Name**: thin-edge.io  
 **Version**: 1.7.1  
-**Date**: February 2026  
+**Date**: March 2026  
 
 ---
 
@@ -11,44 +11,52 @@
 ### 1.1 High-Level Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    ctrlX CORE Device                            │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │              thin-edge.io App (Snap)                    │   │
-│  │                                                          │   │
-│  │  ┌──────────────┐         ┌──────────────┐            │   │
-│  │  │ tedge-agent  │◄───────►│ tedge-mapper │            │   │
-│  │  │              │         │  (c8y/aws/az)│            │   │
-│  │  └──────────────┘         └──────────────┘            │   │
-│  │         ▲                        ▲                      │   │
-│  │         │                        │                      │   │
-│  │         ▼                        ▼                      │   │
-│  │  ┌──────────────┐         ┌──────────────┐            │   │
-│  │  │   Plugins    │         │  watchdog    │            │   │
-│  │  │  (5 plugins) │         │              │            │   │
-│  │  └──────────────┘         └──────────────┘            │   │
-│  │                                                          │   │
-│  │         ▲                                                │   │
-│  │         │ MQTT / HTTP / IPC                            │   │
-│  │         ▼                                                │   │
-│  │  ┌──────────────────────────────────────────────┐     │   │
-│  │  │         Data Storage & Configuration          │     │   │
-│  │  │    $SNAP_DATA/tedge  ($SNAP_COMMON/tedge)    │     │   │
-│  │  └──────────────────────────────────────────────┘     │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│         ▲                                                        │
-│         │ TLS (8883), HTTPS (443)                              │
-│         ▼                                                        │
-└────────────────────────────────────────────────────────────────┘
-                          │
-                          │ Internet
-                          ▼
-┌────────────────────────────────────────────────────────────────┐
-│              Cloud IoT Platform                                 │
-│     (Cumulocity IoT / AWS IoT / Azure IoT Hub)                │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ctrlX CORE Device                             │
+│                                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                  thin-edge.io App (Snap)                       │  │
+│  │                                                                 │  │
+│  │  ┌─────────────┐      ┌──────────────┐   ┌─────────────────┐ │  │
+│  │  │ tedge-agent │◄────►│ tedge-mapper │   │    webserver    │ │  │
+│  │  │             │      │ (c8y/aws/az) │   │  (Actix-Web)   │ │  │
+│  │  └─────────────┘      └──────────────┘   └────────┬────────┘ │  │
+│  │         ▲                    ▲                      │ HTTP     │  │
+│  │         │ MQTT (1883)        │                      │ :8888    │  │
+│  │         ▼                    │            ┌─────────▼────────┐ │  │
+│  │  ┌─────────────┐      ┌──────┴───────┐   │  ctrlX Caddyfile │ │  │
+│  │  │   Plugins   │      │   watchdog   │   │  Bearer Token    │ │  │
+│  │  │ (5 plugins) │      │  (wrapper)   │   │  RBAC Proxy      │ │  │
+│  │  └─────────────┘      └──────────────┘   └──────────────────┘ │  │
+│  │         ▲                                                        │  │
+│  │         │                                                        │  │
+│  │  ┌──────┴──────────────────────────────────────────────────┐   │  │
+│  │  │              mosquitto (local MQTT, :1883)               │   │  │
+│  │  └──────────────────────────────────────────────────────────┘   │  │
+│  │         ▲                                                        │  │
+│  │         │                                                        │  │
+│  │  ┌──────┴──────────────┐   ┌──────────────────────────────┐    │  │
+│  │  │ tedge-datalayer-    │   │   tedge-log-upload-manager   │    │  │
+│  │  │ bridge              │   │                               │    │  │
+│  │  └──────┬──────────────┘   └──────────────────────────────┘    │  │
+│  │         │ ctrlX Data Layer API                                  │  │
+│  │  ┌──────▼──────────────────────────────────────────────────┐   │  │
+│  │  │         Data Storage & Configuration                     │   │  │
+│  │  │    $SNAP_DATA/tedge  ($SNAP_COMMON/tedge)               │   │  │
+│  │  └──────────────────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│         ▲                              ▲                              │
+│         │ TLS MQTT (8883), HTTPS (443) │ ctrlX Data Layer             │
+│         ▼                              ▼                              │
+└─────────────────────────────────────────────────────────────────────┘
+          │
+          │ Internet
+          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Cloud IoT Platform                             │
+│          (Cumulocity IoT / AWS IoT / Azure IoT Hub)                 │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -59,12 +67,17 @@
 
 | Component | Type | Purpose | Auto-Start |
 |-----------|------|---------|------------|
+| mosquitto | Service | Local MQTT broker (port 1883) | Yes |
 | tedge | CLI | Configuration and management tool | No (on-demand) |
 | tedge-agent | Service | Device management operations | Yes |
 | tedge-mapper-c8y | Service | Cumulocity protocol translation | Conditional |
 | tedge-mapper-aws | Service | AWS IoT protocol translation | Conditional |
 | tedge-mapper-az | Service | Azure IoT protocol translation | Conditional |
-| tedge-watchdog | Service | Health monitoring | Yes |
+| tedge-watchdog | Service | Health monitoring (wrapper script) | Yes |
+| webserver | Service | Configuration Web UI with RBAC (port 8888) | Yes |
+| tedge-datalayer-bridge | Service | ctrlX Data Layer ↔ MQTT bridge | Yes |
+| tedge-log-upload-manager | Service | Log upload coordination | Yes |
+| setup-directories | Service (oneshot) | Directory initialization at snap start | Yes |
 
 ### 2.2 Plugins
 
@@ -83,16 +96,20 @@
 ### 3.1 Internal Communication
 
 ```
-tedge-agent ──► IPC/MQTT ──► tedge-mapper ──► Cloud
+tedge-agent ──► MQTT (1883) ──► mosquitto ──► tedge-mapper ──► Cloud (8883)
+     │                               ▲
+     └──► IPC ──► Plugins            │
+                               tedge-datalayer-bridge ──► ctrlX Data Layer
+
+webserver (port 8888) ──► Caddyfile proxy ──► ctrlX sidebar
      │
-     └──► HTTP API (port 8000, internal only)
-     │
-     └──► IPC ──► Plugins
+     └──► spawns: tedge CLI, snapctl, journalctl
 ```
 
 **Protocols**:
-- MQTT (internal broker or external)
-- HTTP REST API (internal, port 8000)
+- MQTT (local broker, port 1883)
+- HTTP REST API (webserver, port 8888, proxied via Caddyfile)
+- ctrlX Data Layer API (datalayer-bridge)
 - Unix Domain Sockets (IPC)
 
 ### 3.2 External Communication
@@ -160,6 +177,10 @@ Files:
 - `tedge.toml` - Main configuration
 - `system.toml` - System settings
 
+**Web UI / Bridge config** (in `$SNAP_DATA`):
+- `tedge-web-config.json` - Webserver runtime configuration
+- `datalayer-mappings.json` - MQTT ↔ Data Layer path mappings
+
 **Persistence**: Survives app updates and reboots
 
 ### 5.2 Data Storage
@@ -191,11 +212,13 @@ Key settings managed via `tedge config`:
 
 **Interfaces Used**:
 - `network` - Required for cloud connectivity
-- `network-bind` - Required for internal HTTP API
-- `network-control` - For advanced network config (agent only)
+- `network-bind` - Required for internal HTTP API and local MQTT broker
 - `system-observe` - For health monitoring (agent, watchdog)
-- `home` - Optional, for CLI convenience
-- `removable-media` - Optional, for external config/logs
+- `log-observe` - For reading service logs via journalctl/snapctl (agent, log-upload-manager, webserver)
+- `hardware-observe` - For reading device serial number via DMI (webserver, tedge CLI)
+- `mount-observe` - For disk usage information (webserver)
+- `removable-media` - For external config/logs (tedge CLI)
+- `datalayer` - ctrlX Data Layer slot (tedge-datalayer-bridge)
 
 ### 6.2 Authentication & Encryption
 
@@ -212,13 +235,15 @@ Device ──► X.509 Certificate ──► Cloud Platform
 
 ### 6.3 Network Security
 
-**Outbound Only**:
-- Port 8883 (MQTT/TLS)
-- Port 443 (HTTPS)
+**Outbound Only (cloud)**:
+- Port 8883 (MQTT/TLS to cloud)
+- Port 443 (HTTPS to cloud REST APIs)
 
-**No Inbound Ports**: App does not listen on external network
+**Internal Only**:
+- Port 1883 (local Mosquitto, bound to 127.0.0.1)
+- Port 8888 (webserver, proxied via ctrlX Caddyfile — not directly exposed)
 
-**Internal API**: Port 8000 only accessible within snap
+**No Direct Inbound**: All external web access is proxied through the ctrlX Caddyfile with Bearer Token validation and RBAC
 
 ---
 
@@ -333,19 +358,19 @@ Device ──► X.509 Certificate ──► Cloud Platform
 ### 10.1 Current Integration
 
 ✅ **Implemented**:
-- Standard snap packaging
+- Standard snap packaging (Strict Confinement)
 - ctrlX App Store compatible
 - Follows ctrlX security model (snap confinement)
-- Works within ctrlX network environment
+- **ctrlX Web UI** — accessible via ctrlX sidebar under `thin-edge-io`
+- **ctrlX Authentication** — Caddyfile reverse proxy with Bearer Token validation and scope-based RBAC (Admin/Editor/Viewer)
+- **ctrlX Data Layer** — `tedge-datalayer-bridge` maps MQTT telemetry into Data Layer nodes
+- **ctrlX package-manifest** — proxyMapping, scopes-declaration, FOSS compliance
 
 ### 10.2 Future Integration (Roadmap)
 
 🔄 **Planned**:
-- ctrlX Data Layer integration
-- ctrlX web UI integration
-- ctrlX Identity Management
-- ctrlX diagnostics/logbook integration
-- ctrlX license management
+- ctrlX License Management
+- Enhanced ctrlX Diagnostics/Logbook integration
 
 ---
 
@@ -379,7 +404,7 @@ Device ──► X.509 Certificate ──► Cloud Platform
 
 ### 12.1 System Dependencies
 
-- Ubuntu Core 24 (base snap)
+- Ubuntu Core 22 / core22 (base snap)
 - Snapd (snap runtime)
 - Network stack (Linux kernel)
 - Certificate store (ca-certificates)
@@ -390,12 +415,12 @@ Device ──► X.509 Certificate ──► Cloud Platform
 - Internet connectivity
 - DNS resolution
 - NTP for time synchronization (recommended)
+- ctrlX OS 1.20+ for full Web UI / Auth integration
 
 ### 12.3 No Dependencies On
 
-- Local MQTT broker (built-in client)
+- External MQTT broker (Mosquitto is bundled)
 - Database server (embedded SQLite if needed)
-- Web server (built-in for API)
 - Other ctrlX apps
 
 ---
@@ -467,23 +492,20 @@ Key tests:
 
 ### 16.1 Known Limitations
 
-1. **No ctrlX Data Layer**: Direct integration not implemented
-2. **No Web UI**: Configuration via CLI only
-3. **Single Device**: One device identity per installation
-4. **No Hardware Integration**: No direct PLC/motion control access
+1. **Single Device**: One device identity per installation
+2. **No Hardware Integration**: No direct PLC/motion control access
+3. **No ctrlX License Management**: License enforcement not yet integrated
 
 ### 16.2 Workarounds
 
-1. Use MQTT for data exchange with other apps
-2. Use SSH/terminal for configuration
-3. Install multiple snaps for multiple identities (not recommended)
-4. Use MQTT or HTTP for hardware integration
+1. Install multiple snap instances for multiple device identities (not recommended)
+2. Use MQTT or HTTP for hardware/PLC integration
 
 ---
 
 ## 17. Version History
 
-- **v1.7.1** (Feb 2026): Initial ctrlX AUTOMATION release
+- **v1.7.1** (Mar 2026): ctrlX AUTOMATION release with Web UI, ctrlX Auth, Data Layer bridge
 
 ---
 

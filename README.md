@@ -66,6 +66,7 @@ thin-edge-io-app/
 |---------|-------------|
 | `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar) |
 | `tedge-datalayer-bridge` | ctrlX Data Layer ↔ thin-edge.io bridge |
+| `tedge-log-upload-manager` | Coordinates log file uploads to cloud platforms |
 
 ## Web UI
 
@@ -113,6 +114,21 @@ The web server exposes the following API endpoints under `/api/`:
 | GET | `/log-level` | Get current log level |
 | POST | `/log-level` | Set log level |
 | POST | `/restart` | Restart all services |
+| POST | `/restart-service` | Restart a single named service |
+| GET | `/me` | Current authenticated user and role |
+| POST | `/set-mqtt-port` | Set `c8y.mqtt.port` (8883 or 9883) |
+| GET | `/snapconfig` | Read raw `tedge.toml` snap config file |
+| POST | `/snapconfig` | Write raw `tedge.toml` snap config file |
+| GET | `/datalayer/status` | Data Layer bridge status |
+| GET | `/datalayer/config` | Data Layer bridge configuration |
+| POST | `/datalayer/config` | Save Data Layer bridge configuration |
+| GET | `/datalayer/raw-config` | Raw Data Layer config file content |
+| GET | `/datalayer/mappings` | List MQTT ↔ Data Layer mappings |
+| POST | `/datalayer/mappings` | Save all mappings |
+| POST | `/datalayer/mappings/add` | Add a single mapping |
+| DELETE | `/datalayer/mappings/{id}` | Delete a mapping by ID |
+| GET | `/datalayer/browse` | Browse Data Layer nodes |
+| GET | `/datalayer/node` | Read a single Data Layer node value |
 
 ## Installation
 
@@ -266,7 +282,7 @@ $SNAP_DATA/tedge/.agent/
 |-----------|----------|------|---------|
 | Outbound | HTTPS | 443 | Cloud platform REST API |
 | Outbound | MQTT/TLS | 8883 | Secure cloud MQTT |
-| Local | HTTP | 8000 | Web UI (proxied via ctrlX caddy) |
+| Local | HTTP | 8888 | Web UI (proxied via ctrlX caddy) |
 | Local | MQTT | 1883 | Local broker (internal) |
 
 ## Security
@@ -300,10 +316,8 @@ All included open-source components are documented in [`package-assets/fossinfo.
 
 ## Roadmap
 
-- Integration with ctrlX Data Layer
-- Web UI for configuration
-- ctrlX identity management integration
-- Enhanced logging to ctrlX diagnostics system
+- ctrlX License Management integration
+- Enhanced ctrlX Diagnostics/Logbook integration
 
 ## Contributing
 
@@ -317,16 +331,22 @@ thin-edge.io is the first open-source and cloud-agnostic edge framework designed
 
 Das Projekt verwendet einen modularen Build-Prozess:
 
-- **setup-and-build-all.sh**: Orchestriert den kompletten Build (ruft alle Teilschritte auf)
-- **scripts/**: Enthält alle Build-, Test- und Wrapper-Skripte
-    - setup-env.sh: Prüft/Installiert Rust, Snapcraft, Abhängigkeiten
-    - build-bridge.sh: Baut und testet die Rust Datalayer Bridge
-    - build-info.sh: Erstellt build-info.txt
-    - build-snap.sh: Snap-Build für amd64/arm64
-    - test-snap.sh: Build-Summary und Snap-Installationshinweise
-    - clean.sh: Entfernt Build-Artefakte
+- **setup-and-build-all.sh**: Orchestriert den kompletten Build
+- **scripts/**: Enthält Runtime-Wrapper und Hilfsskripte
+    - `setup-config.sh` — Interaktives Konfigurations-Hilfsskript
+    - `setup-directories.sh` — Verzeichnis-Initialisierung beim Snap-Start
+    - `mosquitto-wrapper.sh` — Mosquitto MQTT Broker Wrapper
+    - `connect-wrapper.sh` — Snap-aware tedge connect/disconnect
+    - `watchdog-wrapper.sh` — Health-Monitoring Wrapper
+    - `webserver-wrapper.sh` — Webserver Starter
+    - `tedge-service-wrapper.sh` — Allgemeiner Service-Wrapper
+    - `manage-device-id.sh` — Geräte-ID Verwaltung
+    - `update-inventory.sh` — Inventory-Update Skript
+    - `show-build-info.sh` — Build-Info anzeigen
+    - `check-format.sh` — Code-Format-Prüfung
+    - `clean.sh` — Entfernt Build-Artefakte
 
-**Tipp:** Für Anpassungen an Build oder Tests bitte die jeweiligen Skripte in scripts/ bearbeiten.
+**Tipp:** Für Anpassungen an Build oder Tests bitte die jeweiligen Skripte in `scripts/` bearbeiten.
 
 ### Build ausführen
 
