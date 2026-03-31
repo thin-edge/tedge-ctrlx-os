@@ -28,7 +28,13 @@
         "title": "thin-edge.io",
         "icon": "bosch-ic-cloud",
         "link": "/thin-edge-io/?token=${bearertoken}",
-        "target": "_blank"
+        "target": "_blank",
+        "permissions": [
+          "rexroth-device.all.rwx",
+          "thin-edge-io.rwx",
+          "thin-edge-io.rw",
+          "thin-edge-io.r"
+        ]
       }
     ],
     "settings": [
@@ -41,7 +47,8 @@
         "permissions": [
           "rexroth-device.all.rwx",
           "thin-edge-io.rwx",
-          "thin-edge-io.rw"
+          "thin-edge-io.rw",
+          "thin-edge-io.r"
         ],
         "items": []
       }

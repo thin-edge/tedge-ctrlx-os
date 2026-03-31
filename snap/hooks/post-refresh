@@ -125,6 +125,8 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+# mqtt.client.port must always be 1883 (local Mosquitto) — never 8883/9883 (cloud port)
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 # log.plugin_paths: update to the new versioned revision path after snap refresh.
 #    AppArmor only allows exec from versioned paths (/snap/name/[0-9]*/...), NOT from 'current' symlink.
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
@@ -134,7 +136,11 @@ TEDGE_TOML="$SNAP_DATA/tedge/tedge.toml"
 if [ -f "$TEDGE_TOML" ]; then
     # Ersetze /data/tedge (alten ctrlX-Wert) durch den korrekten SNAP_COMMON-Pfad
     sed -i "s|path = \"/data/tedge\"|path = \"$SNAP_COMMON/tedge\"|g" "$TEDGE_TOML" 2>/dev/null || true
-    echo "Direct TOML patch for data.path applied" >&2
+    # mqtt.client.port muss immer 1883 sein (lokaler Broker)
+    # Falls 8883 oder 9883 gesetzt ist (Bug aus alter App-Version), korrigieren
+    sed -i 's/^client\.port = 8883/client.port = 1883/' "$TEDGE_TOML" 2>/dev/null || true
+    sed -i 's/^client\.port = 9883/client.port = 1883/' "$TEDGE_TOML" 2>/dev/null || true
+    echo "Direct TOML patch for data.path and mqtt.client.port applied" >&2
 fi
 # =========================================================================
 

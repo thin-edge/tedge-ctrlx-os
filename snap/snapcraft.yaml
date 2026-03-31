@@ -131,7 +131,7 @@ apps:
       - system-observe
       - log-observe    # Needed so log plugins can call journalctl for service logs
     passthrough:
-      restart-delay: 10s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto
@@ -149,7 +149,7 @@ apps:
       - network
       - network-bind
     passthrough:
-      restart-delay: 10s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto
@@ -166,7 +166,7 @@ apps:
       - network
       - network-bind
     passthrough:
-      restart-delay: 10s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto
@@ -183,7 +183,7 @@ apps:
       - network
       - network-bind
     passthrough:
-      restart-delay: 10s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto
@@ -205,7 +205,7 @@ apps:
       TZ: Europe/Berlin
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
     passthrough:
-      restart-delay: 15s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto
@@ -311,7 +311,7 @@ apps:
       TZ: Europe/Berlin
       RUST_LOG: ${SNAP_RUST_LOG:-info}
     passthrough:
-      restart-delay: 10s
+      restart-delay: 5s
       after:
         - setup-directories
         - mosquitto

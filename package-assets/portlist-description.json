@@ -1,44 +1,42 @@
 {
-	"description": "Port configuration for thin-edge.io services",
-	"ports": [
-		{
-			"port": 8888,
-			"protocol": "tcp",
-			"service": "webserver",
-			"description": "Web configuration interface",
-			"direction": "inbound",
-			"security": "internal"
-		},
-		{
-			"port": 8000,
-			"protocol": "tcp",
-			"service": "tedge-agent",
-			"description": "HTTP API for thin-edge.io agent",
-			"direction": "inbound",
-			"security": "internal"
-		},
-		{
-			"port": 8883,
-			"protocol": "tcp",
-			"service": "mqtt-bridge",
-			"description": "MQTT over TLS - Cloud connection",
-			"direction": "outbound",
-			"security": "tls"
-		},
-		{
-			"port": 1883,
-			"protocol": "tcp",
-			"service": "local-mqtt",
-			"description": "Local MQTT broker connection",
-			"direction": "outbound",
-			"security": "internal"
-		},
-		{
-			"port": 443,
-			"protocol": "tcp",
-			"service": "https",
-			"description": "HTTPS connections to cloud platforms"
-		}
-	]
+        "description": "Port configuration for thin-edge.io services",
+        "ports": [
+                {
+                        "port": 1883,
+                        "protocol": "tcp",
+                        "service": "mosquitto",
+                        "description": "Local MQTT broker — bound to 127.0.0.1 only, not externally accessible",
+                        "direction": "inbound",
+                        "security": "internal"
+                },
+                {
+                        "port": 8888,
+                        "protocol": "tcp",
+                        "service": "webserver",
+                        "description": "Configuration Web UI — bound to 127.0.0.1 only, proxied via ctrlX Caddyfile reverse proxy",
+                        "direction": "inbound",
+                        "security": "internal"
+                },
+                {
+                        "port": 8883,
+                        "protocol": "tcp",
+                        "service": "tedge-mapper-c8y",
+                        "description": "MQTT over TLS — outbound cloud connection to Cumulocity IoT (or 9883 for MQTT Service)",
+                        "direction": "outbound",
+                        "security": "tls"
+                },
+                {
+                        "port": 443,
+                        "protocol": "tcp",
+                        "service": "tedge-agent / tedge-mapper",
+                        "description": "HTTPS — outbound connections to cloud platform REST APIs",
+                        "direction": "outbound",
+                        "security": "tls"
+                }
+        ],
+        "notes": [
+                "No ports are exposed externally without authentication",
+                "Internal ports (1883, 8888) are bound to 127.0.0.1 only",
+                "Web UI access is exclusively via ctrlX reverse proxy with Bearer Token validation"
+        ]
 }
-Siehe configs/portlist-description.json (bitte ggf. in dieses Verzeichnis verschieben, falls Store-Upload gefordert).

@@ -1,0 +1,446 @@
+{
+  "info": {
+    "_postman_id": "thin-edge-io-standard-scenario1",
+    "name": "thin-edge.io ctrlX — Standard Scenario 1: Cumulocity Connect & Telemetry",
+    "description": "Standard usage scenario for ctrlX AUTOMATION app validation.\nDemonstrates:\n  1. Initial status check (services up, not yet configured)\n  2. Configure Cumulocity IoT connection\n  3. Create device certificate\n  4. Connect to Cumulocity\n  5. Send test telemetry message\n  6. Verify status (connected)\n  7. Disconnect\n\nBase URL: https://<ctrlx-device-ip>/thin-edge-io/api\nAuthentication: ctrlX Bearer Token (set as 'bearerToken' variable)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://192.168.1.1/thin-edge-io/api",
+      "description": "Base URL of the thin-edge.io web API on the ctrlX device"
+    },
+    {
+      "key": "bearerToken",
+      "value": "",
+      "description": "ctrlX Bearer Token (obtain via ctrlX login)"
+    },
+    {
+      "key": "c8yUrl",
+      "value": "your-tenant.cumulocity.com",
+      "description": "Cumulocity IoT tenant URL"
+    },
+    {
+      "key": "deviceId",
+      "value": "ctrlx-thin-edge-test-device",
+      "description": "Device ID for the test device"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Initial Status Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);",
+              "const json = pm.response.json();",
+              "pm.test('services array present', () => pm.expect(json).to.have.property('services'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["status"]
+        },
+        "description": "Verify all thin-edge.io services are running after installation."
+      }
+    },
+    {
+      "name": "2. Get Current Configuration",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/config",
+          "host": ["{{baseUrl}}"],
+          "path": ["config"]
+        },
+        "description": "Read current tedge configuration."
+      }
+    },
+    {
+      "name": "3. Configure Cumulocity IoT",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"c8y_url\": \"{{c8yUrl}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/config/c8y",
+          "host": ["{{baseUrl}}"],
+          "path": ["config", "c8y"]
+        },
+        "description": "Set the Cumulocity IoT tenant URL."
+      }
+    },
+    {
+      "name": "4. Set Device ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"device_id\": \"{{deviceId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/device-id",
+          "host": ["{{baseUrl}}"],
+          "path": ["device-id"]
+        },
+        "description": "Set device ID for the test scenario."
+      }
+    },
+    {
+      "name": "5. Create Device Certificate (auto)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{baseUrl}}/device-id/create-auto",
+          "host": ["{{baseUrl}}"],
+          "path": ["device-id", "create-auto"]
+        },
+        "description": "Auto-create X.509 device certificate from current device ID."
+      }
+    },
+    {
+      "name": "6. Get Certificate Info",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/device-id/cert-info",
+          "host": ["{{baseUrl}}"],
+          "path": ["device-id", "cert-info"]
+        },
+        "description": "Verify certificate was created and retrieve thumbprint for cloud registration."
+      }
+    },
+    {
+      "name": "7. Connect to Cumulocity",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{baseUrl}}/connect/c8y",
+          "host": ["{{baseUrl}}"],
+          "path": ["connect", "c8y"]
+        },
+        "description": "Connect thin-edge.io to Cumulocity IoT. Starts tedge-mapper-c8y service."
+      }
+    },
+    {
+      "name": "8. Status Check (after connect)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["status"]
+        },
+        "description": "Verify all services including tedge-mapper-c8y are active after connect."
+      }
+    },
+    {
+      "name": "9. Send Test Message",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topic\": \"te/device/main///m/\",\n  \"payload\": \"{\\\"temperature\\\": 23.5, \\\"humidity\\\": 45.2}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/test-message",
+          "host": ["{{baseUrl}}"],
+          "path": ["test-message"]
+        },
+        "description": "Publish a test telemetry measurement to the MQTT broker. Should appear in Cumulocity."
+      }
+    },
+    {
+      "name": "10. Get Logs (mapper)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?service=tedge-mapper-c8y&lines=50",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [
+            {
+              "key": "service",
+              "value": "tedge-mapper-c8y"
+            },
+            {
+              "key": "lines",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Retrieve recent logs from the Cumulocity mapper to verify connectivity."
+      }
+    },
+    {
+      "name": "11. Build Info",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is JSON', () => pm.response.to.be.json);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/build-info",
+          "host": ["{{baseUrl}}"],
+          "path": ["build-info"]
+        },
+        "description": "Retrieve app version, architecture, and build timestamp."
+      }
+    },
+    {
+      "name": "12. Disconnect from Cumulocity",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('success true', () => pm.expect(json.success).to.be.true);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{bearerToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{baseUrl}}/disconnect/c8y",
+          "host": ["{{baseUrl}}"],
+          "path": ["disconnect", "c8y"]
+        },
+        "description": "Disconnect from Cumulocity IoT. Stops tedge-mapper-c8y service."
+      }
+    }
+  ]
+}

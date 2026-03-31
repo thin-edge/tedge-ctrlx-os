@@ -32,6 +32,9 @@ datalayer-mappings.json
 tedge-web-config.json
 web.sh
 
+# Generated artifacts folder (assembled by scripts/build-artifacts.sh)
+artifacts/
+
 # Build directories
 build/
 dist/
