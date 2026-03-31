@@ -55,18 +55,17 @@ thin-edge-io-app/
 ### Plugins
 | Plugin | Description |
 |--------|-------------|
-| `c8y-firmware-plugin` | Firmware update management for Cumulocity |
 | `c8y-remote-access-plugin` | Secure remote access via Cumulocity |
-| `tedge-apt-plugin` | APT package management integration |
+
 | `tedge-file-config-plugin` | Configuration file management |
-| `tedge-file-log-plugin` | Log file collection and forwarding |
+| `tedge-snap-plugin` | Lists installed snaps in Cumulocity software inventory (read-only, install/remove not supported) |
 
 ### Custom Services
 | Service | Description |
 |---------|-------------|
-| `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar) |
+| `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar); service status auto-refreshes every 30 s |
 | `tedge-datalayer-bridge` | ctrlX Data Layer ↔ thin-edge.io bridge |
-| `tedge-log-upload-manager` | Coordinates log file uploads to cloud platforms |
+| `tedge-log-upload-manager` | Coordinates log file uploads to cloud platforms (replaces standard `tedge-file-log-plugin`) |
 
 ## Web UI
 
@@ -273,6 +272,8 @@ $SNAP_DATA/tedge/run/        → tedge run.path
 $SNAP_DATA/tedge/tmp/        → tedge tmp.path
 $SNAP_DATA/tedge/log-plugins/
 $SNAP_DATA/tedge/sm-plugins/
+    apt  → $SNAP/bin/tedge-apt-plugin   (Debian packages in Cumulocity)
+    snap → $SNAP/scripts/sm-plugins/tedge-snap-plugin  (Snaps in Cumulocity)
 $SNAP_DATA/tedge/.agent/
 ```
 

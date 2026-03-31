@@ -13,11 +13,9 @@
                                 "tedge-watchdog",
                                 "tedge-datalayer-bridge",
                                 "tedge-log-upload-manager",
-                                "c8y-firmware-plugin",
                                 "c8y-remote-access-plugin",
                                 "tedge-apt-plugin",
                                 "tedge-file-config-plugin",
-                                "tedge-file-log-plugin",
                                 "webserver"
                         ]
                 },

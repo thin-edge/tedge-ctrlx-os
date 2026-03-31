@@ -11,6 +11,27 @@ echo "Ensuring tedge directories exist..." >&2
 mkdir -p "$SNAP_DATA/tedge/run"
 mkdir -p "$SNAP_DATA/tedge/tmp"
 mkdir -p "$SNAP_DATA/tedge/sm-plugins"
+
+# No sm-plugins registered — apt package management not used on ctrlX CORE.
+# Remove stale apt/snap symlinks from older versions.
+rm -f "$SNAP_DATA/tedge/sm-plugins/apt" "$SNAP_DATA/tedge/sm-plugins/snap" 2>/dev/null || true
+
+# Regenerate snap inventory JSON (hook has /snap/** read access, the Rust service does not).
+echo "Regenerating snap inventory..." >&2
+snap_json="["
+sep=""
+for yaml in /snap/*/current/meta/snap.yaml; do
+    [ -f "$yaml" ] || continue  # skip if glob did not expand (no matches)
+    name=$(echo "$yaml" | awk -F/ '{print $3}')
+    case "$name" in bin|snapd) continue ;; esac
+    version=$(grep '^version:' "$yaml" 2>/dev/null | head -1 | sed "s/^version:[[:space:]]*//" | tr -d "'\"")
+    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"\",\"softwareType\":\"snap\"}"
+    sep=","
+done
+snap_json="${snap_json}]"
+echo "$snap_json" > "$SNAP_DATA/tedge/snap-inventory.json"
+chmod 644 "$SNAP_DATA/tedge/snap-inventory.json"
+echo "Snap inventory written ($(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries)" >&2
 mkdir -p "$SNAP_DATA/tedge/log-plugins"
 mkdir -p "$SNAP_DATA/tedge/plugins"
 mkdir -p "$SNAP_DATA/tedge/device"
@@ -125,24 +146,11 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-# mqtt.client.port must always be 1883 (local Mosquitto) — never 8883/9883 (cloud port)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 # log.plugin_paths: update to the new versioned revision path after snap refresh.
 #    AppArmor only allows exec from versioned paths (/snap/name/[0-9]*/...), NOT from 'current' symlink.
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 
-# Direktes Patchen der tedge.toml als Fallback (falls tedge config set fehlschlägt)
-TEDGE_TOML="$SNAP_DATA/tedge/tedge.toml"
-if [ -f "$TEDGE_TOML" ]; then
-    # Ersetze /data/tedge (alten ctrlX-Wert) durch den korrekten SNAP_COMMON-Pfad
-    sed -i "s|path = \"/data/tedge\"|path = \"$SNAP_COMMON/tedge\"|g" "$TEDGE_TOML" 2>/dev/null || true
-    # mqtt.client.port muss immer 1883 sein (lokaler Broker)
-    # Falls 8883 oder 9883 gesetzt ist (Bug aus alter App-Version), korrigieren
-    sed -i 's/^client\.port = 8883/client.port = 1883/' "$TEDGE_TOML" 2>/dev/null || true
-    sed -i 's/^client\.port = 9883/client.port = 1883/' "$TEDGE_TOML" 2>/dev/null || true
-    echo "Direct TOML patch for data.path and mqtt.client.port applied" >&2
-fi
-# =========================================================================
 
 # =========================================================================
 # Inventory mit echten Systemdaten befüllen

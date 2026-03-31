@@ -707,13 +707,17 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   // Bestehende Aufrufe...
+  // Calls are staggered to avoid hammering the backend socket with parallel requests on startup.
   loadStatus();
   loadConfiguration();
-  updateLogLevelDropdown();
-  loadDatalayerStatus();
-  loadDatalayerConfig();
-  loadDatalayerMappings();
   loadC8yMqttPort();
+  setTimeout(() => updateLogLevelDropdown(), 300);
+  setTimeout(() => loadDatalayerStatus(), 600);
+  setTimeout(() => loadDatalayerConfig(), 900);
+  setTimeout(() => loadDatalayerMappings(), 1200);
+
+  // Auto-refresh service status every 30 seconds
+  setInterval(loadStatus, 30000);
 });
 
 // Load service status

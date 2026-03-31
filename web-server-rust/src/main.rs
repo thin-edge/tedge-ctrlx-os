@@ -575,7 +575,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
         status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
         status.mapper_az = check_snapctl("tedge-mapper-az").to_string();
-        status.webserver = check_snapctl("tedge-web-config").to_string();
+        status.webserver = check_snapctl("webserver").to_string();
         status.log_upload_manager = check_snapctl("tedge-log-upload-manager").to_string();
 
         // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)

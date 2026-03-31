@@ -30,6 +30,28 @@ mkdir -p "$SNAP_DATA/tedge/tmp"
 mkdir -p "$SNAP_DATA/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA/tedge/log-plugins"
 mkdir -p "$SNAP_DATA/tedge/plugins"
+
+# Snap inventory is published via MQTT twin by tedge-log-upload-manager.
+# No sm-plugins registered — apt package management not used on ctrlX CORE.
+
+# Generate snap inventory JSON for tedge-log-upload-manager.
+# Hook AppArmor profile allows reading /snap/*/current/meta/snap.yaml;
+# the Rust service (strict confinement) cannot access /snap/ directly.
+echo "Generating snap inventory..." >&2
+snap_json="["
+sep=""
+for yaml in /snap/*/current/meta/snap.yaml; do
+    [ -f "$yaml" ] || continue  # skip if glob did not expand (no matches)
+    name=$(echo "$yaml" | awk -F/ '{print $3}')
+    case "$name" in bin|snapd) continue ;; esac
+    version=$(grep '^version:' "$yaml" 2>/dev/null | head -1 | sed "s/^version:[[:space:]]*//" | tr -d "'\"")
+    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"\",\"softwareType\":\"snap\"}"
+    sep=","
+done
+snap_json="${snap_json}]"
+echo "$snap_json" > "$SNAP_DATA/tedge/snap-inventory.json"
+chmod 644 "$SNAP_DATA/tedge/snap-inventory.json"
+echo "Snap inventory written ($(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries)" >&2
 mkdir -p "$SNAP_DATA/tedge/device"
 mkdir -p "$SNAP_DATA/tedge/.agent"
 mkdir -p "$SNAP_COMMON/tedge/log"
@@ -190,7 +212,6 @@ echo "Setting ctrlX specific defaults in tedge.toml..." >&2
 # 3. Interne Ports sicher auf Localhost binden (Best Practice für Edge-Devices)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
-# mqtt.client.port = lokaler Broker-Port (immer 1883, NICHT der Cloud-Port 8883/9883)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port "1883" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true

@@ -26,7 +26,7 @@ description: |
   - tedge-agent: Agent for software/configuration management
   - tedge-mapper: Protocol translation (c8y/aws/azure)
   - tedge-watchdog: Health monitoring
-  - Plugins: apt, firmware, remote access, file management
+  - Plugins: apt, remote access, file management
   - Mosquitto MQTT broker (local)
 
 # Metadata
@@ -212,32 +212,14 @@ apps:
         - tedge-agent
       
   # Plugins
-  c8y-firmware-plugin:
-    command: scripts/tedge-service-wrapper.sh c8y-firmware-plugin
-    plugs:
-      - network
-      - network-bind
-
   c8y-remote-access-plugin:
     command: scripts/tedge-service-wrapper.sh c8y-remote-access-plugin
     plugs:
       - network
       - network-bind
 
-  tedge-apt-plugin:
-    command: scripts/tedge-service-wrapper.sh tedge-apt-plugin
-    plugs:
-      - network
-
   tedge-file-config-plugin:
     command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
-    plugs:
-      - network
-
-  tedge-file-log-plugin:
-    command: bin/tedge-file-log-plugin --config-dir $SNAP_DATA/tedge
-    environment:
-      TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
     plugs:
       - network
 
@@ -417,11 +399,8 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-mapper
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-watchdog
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
-      ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-firmware-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
-      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-apt-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
-      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-log-plugin
       
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
