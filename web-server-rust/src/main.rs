@@ -1099,7 +1099,8 @@ struct SetMqttPortBody {
     port: u16,
 }
 
-/// POST /api/set-mqtt-port  — sets c8y.mqtt.port via tedge config set
+/// POST /api/set-mqtt-port  — sets c8y.mqtt_service.enabled via tedge config set
+/// Port 9883 → enabled=true, Port 8883 → enabled=false
 async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_execute() {
@@ -1127,9 +1128,14 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
     } else {
         "/etc/tedge".to_string()
     };
-    let port_str = body.port.to_string();
+    // 9883 = MQTT Service enabled, 8883 = Core MQTT (service disabled)
+    let enabled_str = if body.port == 9883 { "true" } else { "false" };
+    let port = body.port;
 
-    info!("[MQTT-PORT] Setting c8y.mqtt.port to {}", body.port);
+    info!(
+        "[MQTT-PORT] Setting c8y.mqtt_service.enabled={} (port={})",
+        enabled_str, port
+    );
     let result = web::block(move || {
         Command::new(&tedge_bin)
             .args([
@@ -1137,8 +1143,8 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 &tedge_config_dir,
                 "config",
                 "set",
-                "c8y.mqtt.port",
-                &port_str,
+                "c8y.mqtt_service.enabled",
+                enabled_str,
             ])
             .output()
     })
@@ -1146,8 +1152,11 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
 
     match result {
         Ok(Ok(out)) if out.status.success() => {
-            info!("[MQTT-PORT] c8y.mqtt.port set to {}", body.port);
-            Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": body.port})))
+            info!(
+                "[MQTT-PORT] c8y.mqtt_service.enabled={} set successfully",
+                enabled_str
+            );
+            Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": port})))
         }
         Ok(Ok(out)) => {
             let stderr = String::from_utf8_lossy(&out.stderr).to_string();

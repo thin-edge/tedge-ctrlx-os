@@ -12,8 +12,7 @@
 #      restarts the service via `snapctl restart` (replaces systemd WATCHDOG=1 logic)
 #
 # Services monitored (matches tedge-watchdog binary's hardcoded list):
-#   tedge-agent, tedge-mapper-c8y, tedge-mapper-aws, tedge-mapper-az,
-#   c8y-firmware-plugin
+#   tedge-agent, tedge-mapper-c8y, tedge-mapper-aws, tedge-mapper-az
 
 set -uo pipefail
 
@@ -132,14 +131,16 @@ restart_service() {
 }
 
 # ---------------------------------------------------------------------------
-# Services to monitor  (same list as tedge-watchdog binary)
+# Services to monitor
 # ---------------------------------------------------------------------------
 WATCH_SERVICES=(
     "tedge-agent"
     "tedge-mapper-c8y"
     "tedge-mapper-aws"
     "tedge-mapper-az"
-    "c8y-firmware-plugin"
+    "tedge-datalayer-bridge"
+    "tedge-log-upload-manager"
+    "webserver"
 )
 
 # ---------------------------------------------------------------------------

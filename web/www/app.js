@@ -23,6 +23,8 @@ const I18N = {
     "connect.port_core": "Core MQTT (8883)",
     "connect.port_service": "MQTT Service (9883)",
     "connect.port_applied": (p) => `Port ${p} gesetzt`,
+    "connect.port_reconnect_hint":
+      "Einstellung gespeichert – bitte 'Neu verbinden' ausführen damit die Änderung wirksam wird.",
     "connect.port_err": "Fehler beim Setzen des Ports",
     "connect.mapping_topic_label": "Mapping Topic",
     "connect.mapping_topic_hint":
@@ -247,6 +249,14 @@ const I18N = {
     "notify.dl_mapping_deleted": "Mapping gelöscht",
     "notify.dl_mapping_del_err": "Fehler beim Löschen des Mappings",
     "notify.dl_path_required": "Bitte Datalayer-Pfad und tedge-Topic eingeben",
+    "notify.dl_mappings_disabled":
+      "Alle Mappings wurden deaktiviert, da der MQTT Service (Port 9883) aktiviert wurde. Bitte Topics auf 'c8y/mqtt/out/...' anpassen.",
+    "notify.dl_mappings_reenabled":
+      "Alle Mappings wurden wieder aktiviert (Core MQTT Port 8883).",
+    "notify.dl_topic_te_warning":
+      "Dieses Mapping verwendet ein 'te/'-Topic. Beim MQTT Service muss stattdessen 'c8y/mqtt/out/...' verwendet werden.",
+    "datalayer.topic_hint_core": "z.B. te/device/main///m/meinWert",
+    "datalayer.topic_hint_service": "z.B. c8y/mqtt/out/meinTopic",
   },
   en: {
     // Header
@@ -264,6 +274,8 @@ const I18N = {
     "connect.port_core": "Core MQTT (8883)",
     "connect.port_service": "MQTT Service (9883)",
     "connect.port_applied": (p) => `Port ${p} applied`,
+    "connect.port_reconnect_hint":
+      "Setting saved – please click 'Reconnect' for the change to take effect.",
     "connect.port_err": "Error setting MQTT port",
     "connect.mapping_topic_label": "Mapping Topic",
     "connect.mapping_topic_hint":
@@ -489,6 +501,14 @@ const I18N = {
     "notify.dl_mapping_deleted": "Mapping deleted",
     "notify.dl_mapping_del_err": "Error deleting mapping",
     "notify.dl_path_required": "Please enter Datalayer path and tedge topic",
+    "notify.dl_mappings_disabled":
+      "All mappings have been disabled because MQTT Service (port 9883) was enabled. Please update topics to use 'c8y/mqtt/out/...'.",
+    "notify.dl_mappings_reenabled":
+      "All mappings re-enabled (Core MQTT port 8883).",
+    "notify.dl_topic_te_warning":
+      "This mapping uses a 'te/' topic. With MQTT Service, use 'c8y/mqtt/out/...' instead.",
+    "datalayer.topic_hint_core": "e.g. te/device/main///m/myValue",
+    "datalayer.topic_hint_service": "e.g. c8y/mqtt/out/myTopic",
   },
 };
 // 1. Token beim Start aus der URL extrahieren
@@ -706,18 +726,15 @@ window.addEventListener("DOMContentLoaded", () => {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  // Bestehende Aufrufe...
-  // Calls are staggered to avoid hammering the backend socket with parallel requests on startup.
+  // Only load the first visible section (status) on startup.
+  // All other sections load their data lazily when the user opens them.
   loadStatus();
-  loadConfiguration();
-  loadC8yMqttPort();
-  setTimeout(() => updateLogLevelDropdown(), 300);
-  setTimeout(() => loadDatalayerStatus(), 600);
-  setTimeout(() => loadDatalayerConfig(), 900);
-  setTimeout(() => loadDatalayerMappings(), 1200);
 
-  // Auto-refresh service status every 30 seconds
-  setInterval(loadStatus, 30000);
+  // Auto-refresh service status every 30 seconds (only if section is open)
+  setInterval(() => {
+    const sec = document.getElementById("sec-status");
+    if (sec && !sec.classList.contains("collapsed")) loadStatus();
+  }, 30000);
 });
 
 // Load service status
@@ -1380,6 +1397,33 @@ async function onMqttPortToggle(checked) {
   if (label9883)
     label9883.style.cssText = checked ? activeStyle : inactiveStyle;
   if (status) status.textContent = "…";
+
+  // 1. Alle Datalayer-Mappings deaktivieren wenn auf 9883 umgeschaltet wird,
+  //    oder wieder aktivieren wenn zurück auf 8883.
+  if (typeof _dlMappings !== "undefined" && _dlMappings.length > 0) {
+    const shouldEnable = !checked; // 8883 → einschalten, 9883 → ausschalten
+    const updated = _dlMappings.map((m) => ({ ...m, enabled: shouldEnable }));
+    try {
+      const mr = await fetchWithAuth("api/datalayer/mappings", {
+        method: "POST",
+        body: JSON.stringify({ mappings: updated }),
+      });
+      if (mr.ok) {
+        _dlMappings = updated;
+        if (typeof renderDatalayerMappings === "function")
+          renderDatalayerMappings();
+        setTimeout(() => {
+          showNotification(
+            checked
+              ? t("notify.dl_mappings_disabled")
+              : t("notify.dl_mappings_reenabled"),
+            checked ? "warning" : "success",
+          );
+        }, 600);
+      }
+    } catch (_) {}
+  }
+
   try {
     const r = await fetchWithAuth("api/set-mqtt-port", {
       method: "POST",
@@ -1390,6 +1434,10 @@ async function onMqttPortToggle(checked) {
     if (data.success) {
       if (status) status.textContent = t("connect.port_applied", port);
       showNotification(t("connect.port_applied", port), "success");
+      setTimeout(
+        () => showNotification(t("connect.port_reconnect_hint"), "warning"),
+        800,
+      );
     } else {
       if (status)
         status.textContent = "⚠ " + (data.error || t("connect.port_err"));
@@ -1402,20 +1450,18 @@ async function onMqttPortToggle(checked) {
 }
 
 async function loadC8yMqttPort() {
-  // Read current mqtt.client.port from tedge config list output if available
+  // Read c8y.mqtt_service.enabled from tedge config list
   try {
     const r = await fetchWithAuth("api/tedge-config-list");
     if (!r.ok) return;
     const data = await r.json();
     if (!data.output) return;
-    const match = data.output.match(/mqtt\.client\.port\s*=\s*(\d+)/);
-    if (match) {
-      const port = parseInt(match[1], 10);
-      const toggle = document.getElementById("c8y-mqtt-port-toggle");
-      if (toggle) {
-        toggle.checked = port === 9883;
-        onMqttPortToggle(toggle.checked);
-      }
+    const match = data.output.match(/c8y\.mqtt_service\.enabled\s*=\s*(\S+)/);
+    const toggle = document.getElementById("c8y-mqtt-port-toggle");
+    if (toggle) {
+      const enabled = match ? match[1].trim() === "true" : false;
+      toggle.checked = enabled;
+      onMqttPortToggle(enabled);
     }
   } catch (_) {}
 }
@@ -1720,6 +1766,42 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 function initCollapsibleSections() {
+  // Map section IDs to their lazy-load functions.
+  // Called once when the section is first opened.
+  const lazyLoaders = {
+    "sec-status": () => {
+      loadStatus();
+    },
+    "sec-cloud": () => {
+      loadConfiguration();
+      loadC8yMqttPort();
+    },
+    "sec-device": () => {
+      loadDeviceIdInfo();
+      loadCertDetailsInline();
+    },
+    "sec-actions": () => {
+      loadC8yMqttPort();
+    },
+    "sec-logs": () => {
+      updateLogLevelDropdown();
+    },
+    "sec-tedge-config": () => {
+      loadTedgeConfig();
+    },
+    "sec-snap-config": () => {
+      /* manual load on button click */
+    },
+    "sec-datalayer": () => {
+      loadDatalayerStatus();
+      loadDatalayerConfig();
+      loadDatalayerMappings();
+    },
+    "sec-sysinfo": () => {
+      loadBuildInfo();
+    },
+  };
+
   document.querySelectorAll(".card").forEach((section, index) => {
     const h2 = section.querySelector(":scope > h2");
     if (!h2) return;
@@ -1740,8 +1822,18 @@ function initCollapsibleSections() {
     // Collapse all except first
     if (index > 0) section.classList.add("collapsed");
 
-    // Toggle on h2 click
-    h2.addEventListener("click", () => section.classList.toggle("collapsed"));
+    let loaded = index === 0; // first section already loaded via DOMContentLoaded
+
+    // Toggle on h2 click + lazy load
+    h2.addEventListener("click", () => {
+      const wasCollapsed = section.classList.contains("collapsed");
+      section.classList.toggle("collapsed");
+      if (wasCollapsed && !loaded) {
+        loaded = true;
+        const loader = lazyLoaders[section.id];
+        if (loader) loader();
+      }
+    });
   });
 }
 
@@ -1959,6 +2051,12 @@ function prepareMapping(path) {
   pathInput.scrollIntoView({ behavior: "smooth" });
 }
 
+/** Liefert true wenn c8y.mqtt_service (Port 9883) aktiv ist */
+function isMqttServiceActive() {
+  const toggle = document.getElementById("c8y-mqtt-port-toggle");
+  return toggle ? toggle.checked : false;
+}
+
 /** 4. Topic automatisch basierend auf Transform setzen */
 function updateTopicPrefix() {
   const direction = document.getElementById(
@@ -1969,19 +2067,40 @@ function updateTopicPrefix() {
   ).value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
+  const topicHint = document.getElementById("datalayer-mapping-topic-hint");
 
   const lastPart = path.split("/").pop() || "value";
-  let topic = "te/device/main///";
 
-  if (direction === "tedge_to_dl") {
-    topic += "cmd/plc/" + lastPart;
+  if (isMqttServiceActive()) {
+    // MQTT Service (9883): c8y/mqtt/out/ Präfix
+    let topic = "c8y/mqtt/out/";
+    if (direction === "tedge_to_dl") {
+      topic += "cmd/" + lastPart;
+    } else {
+      topic += lastPart;
+    }
+    topicInput.value = topic;
+    if (topicHint) {
+      topicHint.textContent = t("datalayer.topic_hint_service");
+      topicHint.style.color = "var(--c8y-palette-status-warning, #e8760d)";
+    }
   } else {
-    if (transform === "measurement") topic += "m/" + lastPart;
-    else if (transform === "event") topic += "e/" + lastPart;
-    else if (transform === "alarm") topic += "a/" + lastPart;
-    else topic += "m/" + lastPart; // fallback
+    // Core MQTT (8883): te/ Präfix
+    let topic = "te/device/main///";
+    if (direction === "tedge_to_dl") {
+      topic += "cmd/plc/" + lastPart;
+    } else {
+      if (transform === "measurement") topic += "m/" + lastPart;
+      else if (transform === "event") topic += "e/" + lastPart;
+      else if (transform === "alarm") topic += "a/" + lastPart;
+      else topic += "m/" + lastPart;
+    }
+    topicInput.value = topic;
+    if (topicHint) {
+      topicHint.textContent = t("datalayer.topic_hint_core");
+      topicHint.style.color = "var(--c8y-palette-gray-40)";
+    }
   }
-  topicInput.value = topic;
 }
 
 /** 4b. Ein bestehendes Mapping zum Bearbeiten ins Formular laden */
@@ -1995,8 +2114,15 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-id").value = mapping.id;
   document.getElementById("datalayer-mapping-path").value =
     mapping.path || mapping.datalayer_path || "";
-  document.getElementById("datalayer-mapping-topic").value =
-    mapping.topic || mapping.tedge_topic || "";
+  const existingTopic = mapping.topic || mapping.tedge_topic || "";
+  document.getElementById("datalayer-mapping-topic").value = existingTopic;
+  // Warnung wenn MQTT Service aktiv ist und Topic noch das alte te/-Schema hat
+  if (isMqttServiceActive() && existingTopic.startsWith("te/")) {
+    setTimeout(
+      () => showNotification(t("notify.dl_topic_te_warning"), "warning"),
+      200,
+    );
+  }
   document.getElementById("datalayer-mapping-direction").value =
     mapping.direction || "dl_to_tedge";
 
@@ -2144,34 +2270,56 @@ function renderDatalayerMappings() {
   if (!tbody) return;
 
   if (_dlMappings.length === 0) {
-    // Colspan von 6 auf 8 erhöht, wegen der neuen Spalten
-    tbody.innerHTML = `<tr><td colspan="8" class="node-empty-hint" style="text-align:center; padding:20px;" data-i18n="datalayer.no_mappings">${t("datalayer.no_mappings")}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint" style="text-align:center; padding:20px;">${t("datalayer.no_mappings")}</td></tr>`;
     return;
   }
 
+  const mqttServiceActive = isMqttServiceActive();
   tbody.innerHTML = "";
   _dlMappings.forEach((m) => {
     const p = m.path || m.datalayer_path || "";
     const t_topic = m.topic || m.tedge_topic || "";
     const trans = m.transform || "Measurement";
-    const fieldName = m.field_name || "-";
+    const fieldName = m.field_name || "";
     const isWrite = m.direction === "tedge_to_dl";
     const dirIcon = isWrite ? "fa-arrow-left" : "fa-arrow-right";
     const dirTitle = isWrite
       ? t("datalayer.dir_tedge_to_dl")
       : t("datalayer.dir_dl_to_tedge");
     const dirColor = isWrite ? "#FD8200" : "var(--brand-primary)";
+
+    // Transform label color
     let labelClass = "label-info";
     const transLower = trans.toLowerCase();
     if (transLower === "measurement") labelClass = "label-success";
     if (transLower === "alarm") labelClass = "label-warning";
+    if (transLower === "raw") labelClass = "label-default";
+
+    // Topic compatibility
+    const topicIncompatible = mqttServiceActive && t_topic.startsWith("te/");
+    const topicColor = topicIncompatible
+      ? "var(--c8y-palette-status-warning, #e8760d)"
+      : "inherit";
+    const topicWarning = topicIncompatible
+      ? `<i class="fa-solid fa-triangle-exclamation" style="color:#e8760d; margin-right:4px; font-size:11px;" title="Topic inkompatibel mit MQTT Service"></i>`
+      : "";
+
+    // Datalayer path: show last segment bold, rest grayed
+    const pathParts = p.split("/").filter(Boolean);
+    const pathLast = pathParts.pop() || p;
+    const pathPrefix = pathParts.length > 0 ? pathParts.join("/") + "/" : "";
+    const pathHtml = `<span style="color:var(--c8y-palette-gray-40);font-size:11px;">${pathPrefix}</span><strong>${pathLast}</strong>`;
+
+    // Combined transform + field
+    const fieldHtml = fieldName
+      ? `<span class="label ${labelClass}" style="font-size:10px;">${trans.toUpperCase()}</span> <span style="font-size:12px;">${fieldName}</span>`
+      : `<span class="label ${labelClass}" style="font-size:10px;">${trans.toUpperCase()}</span>`;
 
     const tr = document.createElement("tr");
     tr.className = "mapping-row";
     tr.style.cursor = "pointer";
     tr.title = "Klicken zum Bearbeiten";
     tr.addEventListener("click", (e) => {
-      // Verhindere, dass Klicks auf Buttons/Switches das Edit auslösen
       if (
         e.target.closest("button") ||
         e.target.closest("input[type=checkbox]")
@@ -2181,35 +2329,27 @@ function renderDatalayerMappings() {
     });
 
     tr.innerHTML = `
-      <td class="cell-path text-truncate" title="${p}">${p}</td>
-      <td class="cell-topic text-truncate" title="${t_topic}">${t_topic}</td>
-      <td class="text-center" title="${dirTitle}" style="font-size: 16px; color: ${dirColor};">
+      <td class="cell-path" title="${p}" style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pathHtml}</td>
+      <td class="cell-topic text-truncate" title="${t_topic}" style="color:${topicColor}; max-width:200px;">${topicWarning}${t_topic}</td>
+      <td class="text-center" title="${dirTitle}" style="font-size:16px; color:${dirColor}; width:32px;">
         <i class="fa-solid ${dirIcon}"></i>
       </td>
-      <td>
-        <span class="label ${labelClass}">${trans.toUpperCase()}</span>
-      </td>
-      <td>${fieldName}</td>
-      <td class="text-center">
+      <td style="white-space:nowrap;">${fieldHtml}</td>
+      <td class="text-center" style="width:52px;">
         <label class="tedge-switch">
           <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
           <span class="tedge-switch-slider"></span>
         </label>
       </td>
-      <td class="text-right">
-        <button class="btn btn-dot text-danger" title="Löschen" data-i18n-title="common.delete" onclick="event.stopPropagation(); deleteDatalayerMapping('${m.id}')">
+      <td class="text-right" style="width:36px;">
+        <button class="btn btn-dot text-danger" title="Löschen" onclick="event.stopPropagation(); deleteDatalayerMapping('${m.id}')">
           <i class="fa-solid fa-trash"></i>
         </button>
       </td>
     `;
     tbody.appendChild(tr);
   });
-  if (_dlMappings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="node-empty-hint" style="text-align:center; padding:20px;" data-i18n="datalayer.no_mappings">${t("datalayer.no_mappings")}</td></tr>`;
-  }
-  if (typeof applyI18n === "function") {
-    applyI18n();
-  }
+  if (typeof applyI18n === "function") applyI18n();
 }
 
 /** 8. Mapping löschen */

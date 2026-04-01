@@ -12,26 +12,79 @@ mkdir -p "$SNAP_DATA/tedge/run"
 mkdir -p "$SNAP_DATA/tedge/tmp"
 mkdir -p "$SNAP_DATA/tedge/sm-plugins"
 
-# No sm-plugins registered — apt package management not used on ctrlX CORE.
-# Remove stale apt/snap symlinks from older versions.
-rm -f "$SNAP_DATA/tedge/sm-plugins/apt" "$SNAP_DATA/tedge/sm-plugins/snap" 2>/dev/null || true
+# Remove stale apt symlinks from older versions (snap plugin is recreated below).
+rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
 
-# Regenerate snap inventory JSON (hook has /snap/** read access, the Rust service does not).
+# Regenerate snap inventory JSON using 'snap list' — more reliable than reading yaml files.
 echo "Regenerating snap inventory..." >&2
-snap_json="["
-sep=""
-for yaml in /snap/*/current/meta/snap.yaml; do
-    [ -f "$yaml" ] || continue  # skip if glob did not expand (no matches)
-    name=$(echo "$yaml" | awk -F/ '{print $3}')
-    case "$name" in bin|snapd) continue ;; esac
-    version=$(grep '^version:' "$yaml" 2>/dev/null | head -1 | sed "s/^version:[[:space:]]*//" | tr -d "'\"")
-    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"\",\"softwareType\":\"snap\"}"
+# Generate snap-inventory.json by reading /snap/*/current/meta/snap.yaml.
+# Hook AppArmor profile allows reading the /snap/ read-only filesystem directly.
+# 'snap list' and snapd socket are blocked, but snap.yaml files are accessible.
+echo "Regenerating snap inventory via snap metadata files..." >&2
+snap_json="[{\"name\":\"${SNAP_NAME}\",\"version\":\"${SNAP_VERSION}\",\"url\":\"rev:${SNAP_REVISION}\",\"softwareType\":\"snap\"}"
+sep=","
+for yaml_file in /snap/*/current/meta/snap.yaml; do
+    [ -f "$yaml_file" ] || continue
+    name=$(grep '^name:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
+    version=$(grep '^version:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
+    [ -z "$name" ] && continue
+    [ "$name" = "$SNAP_NAME" ] && continue  # current snap already added via env vars
+    snap_current_dir="${yaml_file%/meta/snap.yaml}"
+    rev=$(readlink "$snap_current_dir" 2>/dev/null || echo "?")
+    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"rev:${rev}\",\"softwareType\":\"snap\"}"
     sep=","
 done
 snap_json="${snap_json}]"
-echo "$snap_json" > "$SNAP_DATA/tedge/snap-inventory.json"
-chmod 644 "$SNAP_DATA/tedge/snap-inventory.json"
-echo "Snap inventory written ($(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries)" >&2
+echo "$snap_json" > "$SNAP_DATA/snap-inventory.json"
+chmod 644 "$SNAP_DATA/snap-inventory.json"
+echo "Snap inventory written: $(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries" >&2
+
+# Create snap sm-plugin so tedge-agent can answer software_list requests from C8y.
+# snap list is AppArmor-blocked in strict confinement — use env vars directly.
+# Layout: /usr/share/tedge/sm-plugins -> $SNAP_DATA/tedge/sm-plugins
+echo "Creating snap sm-plugin..." >&2
+cat > "$SNAP_DATA/tedge/sm-plugins/snap" << 'PLUGIN_EOF'
+#!/bin/bash
+# sm-plugin for snap packages on ctrlX CORE
+# Reads snap-inventory.json (written by hook via snap list).
+# Falls back to env vars if JSON is missing/empty.
+# tedge sm-plugin format: name\tversion\ttype\turl
+SNAP_INVENTORY="${SNAP_DATA}/snap-inventory.json"
+case "$1" in
+  list)
+    listed=0
+    if [ -f "$SNAP_INVENTORY" ]; then
+      python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    count = 0
+    for s in data:
+        n=s.get('name',''); v=s.get('version',''); u=s.get('url','')
+        if n:
+            sys.stdout.write(n+'\\t'+v+'\\tsnap\\t'+u+'\\n')
+            count+=1
+    sys.exit(0 if count>0 else 1)
+except: sys.exit(1)
+" "$SNAP_INVENTORY" 2>/dev/null && listed=1
+    fi
+    if [ "$listed" = "0" ]; then
+      printf '%s\t%s\tsnap\trev:%s\n' "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION"
+    fi
+    ;;
+  install|remove)
+    echo "snap install/remove not supported on ctrlX CORE (strict confinement)" >&2
+    exit 1
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+PLUGIN_EOF
+chmod +x "$SNAP_DATA/tedge/sm-plugins/snap"
+echo "snap sm-plugin created" >&2
+
 mkdir -p "$SNAP_DATA/tedge/log-plugins"
 mkdir -p "$SNAP_DATA/tedge/plugins"
 mkdir -p "$SNAP_DATA/tedge/device"
@@ -162,6 +215,18 @@ fi
 # =========================================================================
 
 echo "Post-refresh hook completed successfully" >&2
+
+# Clear retained health topics of removed services so they disappear from Cumulocity.
+# An empty retained payload deletes the retained message on the broker.
+MQTT_PUB="$SNAP/usr/bin/mosquitto_pub"
+MQTT_HOST="127.0.0.1"
+MQTT_PORT="1883"
+echo "Clearing stale service health topics..." >&2
+for stale_svc in "tedge-log-plugin" "c8y-firmware-plugin" "tedge-file-log-plugin"; do
+    "$MQTT_PUB" -h "$MQTT_HOST" -p "$MQTT_PORT" \
+        -r -t "te/device/main/service/${stale_svc}/status/health" -m "" \
+        2>/dev/null || true
+done
 
 # Re-connect snap interfaces after update
 snapctl connect :hardware-observe 2>/dev/null || true
