@@ -14,6 +14,5 @@ redir @noslash /thin-edge-io/ 301
 reverse_proxy unix//var/snap/thin-edge-io/current/package-run/thin-edge-io/web.sock {
 	header_up X-WEBAUTH-USER {header.X-Auth-Name}
 	header_up X-WEBAUTH-ROLE {role}
-	# NEU: Reicht den Original-Token (Bearer JWT) weiter
     header_up X-Auth-Token {header.Authorization}
 }
