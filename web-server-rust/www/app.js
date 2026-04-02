@@ -1396,7 +1396,10 @@ async function onMqttPortToggle(checked, save = true) {
     label8883.style.cssText = checked ? inactiveStyle : activeStyle;
   if (label9883)
     label9883.style.cssText = checked ? activeStyle : inactiveStyle;
-  if (status) status.textContent = checked ? t("connect.port_applied", 9883) : t("connect.port_applied", 8883);
+  if (status)
+    status.textContent = checked
+      ? t("connect.port_applied", 9883)
+      : t("connect.port_applied", 8883);
 
   // Nur speichern wenn der Benutzer den Schalter betätigt hat (save=true)
   if (!save) return;

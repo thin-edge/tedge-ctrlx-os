@@ -1133,12 +1133,44 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
     let port = body.port;
 
     info!(
-        "[MQTT-PORT] Setting c8y.mqtt_service.enabled={} (port={})",
+        "[MQTT-PORT] Setting c8y.mqtt_service.enabled={} port={}",
         enabled_str, port
     );
-    let result = web::block(move || {
-        // 1. Set mqtt_service.enabled flag
-        let out = Command::new(&tedge_bin)
+    let result = web::block(move || -> std::io::Result<std::process::Output> {
+        // 1. Get current c8y.mqtt hostname (tedge derives it from c8y.url automatically)
+        let current_mqtt = Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "config",
+                "get",
+                "c8y.mqtt",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+
+        // Extract hostname (strip existing port suffix)
+        let host = current_mqtt.split(':').next().unwrap_or("").to_string();
+
+        // 2. Set c8y.mqtt = host:port (always, regardless of whether host was in body)
+        let new_mqtt = format!("{}:{}", host, port);
+        info!("[MQTT-PORT] Setting c8y.mqtt={}", new_mqtt);
+        Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "config",
+                "set",
+                "c8y.mqtt",
+                &new_mqtt,
+            ])
+            .output()?;
+
+        // 3. Set c8y.mqtt_service.enabled flag
+        Command::new(&tedge_bin)
             .args([
                 "--config-dir",
                 &tedge_config_dir,
@@ -1147,42 +1179,7 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 "c8y.mqtt_service.enabled",
                 enabled_str,
             ])
-            .output()?;
-        if !out.status.success() {
-            return Ok::<std::process::Output, std::io::Error>(out);
-        }
-
-        // 2. Read current c8y.mqtt host (e.g. "tenant.cumulocity.com:8883")
-        //    and set c8y.mqtt to the same host with the new port.
-        //    This ensures the mosquitto bridge uses the correct port on the next reconnect,
-        //    without relying on tedge's implicit port-switching logic.
-        let get_out = Command::new(&tedge_bin)
-            .args([
-                "--config-dir",
-                &tedge_config_dir,
-                "config",
-                "get",
-                "c8y.mqtt",
-            ])
-            .output()?;
-        let mqtt_val = String::from_utf8_lossy(&get_out.stdout);
-        let hostname = mqtt_val.trim().split(':').next().unwrap_or("").to_string();
-        if !hostname.is_empty() {
-            let new_mqtt = format!("{}:{}", hostname, port);
-            info!("[MQTT-PORT] Setting c8y.mqtt={}", new_mqtt);
-            let _ = Command::new(&tedge_bin)
-                .args([
-                    "--config-dir",
-                    &tedge_config_dir,
-                    "config",
-                    "set",
-                    "c8y.mqtt",
-                    &new_mqtt,
-                ])
-                .output()?;
-        }
-
-        Ok(out)
+            .output()
     })
     .await;
 
