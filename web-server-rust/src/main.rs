@@ -1137,7 +1137,8 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
         enabled_str, port
     );
     let result = web::block(move || {
-        Command::new(&tedge_bin)
+        // 1. Set mqtt_service.enabled flag
+        let out = Command::new(&tedge_bin)
             .args([
                 "--config-dir",
                 &tedge_config_dir,
@@ -1146,15 +1147,50 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 "c8y.mqtt_service.enabled",
                 enabled_str,
             ])
-            .output()
+            .output()?;
+        if !out.status.success() {
+            return Ok::<std::process::Output, std::io::Error>(out);
+        }
+
+        // 2. Read current c8y.mqtt host (e.g. "tenant.cumulocity.com:8883")
+        //    and set c8y.mqtt to the same host with the new port.
+        //    This ensures the mosquitto bridge uses the correct port on the next reconnect,
+        //    without relying on tedge's implicit port-switching logic.
+        let get_out = Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "config",
+                "get",
+                "c8y.mqtt",
+            ])
+            .output()?;
+        let mqtt_val = String::from_utf8_lossy(&get_out.stdout);
+        let hostname = mqtt_val.trim().split(':').next().unwrap_or("").to_string();
+        if !hostname.is_empty() {
+            let new_mqtt = format!("{}:{}", hostname, port);
+            info!("[MQTT-PORT] Setting c8y.mqtt={}", new_mqtt);
+            let _ = Command::new(&tedge_bin)
+                .args([
+                    "--config-dir",
+                    &tedge_config_dir,
+                    "config",
+                    "set",
+                    "c8y.mqtt",
+                    &new_mqtt,
+                ])
+                .output()?;
+        }
+
+        Ok(out)
     })
     .await;
 
     match result {
         Ok(Ok(out)) if out.status.success() => {
             info!(
-                "[MQTT-PORT] c8y.mqtt_service.enabled={} set successfully",
-                enabled_str
+                "[MQTT-PORT] c8y.mqtt_service.enabled={} + c8y.mqtt port={} set successfully",
+                enabled_str, port
             );
             Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": port})))
         }

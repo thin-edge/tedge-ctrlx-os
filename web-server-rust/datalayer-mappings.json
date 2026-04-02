@@ -11,7 +11,7 @@
       "transform": "raw",
       "field_name": "asd",
       "unit": "asd",
-      "enabled": true
+      "enabled": false
     }
   ],
   "username": null,

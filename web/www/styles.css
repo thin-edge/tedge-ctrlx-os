@@ -927,6 +927,12 @@ footer a:hover {
   border-color: #bdbdbd;
   color: #000;
 }
+[data-color="black"][data-theme="dark"] .tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider {
+  background-color: #ffffff !important;
+}
+[data-color="black"][data-theme="dark"] .tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider:before {
+  background-color: #1a1a1a;
+}
 .status-columns {
   display: flex;
   gap: 24px;

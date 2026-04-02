@@ -1380,7 +1380,7 @@ async function loadCertDetailsInline() {
 }
 
 // MQTT Port Toggle (c8y: 8883 = Core, 9883 = MQTT Service)
-async function onMqttPortToggle(checked) {
+async function onMqttPortToggle(checked, save = true) {
   const port = checked ? 9883 : 8883;
   // show/hide mapping topic field
   const wrap = document.getElementById("c8y-mapping-topic-wrap");
@@ -1396,6 +1396,11 @@ async function onMqttPortToggle(checked) {
     label8883.style.cssText = checked ? inactiveStyle : activeStyle;
   if (label9883)
     label9883.style.cssText = checked ? activeStyle : inactiveStyle;
+  if (status) status.textContent = checked ? t("connect.port_applied", 9883) : t("connect.port_applied", 8883);
+
+  // Nur speichern wenn der Benutzer den Schalter betätigt hat (save=true)
+  if (!save) return;
+
   if (status) status.textContent = "…";
 
   // 1. Alle Datalayer-Mappings deaktivieren wenn auf 9883 umgeschaltet wird,
@@ -1461,7 +1466,7 @@ async function loadC8yMqttPort() {
     if (toggle) {
       const enabled = match ? match[1].trim() === "true" : false;
       toggle.checked = enabled;
-      onMqttPortToggle(enabled);
+      onMqttPortToggle(enabled, false); // nur UI, nicht speichern
     }
   } catch (_) {}
 }
@@ -1758,9 +1763,6 @@ document.addEventListener("click", function (e) {
 
 window.addEventListener("DOMContentLoaded", () => {
   setLang(_lang); // apply i18n on load
-  loadDeviceIdInfo();
-  applyRoleRestrictions();
-  loadBuildInfo();
   applyColorTheme();
   initCollapsibleSections();
 });
@@ -1778,6 +1780,7 @@ function initCollapsibleSections() {
     },
     "sec-device": () => {
       loadDeviceIdInfo();
+      applyRoleRestrictions();
       loadCertDetailsInline();
     },
     "sec-actions": () => {

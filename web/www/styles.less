@@ -1026,6 +1026,13 @@ footer {
     background: #d4d4d4; border-color: #d4d4d4; color: #000;
     &:hover { background: #bdbdbd; border-color: #bdbdbd; color: #000; }
   }
+  // Toggle: weißer Hintergrund + schwarzer Knopf wenn EIN — klarer Kontrast im Dark Mode
+  .tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider {
+    background-color: #ffffff !important;
+  }
+  .tedge-switch input[type="checkbox"]:checked + .tedge-switch-slider:before {
+    background-color: #1a1a1a;
+  }
 }
 // ── Connection Status Spalten-Layout ──────────────────────────
 .status-columns {
