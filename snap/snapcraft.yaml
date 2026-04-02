@@ -45,14 +45,11 @@ icon: web/www/icon.png
 # AppArmor allows executing them in strict confinement. $SNAP_DATA would cause
 # Permission denied (os error 13) when tedge-agent tries to spawn the plugins.
 layout:
-  /usr/share/tedge/log-plugins:
-    bind: $SNAP/scripts/log-plugins
   /usr/share/tedge/config-plugins:
     bind: $SNAP/scripts/config-plugins
   /usr/share/tedge/sm-plugins:
     bind: $SNAP_DATA/tedge/sm-plugins
-  #/lib/systemd/system/tedge-watchdog.service:
-  #  bind-file: $SNAP/lib/systemd/system/tedge-watchdog.service
+
 
 architectures:
   - build-on: [amd64]
@@ -76,8 +73,6 @@ apps:
     command: scripts/tedge-wrapper.sh
     environment:
       TZ: Europe/Berlin
-      # $SNAP/scripts must be first so our dummy systemd-notify is found before
-      # the system binary (which is blocked by AppArmor in strict confinement)
       PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
     plugs:
       - network
@@ -95,11 +90,7 @@ apps:
       - network
       - network-bind
       - hardware-observe  # Needed to read system serial number
-      # snapd-control removed: Not allowed on ctrlX CORE for security reasons
 
-  # Snap-aware connect/disconnect/reconnect wrapper
-  # Restarts mosquitto and the mapper via snapctl after tedge writes the bridge config.
-  # Usage: thin-edge-io.tedge-connect <connect|disconnect|reconnect> <c8y|aws|az>
   tedge-connect:
     command: scripts/connect-wrapper.sh
     environment:
@@ -188,11 +179,6 @@ apps:
         - setup-directories
         - mosquitto
 
-  # tedge-watchdog service
-  # Uses watchdog-wrapper.sh instead of the tedge-watchdog binary directly.
-  # The binary relies on /lib/systemd/system/*.service files (unavailable in snap)
-  # and a real sd_notify socket (not present in strict confinement).
-  # The wrapper implements the same logic: MQTT health checks + snapctl restart.
   tedge-watchdog:
     command: scripts/watchdog-wrapper.sh
     daemon: simple
@@ -306,6 +292,7 @@ hooks:
       - log-observe       # Needed for snapctl logs in webserver
       - network
       - network-observe
+      - snapd-control     # Needed for 'snap list' to build full snap inventory
   configure:
     plugs:
       - network
@@ -315,6 +302,7 @@ hooks:
       - hardware-observe
       - log-observe
       - network-observe
+      - snapd-control     # Needed for 'snap list' to build full snap inventory
 
 # Slot definitions for ctrlX integration
 slots:
@@ -345,7 +333,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: b1193e94f7532a14af817ee19aa9d7d73d813e6a
+    source-commit: 3b70675449ff067850d321f0ff162ccce5eea2bf
     build-packages:
       - pkg-config
       - libssl-dev

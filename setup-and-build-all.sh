@@ -195,6 +195,12 @@ echo "Step 8: Build Snap"
 echo "=============================================="
 # Wieder sicherstellen, dass wir im Hauptverzeichnis bleiben!
 cd "$SCRIPT_DIR"
+# Snap bauen
+echo "=============================================="
+echo "Step 8: Build Snap"
+echo "=============================================="
+# Wieder sicherstellen, dass wir im Hauptverzeichnis bleiben!
+cd "$SCRIPT_DIR"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -207,14 +213,23 @@ BUILD_USER="$(whoami)"
 VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
+# --- NEU: thin-edge.io HEAD Commit holen und snapcraft.yaml aktualisieren ---
+THIN_EDGE_IO_REPO="https://github.com/thin-edge/thin-edge.io.git"
+THIN_EDGE_IO_COMMIT=$(git ls-remote "$THIN_EDGE_IO_REPO" HEAD | awk '{print $1}')
+if [ -z "$THIN_EDGE_IO_COMMIT" ]; then
+  echo "[FEHLER] Konnte aktuellen Commit von $THIN_EDGE_IO_REPO nicht ermitteln!" >&2
+  exit 1
+fi
+echo "[i] Setze source-commit in snapcraft.yaml auf $THIN_EDGE_IO_COMMIT"
+sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_IO_COMMIT/" snap/snapcraft.yaml
+# --- ENDE NEU ---
+
 mkdir -p logs
 
 echo "======================================"
 echo "Building thin-edge.io CTRLX App"
-echo "Version: ${VERSION}  Commit: ${GIT_COMMIT}"
+echo "Version: ${VERSION}  Commit: ${GIT_COMMIT}  Upstream: ${THIN_EDGE_IO_COMMIT}"
 echo "======================================"
-
-
 
 cat > "configs/build-info.txt" << EOF
 Version: ${VERSION}+${BUILD_NUMBER}
@@ -224,14 +239,9 @@ Build User: ${BUILD_USER}
 Base: core22
 Architecture: amd64
 Git Commit: ${GIT_COMMIT}
+Upstream Commit: ${THIN_EDGE_IO_COMMIT}
 EOF
 echo "[i] Build-Info aktualisiert."
-
-# ─── amd64 ───────────────────────────────────────────
-echo ""
-echo "=============================================="
-echo "Step 8: Build Snap for amd64"
-echo "=============================================="
 
 AMD64_BUILD_LOG="logs/build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building amd64 snap (logging to $AMD64_BUILD_LOG)..."

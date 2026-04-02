@@ -15,26 +15,57 @@ mkdir -p "$SNAP_DATA/tedge/sm-plugins"
 # Remove stale apt symlinks from older versions (snap plugin is recreated below).
 rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
 
-# Regenerate snap inventory JSON using 'snap list' — more reliable than reading yaml files.
+# Regenerate snap inventory JSON.
+# Tries 'snap list' first (works in hook context), falls back to reading
+# /snap/*/current/meta/snap.yaml if snap list is not accessible.
 echo "Regenerating snap inventory..." >&2
-# Generate snap-inventory.json by reading /snap/*/current/meta/snap.yaml.
-# Hook AppArmor profile allows reading the /snap/ read-only filesystem directly.
-# 'snap list' and snapd socket are blocked, but snap.yaml files are accessible.
-echo "Regenerating snap inventory via snap metadata files..." >&2
-snap_json="[{\"name\":\"${SNAP_NAME}\",\"version\":\"${SNAP_VERSION}\",\"url\":\"rev:${SNAP_REVISION}\",\"softwareType\":\"snap\"}"
-sep=","
-for yaml_file in /snap/*/current/meta/snap.yaml; do
-    [ -f "$yaml_file" ] || continue
-    name=$(grep '^name:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    version=$(grep '^version:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    [ -z "$name" ] && continue
-    [ "$name" = "$SNAP_NAME" ] && continue  # current snap already added via env vars
-    snap_current_dir="${yaml_file%/meta/snap.yaml}"
-    rev=$(readlink "$snap_current_dir" 2>/dev/null || echo "?")
-    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"rev:${rev}\",\"softwareType\":\"snap\"}"
-    sep=","
-done
-snap_json="${snap_json}]"
+
+# Helper: build JSON entry
+make_snap_entry() {
+    local name="$1" version="$2" rev="$3"
+    printf '{"name":"%s","version":"%s","url":"rev:%s","softwareType":"snap"}' \
+        "$name" "$version" "$rev"
+}
+
+# Collect all snap entries into an array-style JSON
+snap_entries=""
+
+# Method 1: snap list (preferred — most complete, includes system snaps)
+if snap list --color=never 2>/dev/null | tail -n +2 | grep -q .; then
+    echo "Using snap list to build inventory..." >&2
+    while IFS= read -r line; do
+        # snap list columns: Name Version Rev Tracking Publisher Notes
+        name=$(echo "$line" | awk '{print $1}')
+        version=$(echo "$line" | awk '{print $2}')
+        rev=$(echo "$line" | awk '{print $3}')
+        [ -z "$name" ] && continue
+        entry=$(make_snap_entry "$name" "$version" "$rev")
+        if [ -z "$snap_entries" ]; then
+            snap_entries="$entry"
+        else
+            snap_entries="${snap_entries},${entry}"
+        fi
+    done < <(snap list --color=never 2>/dev/null | tail -n +2)
+else
+    # Method 2: read /snap/*/current/meta/snap.yaml (hook AppArmor allows this)
+    echo "snap list unavailable, using yaml metadata fallback..." >&2
+    # Always start with ourselves (env vars are always available)
+    snap_entries=$(make_snap_entry "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION")
+    for yaml_file in /snap/*/current/meta/snap.yaml; do
+        [ -f "$yaml_file" ] || continue
+        name=$(grep '^name:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
+        version=$(grep '^version:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
+        [ -z "$name" ] && continue
+        # skip ourselves — already added above
+        [ "$name" = "$SNAP_NAME" ] && continue
+        snap_current_dir="${yaml_file%/meta/snap.yaml}"
+        rev=$(readlink "$snap_current_dir" 2>/dev/null || echo "?")
+        entry=$(make_snap_entry "$name" "$version" "$rev")
+        snap_entries="${snap_entries},${entry}"
+    done
+fi
+
+snap_json="[${snap_entries}]"
 echo "$snap_json" > "$SNAP_DATA/snap-inventory.json"
 chmod 644 "$SNAP_DATA/snap-inventory.json"
 echo "Snap inventory written: $(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries" >&2
@@ -49,25 +80,30 @@ cat > "$SNAP_DATA/tedge/sm-plugins/snap" << 'PLUGIN_EOF'
 # Reads snap-inventory.json (written by hook via snap list).
 # Falls back to env vars if JSON is missing/empty.
 # tedge sm-plugin format: name\tversion\ttype\turl
+#
+# JSON parsing uses only awk — no Python dependency.
+# Format written by hook: [{"name":"x","version":"y","url":"z","softwareType":"snap"},...]
 SNAP_INVENTORY="${SNAP_DATA}/snap-inventory.json"
 case "$1" in
   list)
     listed=0
     if [ -f "$SNAP_INVENTORY" ]; then
-      python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    count = 0
-    for s in data:
-        n=s.get('name',''); v=s.get('version',''); u=s.get('url','')
-        if n:
-            sys.stdout.write(n+'\\t'+v+'\\tsnap\\t'+u+'\\n')
-            count+=1
-    sys.exit(0 if count>0 else 1)
-except: sys.exit(1)
-" "$SNAP_INVENTORY" 2>/dev/null && listed=1
+      result=$(awk '
+        BEGIN { RS="},"; FS="," }
+        {
+          name=""; version=""; url=""
+          for (i=1; i<=NF; i++) {
+            if ($i ~ /"name"/) { split($i, a, ":"); gsub(/["{}\[\] ]/, "", a[2]); name=a[2] }
+            if ($i ~ /"version"/) { split($i, a, ":"); gsub(/["{}\[\] ]/, "", a[2]); version=a[2] }
+            if ($i ~ /"url"/) { split($i, a, ":"); gsub(/["{}\[\] ]/, "", a[2]); url=a[2] }
+          }
+          if (name != "" && name != "*") print name "\t" version "\tsnap\t" url
+        }
+      ' "$SNAP_INVENTORY" 2>/dev/null)
+      if [ -n "$result" ]; then
+        echo "$result"
+        listed=1
+      fi
     fi
     if [ "$listed" = "0" ]; then
       printf '%s\t%s\tsnap\trev:%s\n' "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION"
@@ -200,9 +236,10 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-# log.plugin_paths: update to the new versioned revision path after snap refresh.
-#    AppArmor only allows exec from versioned paths (/snap/name/[0-9]*/...), NOT from 'current' symlink.
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+# log.plugin_paths: leeres Verzeichnis — tedge-agent's eingebauter LogManager wird deaktiviert.
+# Log-Uploads übernimmt unser tedge-log-upload-manager (Rust) direkt.
+mkdir -p "$SNAP_DATA/tedge/log-plugins-disabled"
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP_DATA/tedge/log-plugins-disabled" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 
 
 # =========================================================================

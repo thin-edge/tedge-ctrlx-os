@@ -92,9 +92,17 @@ done
 log "Restarting ${MAPPER_SVC} via snapctl..."
 snapctl restart "${SNAP_NAME}.${MAPPER_SVC}"
 
-# Step 5: Give the bridge a moment to establish
-log "Waiting 5s for bridge to establish..."
-sleep 5
+# Step 4b: Restart tedge-agent so it re-announces its capabilities (software, config, ...)
+log "Restarting tedge-agent to re-announce capabilities..."
+snapctl restart "${SNAP_NAME}.tedge-agent" 2>/dev/null || true
+
+# Step 4c: Restart log-upload-manager so it re-announces log types and snap inventory
+log "Restarting tedge-log-upload-manager to re-announce log types and snap inventory..."
+snapctl restart "${SNAP_NAME}.tedge-log-upload-manager" 2>/dev/null || true
+
+# Step 5: Give the bridge a moment to establish and services to announce
+log "Waiting 8s for bridge to establish and capabilities to be announced..."
+sleep 8
 
 # Step 6: Verify the connection via MQTT health check
 log "Verifying connection: tedge connect $CLOUD --test"

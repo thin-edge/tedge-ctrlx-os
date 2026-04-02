@@ -140,7 +140,6 @@ WATCH_SERVICES=(
     "tedge-mapper-az"
     "tedge-datalayer-bridge"
     "tedge-log-upload-manager"
-    "webserver"
 )
 
 # ---------------------------------------------------------------------------

@@ -17,8 +17,6 @@ struct DeviceConfig {
     id: String,
     #[serde(default)]
     name: String,
-    #[serde(rename = "type", default)]
-    device_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,7 +66,6 @@ impl Default for Config {
             device: DeviceConfig {
                 id: String::new(),
                 name: String::new(),
-                device_type: "ctrlX-CORE".to_string(),
             },
             c8y: C8yConfig {
                 url: None,
@@ -273,8 +270,8 @@ impl AppState {
             self.config_path
         );
         info!(
-            "[CONFIG-SAVE] Device ID: {}, Name: {}, Type: {}",
-            config.device.id, config.device.name, config.device.device_type
+            "[CONFIG-SAVE] Device ID: {}, Name: {}",
+            config.device.id, config.device.name
         );
         info!(
             "[CONFIG-SAVE] C8y enabled: {}, AWS enabled: {}, Azure enabled: {}",
@@ -639,6 +636,36 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
     })))
 }
 
+/// Liest einen einzelnen Wert via `tedge config get <key>`.
+/// Gibt `None` zurück wenn der Befehl fehlschlägt oder leer ist.
+fn tedge_config_get(key: &str) -> Option<String> {
+    let is_snap = env::var("SNAP").is_ok();
+    let tedge_bin = if is_snap {
+        let snap = env::var("SNAP").unwrap_or_default();
+        format!("{}/bin/tedge", snap)
+    } else {
+        "tedge".to_string()
+    };
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let tedge_config_dir = format!("{}/tedge", snap_data);
+
+    let output = Command::new(&tedge_bin)
+        .args(["--config-dir", &tedge_config_dir, "config", "get", key])
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if val.is_empty() || val == "null" {
+            None
+        } else {
+            Some(val)
+        }
+    } else {
+        None
+    }
+}
+
 async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
 
@@ -648,8 +675,115 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         })));
     }
 
-    let config = data.config.lock().unwrap();
-    Ok(HttpResponse::Ok().json(config.clone()))
+    let mut config = data.config.lock().unwrap().clone();
+    let mut changed = false;
+
+    // device.id immer aus dem Zertifikat-CN lesen — das ist die ID, die Cumulocity kennt.
+    // tedge config get device.id kann von der Cert-CN abweichen (z.B. Seriennummer vs. Hostname).
+    {
+        let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+        let cert_path = format!("{}/tedge/device-certs/tedge-certificate.pem", snap_data);
+        let cn = std::process::Command::new("openssl")
+            .args(["x509", "-in", &cert_path, "-noout", "-subject"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    let s = String::from_utf8_lossy(&o.stdout).to_string();
+                    // Beispiel: "subject=CN=ctrlx-VirtualControl-1, O=Thin Edge, OU=Device"
+                    // oder: "subject= CN = ctrlx-VirtualControl-1"
+                    s.split("CN")
+                        .nth(1)
+                        .and_then(|after| after.split_once('=').map(|x| x.1))
+                        .map(|v| v.split(',').next().unwrap_or("").trim().to_string())
+                        .filter(|v| !v.is_empty())
+                } else {
+                    None
+                }
+            });
+
+        if let Some(cn_val) = cn {
+            if config.device.id != cn_val {
+                info!("[CONFIG] device.id aus Zertifikat-CN: {}", cn_val);
+                config.device.id = cn_val.clone();
+                if config.device.name.is_empty() || config.device.name == config.device.id {
+                    config.device.name = cn_val;
+                }
+                changed = true;
+            }
+        } else if config.device.id.is_empty() {
+            // Kein Zertifikat vorhanden: Vorschau-ID anzeigen.
+            // Priorität: manage-device-id.sh get-serial → tedge config get device.id → hostname
+            let snap = env::var("SNAP").unwrap_or_default();
+            let script = format!("{}/scripts/manage-device-id.sh", snap);
+            let preview_id = std::process::Command::new("bash")
+                .args([&script, "get-serial"])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .filter(|s| !s.is_empty())
+                .or_else(|| tedge_config_get("device.id"))
+                .or_else(|| {
+                    std::process::Command::new("hostname")
+                        .output()
+                        .ok()
+                        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .map(|h| format!("ctrlx-{}", h))
+                });
+
+            if let Some(id) = preview_id {
+                info!("[CONFIG] device.id Vorschau (kein Zertifikat): {}", id);
+                config.device.id = id.clone();
+                if config.device.name.is_empty() {
+                    config.device.name = id;
+                }
+                changed = true;
+            }
+        }
+    }
+
+    // c8y.url aus tedge lesen wenn leer
+    if config.c8y.url.as_deref().unwrap_or("").is_empty() {
+        if let Some(url) = tedge_config_get("c8y.url") {
+            info!("[CONFIG] c8y.url aus tedge gelesen: {}", url);
+            config.c8y.url = Some(url);
+            changed = true;
+        }
+    }
+
+    // aws.url aus tedge lesen wenn leer
+    if config.aws.url.as_deref().unwrap_or("").is_empty() {
+        if let Some(url) = tedge_config_get("aws.url") {
+            info!("[CONFIG] aws.url aus tedge gelesen: {}", url);
+            config.aws.url = Some(url);
+            changed = true;
+        }
+    }
+
+    // az.url aus tedge lesen wenn leer
+    if config.az.url.as_deref().unwrap_or("").is_empty() {
+        if let Some(url) = tedge_config_get("az.url") {
+            info!("[CONFIG] az.url aus tedge gelesen: {}", url);
+            config.az.url = Some(url);
+            changed = true;
+        }
+    }
+
+    // Falls neue Werte gelesen wurden: auch in die JSON-Datei zurückschreiben
+    if changed {
+        let mut locked = data.config.lock().unwrap();
+        *locked = config.clone();
+        if let Err(e) = data.save_config(&locked) {
+            warn!(
+                "[CONFIG] Konnte angereicherte Konfiguration nicht speichern: {}",
+                e
+            );
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(config))
 }
 
 async fn save_c8y_config(
@@ -943,10 +1077,7 @@ async fn save_device_config(
     }
 
     let new_config = device_config.into_inner();
-    info!(
-        "[CONFIG] New device ID: {}, Type: {}",
-        new_config.id, new_config.device_type
-    );
+    info!("[CONFIG] New device ID: {}", new_config.id);
 
     let mut config = data.config.lock().unwrap();
     config.device = new_config;

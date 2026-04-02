@@ -50,27 +50,9 @@ INTERFACE=$(ip -4 route get 8.8.8.8 2>/dev/null | awk '{print $5}' | head -n 1)
 MAC_ADDRESS=$(cat /sys/class/net/$INTERFACE/address 2>/dev/null)
 [ -z "$MAC_ADDRESS" ] && MAC_ADDRESS="00:00:00:00:00:00"
 
-# --- 2. Installierte Snaps detailliert auslesen (c8y_SoftwareList) ---
-SOFTWARE_JSON=""
-if command -v snap >/dev/null 2>&1; then
-    SOFTWARE_JSON=$(snap list 2>/dev/null | awk 'NR>1 {
-        name = $1
-        version = $2
-        rev = $3
-        tracking = $4
-        publisher = $5
-        notes = $6
-        
-        # Säubere leere Werte (Minus-Zeichen in snap list)
-        if (tracking == "-") tracking = ""
-        if (publisher == "-") publisher = ""
-        if (notes == "-") notes = ""
-        
-        # Formatiere als JSON-Objekt
-        printf "%s{\"name\": \"%s\", \"version\": \"%s\", \"url\": \"%s\", \"revision\": \"%s\", \"publisher\": \"%s\", \"notes\": \"%s\"}", sep, name, version, tracking, rev, publisher, notes
-        sep=",\n    "
-    }')
-fi
+# NOTE: c8y_SoftwareList wird NICHT mehr hier gesetzt.
+# Es wird ausschließlich vom tedge-log-upload-manager via MQTT-Twin published,
+# um Duplikate in Cumulocity zu vermeiden (sonst zwei Quellen → doppelte Einträge).
 
 # --- 3. JSON generieren und schreiben ---
 
@@ -93,9 +75,6 @@ cat <<EOF > "$INVENTORY_FILE"
       "enabled": 1
     }
   },
-  "c8y_SoftwareList": [
-    $SOFTWARE_JSON
-  ],
   "ctrlX_Info": {
     "device_type": "PLC / Edge Controller",
     "manufacturer": "Bosch Rexroth"

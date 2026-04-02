@@ -1,142 +1,36 @@
 #!/bin/bash
 # thin-edge.io snap install hook
-# Initializes directories and configurations
+#
+# Zuständig für install-spezifische Einmalaktionen:
+#   1. Verzeichnisse anlegen
+#   2. tedge init (Erstinitialisierung)
+#   3. Erstmalige tedge-Defaults setzen
+#   4. Gerätezertifikat erstellen
+#   5. Snap-Interfaces verbinden
+#
+# Alles andere (Inventory, sm-plugin, Plugin-Configs) delegiert an den
+# post-refresh Hook — so gibt es keine doppelte Logik.
 
 set -e
 
 echo "=== thin-edge.io snap install hook starting ===" >&2
 
+# ── Verzeichnisse ────────────────────────────────────────────────────────────
 mkdir -p "$SNAP_DATA/package-run"
 chmod 777 "$SNAP_DATA/package-run"
 
-# Create mosquitto directories
-echo "Creating mosquitto directories..." >&2
-mkdir -p "$SNAP_DATA/mosquitto"
-mkdir -p "$SNAP_COMMON/mosquitto"
-mkdir -p "$SNAP_DATA/mosquitto/persistence"
+mkdir -p "$SNAP_DATA/mosquitto" "$SNAP_COMMON/mosquitto" "$SNAP_DATA/mosquitto/persistence"
+mkdir -p "$SNAP_DATA/tedge" "$SNAP_DATA/tedge/device-certs" "$SNAP_DATA/tedge/run"
+mkdir -p "$SNAP_DATA/tedge/tmp" "$SNAP_DATA/tedge/sm-plugins" "$SNAP_DATA/tedge/log-plugins"
+mkdir -p "$SNAP_DATA/tedge/plugins" "$SNAP_DATA/tedge/device" "$SNAP_DATA/tedge/.agent"
+mkdir -p "$SNAP_COMMON/tedge/log" "$SNAP_COMMON/tedge/cache"
 
-# Copy mosquitto config from snap to writable location
+# Copy mosquitto base config
 if [ -f "$SNAP/etc/mosquitto/mosquitto.conf" ]; then
-    echo "Copying mosquitto config..." >&2
     cp "$SNAP/etc/mosquitto/mosquitto.conf" "$SNAP_DATA/mosquitto/mosquitto.conf"
 fi
 
-# Create tedge directories
-echo "Creating tedge directories..." >&2
-mkdir -p "$SNAP_DATA/tedge"
-mkdir -p "$SNAP_DATA/tedge/device-certs"
-mkdir -p "$SNAP_DATA/tedge/run"
-mkdir -p "$SNAP_DATA/tedge/tmp"
-mkdir -p "$SNAP_DATA/tedge/sm-plugins"
-mkdir -p "$SNAP_DATA/tedge/log-plugins"
-mkdir -p "$SNAP_DATA/tedge/plugins"
-
-# Snap inventory is published via MQTT twin by tedge-log-upload-manager.
-# snap sm-plugin is created after snap-inventory.json is generated (see below).
-
-# Generate snap inventory JSON for tedge-log-upload-manager.
-# Hook AppArmor profile allows reading /snap/*/current/meta/snap.yaml;
-# the Rust service (strict confinement) cannot access /snap/ directly.
-echo "Generating snap inventory..." >&2
-# Generate snap-inventory.json by reading /snap/*/current/meta/snap.yaml.
-# Hook AppArmor profile allows reading the /snap/ read-only filesystem directly.
-# 'snap list' and snapd socket are blocked, but snap.yaml files are accessible.
-echo "Generating snap inventory via snap metadata files..." >&2
-snap_json="[{\"name\":\"${SNAP_NAME}\",\"version\":\"${SNAP_VERSION}\",\"url\":\"rev:${SNAP_REVISION}\",\"softwareType\":\"snap\"}"
-sep=","
-for yaml_file in /snap/*/current/meta/snap.yaml; do
-    [ -f "$yaml_file" ] || continue
-    name=$(grep '^name:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    version=$(grep '^version:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    [ -z "$name" ] && continue
-    [ "$name" = "$SNAP_NAME" ] && continue  # current snap already added via env vars
-    snap_current_dir="${yaml_file%/meta/snap.yaml}"
-    rev=$(readlink "$snap_current_dir" 2>/dev/null || echo "?")
-    snap_json="${snap_json}${sep}{\"name\":\"${name}\",\"version\":\"${version}\",\"url\":\"rev:${rev}\",\"softwareType\":\"snap\"}"
-    sep=","
-done
-snap_json="${snap_json}]"
-echo "$snap_json" > "$SNAP_DATA/snap-inventory.json"
-chmod 644 "$SNAP_DATA/snap-inventory.json"
-echo "Snap inventory written: $(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries" >&2
-
-# Create snap sm-plugin so tedge-agent can answer software_list requests from C8y.
-# snap list is AppArmor-blocked in strict confinement — use env vars directly.
-# Layout: /usr/share/tedge/sm-plugins -> $SNAP_DATA/tedge/sm-plugins
-echo "Creating snap sm-plugin..." >&2
-cat > "$SNAP_DATA/tedge/sm-plugins/snap" << 'PLUGIN_EOF'
-#!/bin/bash
-# sm-plugin for snap packages on ctrlX CORE
-# Reads snap-inventory.json (written by hook via snap list).
-# Falls back to env vars if JSON is missing/empty.
-# tedge sm-plugin format: name\tversion\ttype\turl
-SNAP_INVENTORY="${SNAP_DATA}/snap-inventory.json"
-case "$1" in
-  list)
-    listed=0
-    if [ -f "$SNAP_INVENTORY" ]; then
-      python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    count = 0
-    for s in data:
-        n=s.get('name',''); v=s.get('version',''); u=s.get('url','')
-        if n:
-            sys.stdout.write(n+'\\t'+v+'\\tsnap\\t'+u+'\\n')
-            count+=1
-    sys.exit(0 if count>0 else 1)
-except: sys.exit(1)
-" "$SNAP_INVENTORY" 2>/dev/null && listed=1
-    fi
-    if [ "$listed" = "0" ]; then
-      printf '%s\t%s\tsnap\trev:%s\n' "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION"
-    fi
-    ;;
-  install|remove)
-    echo "snap install/remove not supported on ctrlX CORE (strict confinement)" >&2
-    exit 1
-    ;;
-  *)
-    exit 0
-    ;;
-esac
-PLUGIN_EOF
-chmod +x "$SNAP_DATA/tedge/sm-plugins/snap"
-echo "snap sm-plugin created" >&2
-
-mkdir -p "$SNAP_DATA/tedge/device"
-mkdir -p "$SNAP_DATA/tedge/.agent"
-mkdir -p "$SNAP_COMMON/tedge/log"
-mkdir -p "$SNAP_COMMON/tedge/cache"
-
-# CRITICAL FIX: Create lock directory in SNAP_COMMON (persists across updates!)
-echo "Creating lock directory in SNAP_COMMON..." >&2
-mkdir -p "$SNAP_COMMON/tedge/run/lock"
-chmod 777 "$SNAP_COMMON/tedge/run/lock"
-
-# Create symlink from SNAP_DATA to SNAP_COMMON lock directory
-echo "Creating symlink for lock directory..." >&2
-if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
-  rmdir "$SNAP_DATA/tedge/run/lock" 2>/dev/null || rm -rf "$SNAP_DATA/tedge/run/lock"
-else
-  rm -f "$SNAP_DATA/tedge/run/lock"
-fi
-ln -sf "$SNAP_COMMON/tedge/run/lock" "$SNAP_DATA/tedge/run/lock"
-
-# Set permissions
-echo "Setting permissions..." >&2
-chmod 755 "$SNAP_DATA/mosquitto"
-chmod 755 "$SNAP_COMMON/mosquitto"
-chmod 755 "$SNAP_DATA/tedge"
-chmod 755 "$SNAP_DATA/tedge/run"
-chmod 755 "$SNAP_DATA/tedge/device-certs"
-chmod 777 "$SNAP_DATA/tedge/tmp"
-chmod 777 "$SNAP_COMMON/tedge"
-chmod 777 "$SNAP_COMMON/tedge/log"
-
-# Initialize tedge with custom config directory
+# ── tedge Initialisierung ────────────────────────────────────────────────────
 echo "Initializing tedge config directory at: $SNAP_DATA/tedge" >&2
 export TEDGE_CONFIG_DIR="$SNAP_DATA/tedge"
 if "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" init 2>&1 | tee -a /tmp/tedge-init.log >&2; then
@@ -145,156 +39,37 @@ else
     echo "WARNING: tedge init failed, but continuing..." >&2
 fi
 
-# Configure tedge paths for snap environment
-echo "Configuring tedge paths..." >&2
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>&1 | tee -a /tmp/tedge-config.log >&2 || true
-
-# =========================================================================
-# --- CRITICAL FIX: Erzeuge saubere Plugin-Konfigurationen und Inventory ---
-# =========================================================================
-echo "Generating stable plugin configurations and inventory..." >&2
-STABLE_CURRENT="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current"
-STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
-
-# 1. Erstelle Standard inventory.json, falls nicht vorhanden
-if [ ! -f "$SNAP_DATA/tedge/device/inventory.json" ]; then
-cat <<EOF > "$SNAP_DATA/tedge/device/inventory.json"
-{
-  "c8y_Hardware": {
-    "model": "Bosch ctrlX CORE",
-    "serialNumber": "auto-detected",
-    "revision": "1.0"
-  }
-}
-EOF
-fi
-
-# 2. Configuration Plugin Erlaubnisliste (inkl. inventory.json und default)
-cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
-[[files]]
-path = "${STABLE_CURRENT}/tedge/tedge.toml"
-type = "tedge.toml"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/tedge.toml"
-type = "default"
-
-[[files]]
-path = "${STABLE_CURRENT}/mosquitto/mosquitto.conf"
-type = "mosquitto.conf"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/device/inventory.json"
-type = "inventory.json"
-
-[[files]]
-path = "${STABLE_CURRENT}/tedge/plugins/tedge-log-plugin.toml"
-type = "tedge-log-plugin"
-EOF
-
-# 3. Log Plugin Erlaubnisliste (für den built-in "file" Plugin)
-cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
-[[files]]
-type = "software-management"
-path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
-
-[[files]]
-type = "tedge-agent"
-path = "${STABLE_COMMON}/tedge/log/tedge-agent.log"
-
-[[files]]
-type = "tedge-datalayer-bridge"
-path = "${STABLE_COMMON}/tedge/log/tedge-datalayer-bridge.log"
-
-[[files]]
-type = "tedge-mapper-c8y"
-path = "${STABLE_COMMON}/tedge/log/tedge-mapper.log"
-
-[[files]]
-type = "mosquitto"
-path = "${STABLE_COMMON}/tedge/log/mosquitto.log"
-
-[[files]]
-type = "webserver"
-path = "${STABLE_COMMON}/tedge/log/tedge-web-config.log"
-
-[[files]]
-type = "log-upload-manager"
-path = "${STABLE_COMMON}/tedge/log/tedge-log-upload-manager.log"
-EOF
-
-chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
-chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
-chmod 644 "$SNAP_DATA/tedge/device/inventory.json"
-
-# =========================================================================
-# 4. sudo.enable=false: Snap läuft als root, sudo ist in strict confinement
-#    nicht verfügbar. Plugins liegen in $SNAP/scripts/log-plugins (via Layout)
-#    und werden direkt (ohne sudo) von tedge-agent ausgeführt.
-# =========================================================================
-echo "Setting sudo.enable=false for snap environment..." >&2
-# (wird weiter unten im ctrlX-Defaults-Block gesetzt)
-# =========================================================================
-
-# Auto-detect and set device ID from system serial number
-echo "Auto-detecting device ID from system information..." >&2
-if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
-    echo "Running device ID management script..." >&2
-    if "$SNAP/scripts/manage-device-id.sh" create 2>&1 | tee -a /tmp/tedge-cert.log >&2; then
-        echo "Device certificate created successfully" >&2
-    else
-        echo "WARNING: Failed to create device certificate automatically" >&2
-    fi
-else
-    echo "WARNING: Device ID management script not found" >&2
-fi
-
-# =========================================================================
-# NEU: ctrlX & System Defaults für tedge.toml setzen
-# =========================================================================
-echo "Setting ctrlX specific defaults in tedge.toml..." >&2
-
-# 1. Gerätetyp für Cumulocity setzen
+# ── Erstmalige tedge-Defaults (nur bei Neuinstallation relevant) ─────────────
+echo "Setting tedge defaults..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.type "ctrlX-CORE" || true
-
-# 2. Standard-Paketmanager auf 'snap' setzen (für Software-Updates via Cloud)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set software.plugin.default "snap" || true
-
-# 3. Interne Ports sicher auf Localhost binden (Best Practice für Edge-Devices)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port "1883" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true
-
-# 4. sudo.enable=false: Snap läuft als root, sudo ist in strict confinement nicht verfügbar.
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false || true
-
-# 5. data.path korrekt setzen (SNAP_COMMON ist snap-update-sicher)
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
 
-# 6. log.plugin_paths: use the versioned $SNAP path (e.g. /snap/thin-edge-io/x5/scripts/log-plugins).
-#    AppArmor only allows exec from versioned paths (/snap/name/[0-9]*/...), NOT from 'current' symlink.
-#    The post-refresh hook updates this path to the new revision after a snap refresh.
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP/scripts/log-plugins" || true
-# =========================================================================
-
-# =========================================================================
-# inventory.json mit echten Systemdaten befüllen
-# =========================================================================
-if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
-    echo "Running inventory update script..." >&2
-    "$SNAP/scripts/update-inventory.sh" 2>&1 || true
+# ── Gerätezertifikat erstellen ───────────────────────────────────────────────
+echo "Auto-detecting device ID from system information..." >&2
+if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
+    "$SNAP/scripts/manage-device-id.sh" create 2>&1 | tee -a /tmp/tedge-cert.log >&2 || \
+        echo "WARNING: Failed to create device certificate automatically" >&2
+else
+    echo "WARNING: Device ID management script not found" >&2
 fi
-# =========================================================================
+
+# ── Snap-Interfaces verbinden ────────────────────────────────────────────────
+echo "Connecting snap interfaces..." >&2
+snapctl connect :hardware-observe 2>/dev/null && echo "hardware-observe connected" >&2 || true
+snapctl connect :log-observe 2>/dev/null && echo "log-observe connected" >&2 || true
+
+# ── Gemeinsame State-Initialisierung via post-refresh ────────────────────────
+# Inventory, sm-plugin, Plugin-Configs und update-inventory.sh werden zentral
+# vom post-refresh Hook verwaltet — kein doppelter Code.
+echo "Delegating shared state setup to post-refresh hook..." >&2
+bash "$SNAP/snap/hooks/post-refresh"
 
 echo "Install hook completed successfully" >&2
-
-# Auto-connect snap interfaces
-echo "Connecting snap interfaces..." >&2
-snapctl connect :hardware-observe 2>/dev/null && echo "hardware-observe connected" >&2 || echo "WARNING: could not connect hardware-observe" >&2
-snapctl connect :log-observe 2>/dev/null && echo "log-observe connected" >&2 || echo "WARNING: could not connect log-observe" >&2
