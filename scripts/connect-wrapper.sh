@@ -42,8 +42,24 @@ log() { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] [connect-wrapper] $*"; }
 log "Running: tedge $ACTION $CLOUD"
 
 # Step 1: Run tedge connect/disconnect/reconnect
-# This writes the bridge config (and silently swallows the systemd error)
-"$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" "$ACTION" "$CLOUD" 2>&1 || true
+# This writes the bridge/config files (and silently swallows the systemd error).
+#
+# Port 9883 (MQTT Service): tedge connect tries to self-register the device via
+# SmartREST `100,...` on s/us. The MQTT Service rejects this message → connect fails
+# and never writes the necessary config files.
+# Fix: use --offline when port 9883 is configured. --offline skips device creation
+# AND the connection test, so we run the test ourselves afterwards.
+
+CONNECT_FLAGS=""
+if [[ "$CLOUD" == "c8y" ]] && [[ "$ACTION" != "disconnect" ]]; then
+    MQTT_PORT=$("$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" config get c8y.mqtt 2>/dev/null | grep -oE ':[0-9]+$' | tr -d ':' || echo "")
+    if [[ "$MQTT_PORT" == "9883" ]]; then
+        log "Port 9883 detected: using --offline to skip device creation (MQTT Service does not support SmartREST registration)"
+        CONNECT_FLAGS="--offline"
+    fi
+fi
+
+"$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" "$ACTION" "$CLOUD" $CONNECT_FLAGS 2>&1 || true
 
 # Step 1b: Fix hardcoded revision paths in bridge configs.
 # tedge connect writes absolute paths like /var/snap/thin-edge-io/x42/...

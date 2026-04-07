@@ -1,7 +1,7 @@
 {
   "device": {
-    "id": "",
-    "type": "ctrlX-CORE"
+    "id": "ctrlx-kai-reinhardt",
+    "name": "ctrlx-kai-reinhardt"
   },
   "c8y": {
     "c8y-url": "",
@@ -10,8 +10,6 @@
   },
   "aws": {
     "aws-url": null,
-    "region": null,
-    "account": null,
     "enabled": false
   },
   "az": {

@@ -117,11 +117,10 @@ echo "=============================================="
 # Sicherstellen, dass wir im Hauptverzeichnis des Projekts sind
 cd "$SCRIPT_DIR"
 
-# JS/HTML: Prettier (muss installiert sein)
+# JS/HTML: Prettier (optional)
 PRETTIER_CMD=$(command -v prettier || true)
 if [ -z "$PRETTIER_CMD" ]; then
-  echo "[FEHLER] Prettier ist nicht installiert. Bitte mit 'npm install -g prettier' installieren."
-  exit 1
+  echo "[WARNUNG] Prettier ist nicht installiert. Formatierungs-Check wird übersprungen."
 fi
 
 # Rust: rustfmt (muss installiert sein)
@@ -131,24 +130,8 @@ if [ -z "$RUSTFMT_CMD" ]; then
   exit 1
 fi
 
-# JS Linting (nur wenn ESLint vorhanden)
-ESLINT_CMD=$(command -v eslint || true)
-if [ -z "$ESLINT_CMD" ]; then
-  echo "[WARNUNG] ESLint ist nicht installiert. JS-Linting wird übersprungen."
-else
-  if command -v node >/dev/null 2>&1; then
-    NODE_VERSION=$(node -v | sed 's/v//')
-    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-    if [ "$NODE_MAJOR" -lt 16 ]; then
-      echo "[FEHLER] Node.js >= 16 wird für moderne ESLint-Versionen benötigt. Bitte Node.js aktualisieren!"
-      exit 1
-    fi
-  fi
-
-  # WICHTIG: Wir wechseln für ESLint kurz in den web/www Ordner, damit es die config findet
-  echo "[i] Führe ESLint aus..."
-  (cd web/www && find . -type f -name '*.js' | xargs "$ESLINT_CMD")
-fi
+# JS Linting: web/www enthält gebaute/minifizierte Bundles → kein Linting sinnvoll
+# ESLint wird übersprungen
 
 # Rust Linting (nur wenn Clippy vorhanden)
 if cargo clippy --version >/dev/null 2>&1; then
@@ -164,12 +147,14 @@ else
 fi
 
 # JS/HTML prüfen und ggf. automatisch formatieren
-if [ "${1:-}" = "--fix" ]; then
-  echo "[i] Führe Prettier mit --write aus (automatische Korrektur)..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
-else
-  echo "[i] Prüfe Formatierung mit Prettier..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
+if [ -n "$PRETTIER_CMD" ]; then
+  if [ "${1:-}" = "--fix" ]; then
+    echo "[i] Führe Prettier mit --write aus (automatische Korrektur)..."
+    find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
+  else
+    echo "[i] Prüfe Formatierung mit Prettier..."
+    find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
+  fi
 fi
 
 # Rust automatisch formatieren (cargo fmt)

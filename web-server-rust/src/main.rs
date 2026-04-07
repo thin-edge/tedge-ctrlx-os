@@ -1268,14 +1268,16 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
         enabled_str, port
     );
     let result = web::block(move || -> std::io::Result<std::process::Output> {
-        // 1. Get current c8y.mqtt hostname (tedge derives it from c8y.url automatically)
-        let current_mqtt = Command::new(&tedge_bin)
+        // 1. Get c8y.url as base for deriving the correct MQTT hostname
+        //    Port 8883 (MQTT Core)    → mqtt.<base-domain>  e.g. mqtt.eu-latest.cumulocity.com
+        //    Port 9883 (MQTT Service) → <tenant-url>        e.g. acme.eu-latest.cumulocity.com
+        let c8y_url = Command::new(&tedge_bin)
             .args([
                 "--config-dir",
                 &tedge_config_dir,
                 "config",
                 "get",
-                "c8y.mqtt",
+                "c8y.url",
             ])
             .output()
             .ok()
@@ -1283,11 +1285,21 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
             .map(|s| s.trim().to_string())
             .unwrap_or_default();
 
-        // Extract hostname (strip existing port suffix)
-        let host = current_mqtt.split(':').next().unwrap_or("").to_string();
+        // Derive correct MQTT host depending on port:
+        // 9883 → tenant URL directly (acme.eu-latest.cumulocity.com)
+        // 8883 → shared mqtt.* endpoint (mqtt.eu-latest.cumulocity.com)
+        let mqtt_host = if port == 9883 {
+            c8y_url.clone()
+        } else {
+            if let Some(dot_pos) = c8y_url.find('.') {
+                format!("mqtt.{}", &c8y_url[dot_pos + 1..])
+            } else {
+                format!("mqtt.{}", c8y_url)
+            }
+        };
 
-        // 2. Set c8y.mqtt = host:port (always, regardless of whether host was in body)
-        let new_mqtt = format!("{}:{}", host, port);
+        // 2. Set c8y.mqtt = <correct-host>:<port>
+        let new_mqtt = format!("{}:{}", mqtt_host, port);
         info!("[MQTT-PORT] Setting c8y.mqtt={}", new_mqtt);
         Command::new(&tedge_bin)
             .args([
