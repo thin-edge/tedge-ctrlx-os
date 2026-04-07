@@ -95,17 +95,60 @@ Git Commit: b1193e94f753
 EOF
 echo "[✓] build-info.txt erzeugt: $BUILD_INFO_FILE"
 
-# LESS → CSS kompilieren
+# Angular UI bauen
 echo "=============================================="
-echo "Step 5: Compile LESS to CSS"
+echo "Step 5: Build Angular Management UI"
 echo "=============================================="
-lessc web/www/styles.less web/www/styles.css
+if [ -d "ui" ]; then
+  echo "[i] Installiere Angular-Abhängigkeiten..."
+  (cd ui && npm install --legacy-peer-deps 2>&1 | tail -5)
 
-# Synchronisiere web-server-rust/www/ (lokaler Dev-Server)
-echo "=============================================="
-echo "Step 6: Synchronisiere web-server-rust/www/ (lokaler Dev-Server)"
-echo "=============================================="
-rsync -a --delete --exclude='styles.less' web/www/ web-server-rust/www/
+  # Webpack-Symlink für @c8y/devkit (Instanzkonflikt webpack / @angular-devkit)
+  echo "[i] Stelle webpack-Symlink her..."
+  UI_DEVKIT_WP="ui/node_modules/@angular-devkit/build-angular/node_modules/webpack"
+  if [ -L "ui/node_modules/webpack" ]; then
+    rm "ui/node_modules/webpack"
+  elif [ -d "ui/node_modules/webpack" ]; then
+    rm -rf "ui/node_modules/webpack"
+  fi
+  ln -s "$(pwd)/${UI_DEVKIT_WP}" "ui/node_modules/webpack"
+
+  echo "[i] Baue Angular Production Build..."
+  (cd ui && node_modules/.bin/ng build --configuration production 2>&1 | tail -5)
+
+  echo "[i] Kopiere Angular-Build nach web/www/ ..."
+  # Zuerst alles außer Icon-Dateien und *.less entfernen
+  find web/www -mindepth 1 ! -name 'icon.png' ! -name 'icon.svg' ! -name '*.less' -delete 2>/dev/null || true
+  # Gebaute Dateien kopieren (über /tmp um Shell-Glob-Probleme zu vermeiden)
+  cp -r "ui/dist/tedge-mgmt-ui" /tmp/_angular_ui_build
+  cp -r /tmp/_angular_ui_build/. web/www/
+  rm -rf /tmp/_angular_ui_build
+
+  # cumulocity.json für standalone-Modus patchen
+  cat > web/www/cumulocity.json << 'CUMULOCITY_JSON'
+{
+  "name": "thin-edge.io Configuration",
+  "contextPath": "thin-edge-io",
+  "key": "thin-edge-io-key",
+  "noLogin": true,
+  "noAppSwitcher": true,
+  "hidePowered": false,
+  "disableTracking": true
+}
+CUMULOCITY_JSON
+
+  # index.html: window.C8Y_CLOUD_CONFIG vor dem Main-Bundle einfügen (verhindert C8y-Auth-Versuche)
+  if grep -q "window.C8Y_CLOUD_CONFIG" web/www/index.html 2>/dev/null; then
+    echo "[i] index.html bereits gepatcht"
+  else
+    sed -i 's|<script defer src="main\.|<script>\n    window.C8Y_CLOUD_CONFIG = { noLogin: true, noAppSwitcher: true, disableTracking: true };\n  </script>\n  <script defer src="main.|' web/www/index.html
+    echo "[✓] index.html mit C8Y_CLOUD_CONFIG gepatcht"
+  fi
+
+  echo "[✓] Angular UI nach web/www/ kopiert"
+else
+  echo "[WARNUNG] Verzeichnis 'ui' nicht gefunden, UI-Build wird übersprungen."
+fi
 
 
 # Format- und Lint-Checks
@@ -117,37 +160,11 @@ echo "=============================================="
 # Sicherstellen, dass wir im Hauptverzeichnis des Projekts sind
 cd "$SCRIPT_DIR"
 
-# JS/HTML: Prettier (muss installiert sein)
-PRETTIER_CMD=$(command -v prettier || true)
-if [ -z "$PRETTIER_CMD" ]; then
-  echo "[FEHLER] Prettier ist nicht installiert. Bitte mit 'npm install -g prettier' installieren."
-  exit 1
-fi
-
 # Rust: rustfmt (muss installiert sein)
 RUSTFMT_CMD=$(command -v rustfmt || true)
 if [ -z "$RUSTFMT_CMD" ]; then
   echo "[FEHLER] rustfmt ist nicht installiert. Bitte mit 'rustup component add rustfmt' installieren."
   exit 1
-fi
-
-# JS Linting (nur wenn ESLint vorhanden)
-ESLINT_CMD=$(command -v eslint || true)
-if [ -z "$ESLINT_CMD" ]; then
-  echo "[WARNUNG] ESLint ist nicht installiert. JS-Linting wird übersprungen."
-else
-  if command -v node >/dev/null 2>&1; then
-    NODE_VERSION=$(node -v | sed 's/v//')
-    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-    if [ "$NODE_MAJOR" -lt 16 ]; then
-      echo "[FEHLER] Node.js >= 16 wird für moderne ESLint-Versionen benötigt. Bitte Node.js aktualisieren!"
-      exit 1
-    fi
-  fi
-
-  # WICHTIG: Wir wechseln für ESLint kurz in den web/www Ordner, damit es die config findet
-  echo "[i] Führe ESLint aus..."
-  (cd web/www && find . -type f -name '*.js' | xargs "$ESLINT_CMD")
 fi
 
 # Rust Linting (nur wenn Clippy vorhanden)
@@ -161,15 +178,6 @@ if cargo clippy --version >/dev/null 2>&1; then
   fi
 else
   echo "[WARNUNG] Clippy ist nicht installiert. Rust-Linting wird übersprungen."
-fi
-
-# JS/HTML prüfen und ggf. automatisch formatieren
-if [ "${1:-}" = "--fix" ]; then
-  echo "[i] Führe Prettier mit --write aus (automatische Korrektur)..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
-else
-  echo "[i] Prüfe Formatierung mit Prettier..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
 fi
 
 # Rust automatisch formatieren (cargo fmt)
@@ -189,12 +197,6 @@ find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/targ
 echo "[✓] Alle Format- und Lintprüfungen bestanden!"
 
 
-# Snap bauen
-echo "=============================================="
-echo "Step 8: Build Snap"
-echo "=============================================="
-# Wieder sicherstellen, dass wir im Hauptverzeichnis bleiben!
-cd "$SCRIPT_DIR"
 # Snap bauen
 echo "=============================================="
 echo "Step 8: Build Snap"

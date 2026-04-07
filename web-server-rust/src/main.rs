@@ -2349,6 +2349,51 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
     }
 }
 
+/// GET /api/tedge-type/{config_type}
+/// Returns a JSON array of type names parsed from the respective TOML plugin config file.
+/// `config_type` is either "logTypes" or "configTypes".
+async fn get_tedge_type(path: web::Path<String>) -> Result<HttpResponse> {
+    let config_type = path.into_inner();
+    let file_name = match config_type.as_str() {
+        "logTypes" => "tedge-log-plugin.toml",
+        "configTypes" => "tedge-configuration-plugin.toml",
+        _ => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"error": "unknown config_type"})));
+        }
+    };
+
+    // Standard tedge config path; in snap it's under /var/snap/thin-edge-io/current/tedge/
+    let paths = [
+        format!("/etc/tedge/{}", file_name),
+        format!("/var/snap/thin-edge.io/current/etc/tedge/{}", file_name),
+    ];
+
+    let content = paths.iter().find_map(|p| std::fs::read_to_string(p).ok());
+
+    let types: Vec<String> = match content {
+        Some(text) => {
+            // Parse TOML: extract "type" values from [[files]] or [[logs]] tables
+            text.lines()
+                .filter_map(|line| {
+                    let trimmed = line.trim();
+                    if let Some(rest) = trimmed.strip_prefix("type") {
+                        let rest = rest.trim_start_matches([' ', '=']);
+                        let val = rest.trim().trim_matches('"');
+                        if !val.is_empty() {
+                            return Some(val.to_string());
+                        }
+                    }
+                    None
+                })
+                .collect()
+        }
+        None => vec![],
+    };
+
+    Ok(HttpResponse::Ok().json(types))
+}
+
 fn parse_system_toml_log_section(content: &str) -> std::collections::HashMap<String, String> {
     let mut levels = std::collections::HashMap::new();
     let mut in_log = false;
@@ -3268,7 +3313,9 @@ async fn main() -> io::Result<()> {
                                     )
                                     .route("/browse", web::get().to(browse_datalayer))
                                     .route("/node", web::get().to(read_datalayer_node)),
-                            ),
+                            )
+                            // Angular UI helper endpoints
+                            .route("/tedge-type/{config_type}", web::get().to(get_tedge_type)),
                     )
                     // Login liegt unter /thin-edge-io/login
                     .route("/login", web::get().to(token_login))

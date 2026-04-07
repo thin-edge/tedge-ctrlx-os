@@ -1,0 +1,335 @@
+<div class="container-fluid p-24">
+  <!-- Header -->
+  <div class="d-flex align-items-center j-between m-b-24">
+    <h2 class="m-b-0">
+      <i class="dlt-c8y-icon-satellite-1 m-r-8 text-primary"></i>
+      ctrlX Datalayer Bridge
+    </h2>
+    <button class="btn btn-default btn-sm" (click)="loadStatus()">
+      <i class="dlt-c8y-icon-refresh" [class.icon-spin]="loadingStatus"></i>
+      Aktualisieren
+    </button>
+  </div>
+
+  <!-- Status Banner -->
+  <div class="alert m-b-16"
+    [class.alert-success]="status?.state === 'connected'"
+    [class.alert-warning]="status?.state === 'idle' || status?.state === 'disabled'"
+    [class.alert-danger]="status?.state === 'error'"
+    [class.alert-default]="!status">
+    <ng-container *ngIf="status; else loadingStatus">
+      <strong>Status:</strong> {{ status.state | titlecase }}
+      <span *ngIf="status.mapping_count !== undefined">
+        &bull; {{ status.active_mappings }} / {{ status.mapping_count }} Mappings aktiv
+      </span>
+      <span *ngIf="status.poll_interval_ms">
+        &bull; Intervall: {{ status.poll_interval_ms }} ms
+      </span>
+      <span *ngIf="status.connect_error" class="m-l-8 text-danger">
+        {{ status.connect_error }}
+      </span>
+    </ng-container>
+    <ng-template #loadingStatus>
+      <i class="dlt-c8y-icon-loading icon-spin"></i> Status wird geladen…
+    </ng-template>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs m-b-24">
+    <li [class.active]="activeTab === 'settings'">
+      <a (click)="activeTab = 'settings'" style="cursor:pointer">
+        <i class="dlt-c8y-icon-cog m-r-4"></i> Verbindung
+      </a>
+    </li>
+    <li [class.active]="activeTab === 'mappings'">
+      <a (click)="activeTab = 'mappings'" style="cursor:pointer">
+        <i class="dlt-c8y-icon-exchange m-r-4"></i> Mappings
+        <span class="badge m-l-4">{{ mappings.length }}</span>
+      </a>
+    </li>
+    <li [class.active]="activeTab === 'browse'">
+      <a (click)="activeTab = 'browse'; loadBrowseRoot()" style="cursor:pointer">
+        <i class="dlt-c8y-icon-tree m-r-4"></i> Browse
+      </a>
+    </li>
+  </ul>
+
+  <!-- ── Tab: Settings ── -->
+  <div *ngIf="activeTab === 'settings'">
+    <div class="card">
+      <div class="card-block p-24">
+        <form (ngSubmit)="saveConfig()" #settingsForm="ngForm">
+
+          <div class="form-group">
+            <div class="c8y-checkbox">
+              <input type="checkbox" id="dl-enabled" [(ngModel)]="config.enabled" name="enabled" />
+              <label for="dl-enabled">Datalayer Bridge aktivieren</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>ctrlX Datalayer Base-URL</label>
+            <input class="form-control" [(ngModel)]="config.baseUrl" name="baseUrl"
+              placeholder="https://localhost" required />
+            <small class="text-muted">z.B. https://10.0.0.1 oder https://localhost</small>
+          </div>
+
+          <div class="form-group">
+            <label>Poll-Intervall (ms)</label>
+            <input class="form-control" type="number" min="500" step="500"
+              [(ngModel)]="config.pollIntervalMs" name="pollIntervalMs" required />
+          </div>
+
+          <div class="form-group">
+            <div class="c8y-checkbox">
+              <input type="checkbox" id="dl-certs" [(ngModel)]="config.acceptInvalidCerts"
+                name="acceptInvalidCerts" />
+              <label for="dl-certs">Ungültige TLS-Zertifikate akzeptieren</label>
+            </div>
+          </div>
+
+          <hr />
+          <h5>Authentifizierung</h5>
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label>Benutzername</label>
+                <input class="form-control" [(ngModel)]="config.username" name="username"
+                  autocomplete="off" />
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label>Passwort</label>
+                <input class="form-control" type="password" [(ngModel)]="config.password"
+                  name="password" autocomplete="new-password"
+                  placeholder="(unverändert lassen = nicht ändern)" />
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Bearer Token (alternativ)</label>
+            <input class="form-control" type="password" [(ngModel)]="config.token" name="token"
+              placeholder="(unverändert lassen = nicht ändern)" />
+          </div>
+
+          <button type="submit" class="btn btn-primary" [disabled]="savingConfig">
+            <i [class]="savingConfig ? 'dlt-c8y-icon-loading icon-spin' : 'dlt-c8y-icon-save'"
+              class="m-r-4"></i>
+            Speichern
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Mappings ── -->
+  <div *ngIf="activeTab === 'mappings'">
+
+    <!-- Neues Mapping Formular -->
+    <div class="card m-b-16" *ngIf="isNewMapping">
+      <div class="card-header">
+        <h5 class="m-b-0"><i class="dlt-c8y-icon-plus m-r-8"></i>Neues Mapping</h5>
+      </div>
+      <div class="card-block p-16">
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label>Datalayer-Pfad <span class="text-danger">*</span></label>
+              <input class="form-control" [(ngModel)]="newMapping.path"
+                placeholder="z.B. motion/axisX/actualVelocity" />
+              <small class="text-muted">Relativ zur Base-URL</small>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label>MQTT-Topic (tedge) <span class="text-danger">*</span></label>
+              <input class="form-control" [(ngModel)]="newMapping.topic"
+                placeholder="z.B. te/device/main///m/speed" />
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-4">
+            <div class="form-group">
+              <label>Richtung</label>
+              <select class="form-control" [(ngModel)]="newMapping.direction">
+                <option *ngFor="let d of directions" [value]="d.value">{{ d.label }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="form-group">
+              <label>Transform</label>
+              <select class="form-control" [(ngModel)]="newMapping.transform">
+                <option *ngFor="let t of transforms" [value]="t">{{ t }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label>Feldname</label>
+              <input class="form-control" [(ngModel)]="newMapping.field_name"
+                placeholder="(auto)" />
+            </div>
+          </div>
+          <div class="col-sm-2">
+            <div class="form-group">
+              <label>Einheit</label>
+              <input class="form-control" [(ngModel)]="newMapping.unit" placeholder="z.B. rpm" />
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-8">
+          <button class="btn btn-primary" (click)="saveNewMapping()">
+            <i class="dlt-c8y-icon-save m-r-4"></i>Hinzufügen
+          </button>
+          <button class="btn btn-default" (click)="cancelAdd()">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mappings-Tabelle -->
+    <div class="card">
+      <div class="card-header d-flex j-between align-items-center">
+        <h5 class="m-b-0">Mappings ({{ mappings.length }})</h5>
+        <button class="btn btn-primary btn-sm" (click)="startAddMapping()" *ngIf="!isNewMapping">
+          <i class="dlt-c8y-icon-plus m-r-4"></i>Mapping hinzufügen
+        </button>
+      </div>
+      <div class="card-block p-0">
+        <div *ngIf="mappings.length === 0" class="p-24 text-center text-muted">
+          Noch keine Mappings konfiguriert.
+        </div>
+        <table class="table table-striped table-hover m-b-0" *ngIf="mappings.length > 0">
+          <thead>
+            <tr>
+              <th style="width:36px">An</th>
+              <th>Datalayer-Pfad</th>
+              <th>MQTT-Topic</th>
+              <th>Richtung</th>
+              <th>Transform</th>
+              <th style="width:80px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of mappings" [class.text-muted]="!m.enabled">
+              <td>
+                <div class="c8y-switch">
+                  <input type="checkbox" [id]="'sw-'+m.id" [checked]="m.enabled"
+                    (change)="toggleMapping(m)" />
+                  <label [for]="'sw-'+m.id"></label>
+                </div>
+              </td>
+              <td>
+                <code class="small">{{ m.path }}</code>
+                <span *ngIf="m.field_name" class="label label-default m-l-4">{{ m.field_name }}</span>
+                <span *ngIf="m.unit" class="label label-info m-l-4">{{ m.unit }}</span>
+              </td>
+              <td><code class="small">{{ m.topic }}</code></td>
+              <td>
+                <span *ngIf="m.direction === 'dl_to_tedge'" title="Datalayer → thin-edge">
+                  <i class="dlt-c8y-icon-arrow-right text-success"></i> DL→TE
+                </span>
+                <span *ngIf="m.direction === 'tedge_to_dl'" title="thin-edge → Datalayer">
+                  <i class="dlt-c8y-icon-arrow-left text-info"></i> TE→DL
+                </span>
+              </td>
+              <td>
+                <span class="label"
+                  [class.label-primary]="m.transform==='Measurement'"
+                  [class.label-info]="m.transform==='Event'"
+                  [class.label-warning]="m.transform==='Alarm'"
+                  [class.label-default]="m.transform==='Raw'">
+                  {{ m.transform }}
+                </span>
+              </td>
+              <td class="text-right">
+                <button class="btn btn-danger btn-xs" (click)="deleteMapping(m)"
+                  title="Mapping löschen">
+                  <i class="dlt-c8y-icon-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Browse ── -->
+  <div *ngIf="activeTab === 'browse'">
+    <div class="row">
+      <!-- Baum -->
+      <div class="col-sm-5">
+        <div class="card" style="height:70vh; overflow-y:auto">
+          <div class="card-header">
+            <h5 class="m-b-0"><i class="dlt-c8y-icon-tree m-r-8"></i>Datalayer-Baum</h5>
+          </div>
+          <div class="card-block p-8">
+            <div *ngIf="browseLoading" class="text-center p-24">
+              <i class="dlt-c8y-icon-loading icon-spin"></i> Lade…
+            </div>
+            <ng-container *ngIf="!browseLoading">
+              <ul class="list-unstyled m-b-0">
+                <ng-container *ngTemplateOutlet="nodeTemplate; context:{nodes: browseRoot, depth: 0}">
+                </ng-container>
+              </ul>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail -->
+      <div class="col-sm-7">
+        <div class="card" style="height:70vh; overflow-y:auto">
+          <div class="card-header d-flex j-between align-items-center">
+            <h5 class="m-b-0">
+              <i class="dlt-c8y-icon-node m-r-8"></i>
+              <code>{{ selectedBrowsePath || '—' }}</code>
+            </h5>
+            <button class="btn btn-primary btn-xs" *ngIf="selectedBrowsePath"
+              (click)="useBrowsePathForNewMapping({path: selectedBrowsePath, name: selectedBrowsePath})">
+              <i class="dlt-c8y-icon-plus m-r-4"></i>Als Mapping verwenden
+            </button>
+          </div>
+          <div class="card-block p-16">
+            <div *ngIf="browseNodeLoading" class="text-center">
+              <i class="dlt-c8y-icon-loading icon-spin"></i>
+            </div>
+            <div *ngIf="!browseNodeLoading && browseNodeValue">
+              <pre class="small">{{ browseNodeValue | json }}</pre>
+            </div>
+            <div *ngIf="!browseNodeLoading && !browseNodeValue && selectedBrowsePath"
+              class="text-muted">Kein Wert verfügbar.</div>
+            <div *ngIf="!selectedBrowsePath" class="text-muted">
+              Knoten im Baum auswählen.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rekursives Node-Template -->
+<ng-template #nodeTemplate let-nodes="nodes" let-depth="depth">
+  <li *ngFor="let node of nodes" [style.padding-left]="(depth * 16) + 'px'">
+    <div class="d-flex align-items-center"
+      style="cursor:pointer; padding: 3px 4px; border-radius:3px"
+      [class.bg-primary]="node.path === selectedBrowsePath"
+      [class.text-white]="node.path === selectedBrowsePath"
+      (click)="selectBrowseNode(node)">
+      <i class="m-r-4"
+        [class.dlt-c8y-icon-chevron-right]="!node.expanded"
+        [class.dlt-c8y-icon-chevron-down]="node.expanded"
+        (click)="$event.stopPropagation(); toggleBrowseNode(node)"></i>
+      <i class="dlt-c8y-icon-loading icon-spin m-r-4" *ngIf="node.loading"></i>
+      <span class="small">{{ node.name }}</span>
+    </div>
+    <ul class="list-unstyled m-b-0" *ngIf="node.expanded && node.children?.length">
+      <ng-container *ngTemplateOutlet="nodeTemplate; context:{nodes: node.children, depth: depth + 1}">
+      </ng-container>
+    </ul>
+  </li>
+</ng-template>

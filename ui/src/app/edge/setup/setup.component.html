@@ -1,0 +1,232 @@
+<c8y-title>{{ 'Setup' | translate }}</c8y-title>
+
+<c8y-action-bar-item [placement]="'right'">
+  <button class="btn btn-link" title="Reset log" (click)="resetLog()">
+    <i c8yIcon="reset"></i>&nbsp;{{ 'Reset log' | translate }}
+  </button>
+</c8y-action-bar-item>
+
+<div class="col-sm-12 col-md-10">
+
+  <!-- Cloud-Verbindung Tabs -->
+  <div class="card m-b-24">
+    <div class="card-header separator">
+      <h4 class="card-title">Cloud-Verbindung</h4>
+    </div>
+    <div class="card-block p-b-0">
+      <ul class="nav nav-tabs">
+        <li [class.active]="activeTab === 'c8y'">
+          <a (click)="activeTab='c8y'" style="cursor:pointer">
+            <img src="assets/img/c8y-logo.svg" height="16" alt="" class="m-r-4"
+              onerror="this.style.display='none'" />
+            Cumulocity IoT
+          </a>
+        </li>
+        <li [class.active]="activeTab === 'aws'">
+          <a (click)="activeTab='aws'" style="cursor:pointer">
+            <i class="fa fa-amazon m-r-4"></i>AWS IoT
+          </a>
+        </li>
+        <li [class.active]="activeTab === 'azure'">
+          <a (click)="activeTab='azure'" style="cursor:pointer">
+            <i class="dlt-c8y-icon-cloud m-r-4"></i>Azure IoT
+          </a>
+        </li>
+        <li [class.active]="activeTab === 'port'">
+          <a (click)="activeTab='port'" style="cursor:pointer">
+            <i class="dlt-c8y-icon-plug m-r-4"></i>MQTT-Port
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ─── Tab: Cumulocity ──────────────────────────── -->
+    <div class="card-block" *ngIf="activeTab === 'c8y'">
+      <form class="form-horizontal" (ngSubmit)="saveC8y()">
+        <div class="form-group">
+          <label class="col-sm-3 control-label">Tenant-URL</label>
+          <div class="col-sm-9">
+            <input class="form-control" type="text" [(ngModel)]="c8yUrl" name="c8yUrl"
+              placeholder="your-tenant.cumulocity.com" [readonly]="readonly" />
+            <p class="help-block">Ohne https:// eingeben, z.B. <code>acme.cumulocity.com</code></p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-3 control-label">Geräte-ID</label>
+          <div class="col-sm-9">
+            <input class="form-control" type="text" [(ngModel)]="deviceId" name="deviceId"
+              placeholder="my-ctrlx-device-01" [readonly]="readonly" />
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-3 col-sm-9">
+            <div class="btn-group" role="group">
+              <button type="submit" class="btn btn-primary" [disabled]="savingC8y || readonly">
+                <i [class]="savingC8y ? 'dlt-c8y-icon-loading icon-spin' : 'dlt-c8y-icon-save'"
+                  class="m-r-4"></i>Speichern & Konfigurieren
+              </button>
+              <button type="button" class="btn btn-default" (click)="downloadCertificate()"
+                [disabled]="(tedgeStatus$ | async) === TedgeStatus.BLANK">
+                <i class="dlt-c8y-icon-download m-r-4"></i>Zertifikat herunterladen
+              </button>
+              <button type="button" class="btn btn-default" (click)="uploadCertificate()"
+                [disabled]="(tedgeStatus$ | async) !== TedgeStatus.INITIALIZED">
+                <i class="dlt-c8y-icon-upload m-r-4"></i>Zertifikat hochladen
+              </button>
+              <button type="button" class="btn btn-warning" (click)="resetEdge()"
+                [disabled]="(tedgeStatus$ | async) === TedgeStatus.BLANK">
+                <i class="dlt-c8y-icon-reset m-r-4"></i>Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <!-- Status Badge -->
+      <div class="col-sm-offset-3 col-sm-9 m-t-8" *ngIf="tedgeStatus$ | async as status">
+        <span class="label label-default" *ngIf="status === TedgeStatus.BLANK">Noch nicht konfiguriert</span>
+        <span class="label label-warning" *ngIf="status === TedgeStatus.INITIALIZED">Bereit — Zertifikat noch nicht hochgeladen</span>
+        <span class="label label-info" *ngIf="status === TedgeStatus.REGISTERED">Registriert</span>
+        <span class="label label-success" *ngIf="status === TedgeStatus.CERTIFICATE_UPLOADED">Verbunden</span>
+      </div>
+    </div>
+
+    <!-- ─── Tab: AWS ─────────────────────────────────── -->
+    <div class="card-block" *ngIf="activeTab === 'aws'">
+      <form class="form-horizontal" (ngSubmit)="saveAws()">
+        <div class="form-group">
+          <label class="col-sm-3 control-label">AWS IoT Endpoint</label>
+          <div class="col-sm-9">
+            <input class="form-control" type="text" [(ngModel)]="awsUrl" name="awsUrl"
+              placeholder="abc123.iot.eu-west-1.amazonaws.com" />
+            <p class="help-block">AWS IoT Core Custom Endpoint (ohne https://)</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-3 control-label">Aktiviert</label>
+          <div class="col-sm-9">
+            <div class="c8y-checkbox">
+              <input type="checkbox" id="aws-enabled" [(ngModel)]="awsEnabled" name="awsEnabled" />
+              <label for="aws-enabled">AWS Mapper aktivieren</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-3 col-sm-9">
+            <div class="btn-group" role="group">
+              <button type="submit" class="btn btn-primary" [disabled]="savingAws">
+                <i [class]="savingAws ? 'dlt-c8y-icon-loading icon-spin' : 'dlt-c8y-icon-save'"
+                  class="m-r-4"></i>Speichern
+              </button>
+              <button type="button" class="btn btn-success" (click)="connectAws()">
+                <i class="dlt-c8y-icon-plug m-r-4"></i>Verbinden
+              </button>
+              <button type="button" class="btn btn-default" (click)="disconnectAws()">
+                <i class="dlt-c8y-icon-disconnect m-r-4"></i>Trennen
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+      <div class="col-sm-offset-3 col-sm-9">
+        <div class="alert alert-info">
+          <strong>Hinweis:</strong> AWS IoT benötigt ein eigenes X.509-Zertifikat, das im
+          tedge-Konfigurationsordner hinterlegt sein muss. Der Endpoint ist der
+          <em>Custom Endpoint</em> aus der AWS IoT Core-Konsole.
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: Azure ───────────────────────────────── -->
+    <div class="card-block" *ngIf="activeTab === 'azure'">
+      <form class="form-horizontal" (ngSubmit)="saveAzure()">
+        <div class="form-group">
+          <label class="col-sm-3 control-label">Azure IoT Hub URL</label>
+          <div class="col-sm-9">
+            <input class="form-control" type="text" [(ngModel)]="azureUrl" name="azureUrl"
+              placeholder="myiothub.azure-devices.net" />
+            <p class="help-block">Azure IoT Hub-Hostname (ohne https://)</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-3 control-label">Aktiviert</label>
+          <div class="col-sm-9">
+            <div class="c8y-checkbox">
+              <input type="checkbox" id="az-enabled" [(ngModel)]="azureEnabled" name="azureEnabled" />
+              <label for="az-enabled">Azure Mapper aktivieren</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-3 col-sm-9">
+            <div class="btn-group" role="group">
+              <button type="submit" class="btn btn-primary" [disabled]="savingAzure">
+                <i [class]="savingAzure ? 'dlt-c8y-icon-loading icon-spin' : 'dlt-c8y-icon-save'"
+                  class="m-r-4"></i>Speichern
+              </button>
+              <button type="button" class="btn btn-success" (click)="connectAzure()">
+                <i class="dlt-c8y-icon-plug m-r-4"></i>Verbinden
+              </button>
+              <button type="button" class="btn btn-default" (click)="disconnectAzure()">
+                <i class="dlt-c8y-icon-disconnect m-r-4"></i>Trennen
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+      <div class="col-sm-offset-3 col-sm-9">
+        <div class="alert alert-info">
+          <strong>Hinweis:</strong> Azure IoT Hub nutzt das thin-edge.io-Gerätezertifikat für
+          die Authentifizierung. Das Zertifikat muss im Azure IoT Hub als Device registriert sein.
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Tab: MQTT-Port ───────────────────────────── -->
+    <div class="card-block" *ngIf="activeTab === 'port'">
+      <form class="form-horizontal" (ngSubmit)="saveMqttPort()">
+        <div class="form-group">
+          <label class="col-sm-3 control-label">MQTT-Port zu Cumulocity</label>
+          <div class="col-sm-9">
+            <div class="radio">
+              <label>
+                <input type="radio" name="mqttPort" [value]="8883" [(ngModel)]="mqttPort" />
+                <strong>8883</strong> — Standard MQTT (direkt, kein MQTT-Service)
+              </label>
+            </div>
+            <div class="radio">
+              <label>
+                <input type="radio" name="mqttPort" [value]="9883" [(ngModel)]="mqttPort" />
+                <strong>9883</strong> — SmartREST 2.0 über MQTT-Service (empfohlen für ctrlX)
+              </label>
+            </div>
+            <p class="help-block">
+              Port <strong>9883</strong> aktiviert den Cumulocity MQTT-Service
+              (<code>c8y.mqtt_service.enabled = true</code>).<br/>
+              Port <strong>8883</strong> nutzt direkte MQTT-Verbindung
+              (<code>c8y.mqtt_service.enabled = false</code>).
+            </p>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-3 col-sm-9">
+            <button type="submit" class="btn btn-primary" [disabled]="savingPort">
+              <i [class]="savingPort ? 'dlt-c8y-icon-loading icon-spin' : 'dlt-c8y-icon-save'"
+                class="m-r-4"></i>Port setzen &amp; Dienste neu starten
+            </button>
+          </div>
+        </div>
+      </form>
+      <div class="col-sm-offset-3 col-sm-9">
+        <div class="alert alert-warning">
+          <i class="dlt-c8y-icon-warning m-r-8"></i>
+          Das Ändern des MQTT-Ports startet den Cumulocity-Mapper und zugehörige Dienste neu.
+          Eine kurze Verbindungsunterbrechung zur Cloud ist normal.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event-Log -->
+  <tedge-events></tedge-events>
+</div>

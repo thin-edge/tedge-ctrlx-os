@@ -1,0 +1,12 @@
+.my-card-body {
+    padding: 1.25rem;
+    padding-top: 1.25rem;
+    padding-right: 1.25rem;
+    padding-bottom: 1.25rem;
+    padding-left: 1.25rem;
+}
+
+.small-font-monospace {
+    font-size: small;
+    font-family: monospace;
+}

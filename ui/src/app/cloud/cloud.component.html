@@ -1,0 +1,38 @@
+<c8y-title>
+  {{ 'Cloud' | translate }}
+</c8y-title>
+<div class="col-sm-10">
+  <div class="card">
+    <div class="card-block">
+      <c8y-data-grid
+        [title]="'Device Details' | translate"
+        [columns]="columns"
+        [rows]="rows$ | async"
+        [pagination]="pagination"
+        [displayOptions]="displayOptions"
+        [actionControls]="[]"
+      >
+      </c8y-data-grid>
+    </div>
+    <div class="card-footer">
+      <div class="d-block">
+        <button
+          class="btn btn-primary"
+          type="button"
+          (click)="getMainDeviceDetailsFromTedge()"
+        >
+          Get main device
+        </button>
+      </div>
+      <div class="d-block p-t-24">
+        <a
+          *ngIf="linkDeviceInDeviceManagement"
+          [href]="linkDeviceInDeviceManagement"
+          target="_blank"
+        >
+          <strong>Link to device in Cumulocity Cloud tenant </strong>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

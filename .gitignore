@@ -39,6 +39,18 @@ artifacts/
 build/
 dist/
 target/
+node_modules/
+.angular/
+web/
+
+# Angular build output copies (generiert durch setup-and-build-all.sh, nicht einchecken)
+web-server-rust/www/
+
+# Angular UI node_modules und dist (innerhalb ui/)
+ui/node_modules/
+ui/dist/
+ui/.angular/
+ui/*.zip
 
 # Auto-generated build info
 configs/build-info.txt

@@ -1,0 +1,10 @@
+/** @format */
+
+.charting-widget-container {
+    padding-left:1%;
+    padding-right: 1%;
+    position: relative;
+    margin: auto;
+    height: 80vh;
+    width: 80vw;
+}
