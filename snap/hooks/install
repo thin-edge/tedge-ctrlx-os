@@ -61,6 +61,7 @@ fi
 echo "Connecting snap interfaces..." >&2
 snapctl connect :hardware-observe 2>/dev/null && echo "hardware-observe connected" >&2 || true
 snapctl connect :log-observe 2>/dev/null && echo "log-observe connected" >&2 || true
+snapctl connect :snapd-control 2>/dev/null && echo "snapd-control connected" >&2 || true
 
 # ── Gemeinsame State-Initialisierung via post-refresh ────────────────────────
 # Inventory, sm-plugin, Plugin-Configs und update-inventory.sh werden zentral

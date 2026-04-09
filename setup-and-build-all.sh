@@ -297,32 +297,7 @@ if [ -n "$SNAP_FILES" ]; then
     echo "  7. Switch back to Operation Mode"
     echo ""
 
-    echo "[i] Prüfe Snap-Services..."
-    SNAP_NAME="thin-edge-io"
-    SERVICES=(
-        "${SNAP_NAME}.tedge-agent"
-        "${SNAP_NAME}.tedge-mapper-c8y"
-        "${SNAP_NAME}.tedge-mapper-aws"
-        "${SNAP_NAME}.tedge-mapper-az"
-        "${SNAP_NAME}.tedge-watchdog"
-        "${SNAP_NAME}.mosquitto"
-        "${SNAP_NAME}.tedge-datalayer-bridge"
-        "${SNAP_NAME}.webserver"
-    )
-    for svc in "${SERVICES[@]}"; do
-        if snap services "$svc" 2>/dev/null | grep -q "active"; then
-            echo "[✓] Service läuft: $svc"
-        else
-            echo "[✗] Service NICHT aktiv: $svc"
-        fi
-    done
 
-    echo "[i] Teste tedge CLI..."
-    if tedge --version 2>/dev/null; then
-        echo "[✓] tedge CLI funktioniert."
-    else
-        echo "[✗] tedge CLI nicht verfügbar."
-    fi
 else
     echo "[✗] Keine Snap-Dateien gefunden. Build fehlgeschlagen."
     exit 1

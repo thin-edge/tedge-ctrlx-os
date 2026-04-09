@@ -886,10 +886,45 @@ async fn save_c8y_config(
         })));
     }
 
-    info!("Cumulocity configuration saved successfully");
+    // Start or stop the Cumulocity mapper based on the enabled toggle
+    if is_snap {
+        let action = if config.c8y.enabled { "start" } else { "stop" };
+        info!(
+            "[CONFIG] {}ing tedge-mapper-c8y (enabled={})",
+            action, config.c8y.enabled
+        );
+        match std::process::Command::new("snapctl")
+            .args([action, "thin-edge-io.tedge-mapper-c8y"])
+            .output()
+        {
+            Ok(out) if out.status.success() => {
+                info!("[CONFIG] tedge-mapper-c8y {}ped successfully", action);
+            }
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                error!(
+                    "[CONFIG] snapctl {} tedge-mapper-c8y failed: {}",
+                    action, stderr
+                );
+            }
+            Err(e) => {
+                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
+            }
+        }
+    }
+
+    let mapper_state = if config.c8y.enabled {
+        "started"
+    } else {
+        "stopped"
+    };
+    info!(
+        "Cumulocity configuration saved successfully (mapper {})",
+        mapper_state
+    );
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
-        "message": "Cumulocity configuration saved. Please restart services to apply changes."
+        "message": format!("Cumulocity configuration saved. Mapper {}.", mapper_state)
     })))
 }
 
@@ -976,10 +1011,45 @@ async fn save_aws_config(
         })));
     }
 
-    info!("AWS configuration saved successfully");
+    // Start or stop the AWS mapper based on the enabled toggle
+    if is_snap {
+        let action = if config.aws.enabled { "start" } else { "stop" };
+        info!(
+            "[CONFIG] {}ing tedge-mapper-aws (enabled={})",
+            action, config.aws.enabled
+        );
+        match std::process::Command::new("snapctl")
+            .args([action, "thin-edge-io.tedge-mapper-aws"])
+            .output()
+        {
+            Ok(out) if out.status.success() => {
+                info!("[CONFIG] tedge-mapper-aws {}ped successfully", action);
+            }
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                error!(
+                    "[CONFIG] snapctl {} tedge-mapper-aws failed: {}",
+                    action, stderr
+                );
+            }
+            Err(e) => {
+                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
+            }
+        }
+    }
+
+    let mapper_state = if config.aws.enabled {
+        "started"
+    } else {
+        "stopped"
+    };
+    info!(
+        "AWS configuration saved successfully (mapper {})",
+        mapper_state
+    );
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
-        "message": "AWS configuration saved. Please restart services to apply changes."
+        "message": format!("AWS configuration saved. Mapper {}.", mapper_state)
     })))
 }
 
@@ -1066,10 +1136,45 @@ async fn save_az_config(
         })));
     }
 
-    info!("Azure configuration saved successfully");
+    // Start or stop the Azure mapper based on the enabled toggle
+    if is_snap {
+        let action = if config.az.enabled { "start" } else { "stop" };
+        info!(
+            "[CONFIG] {}ing tedge-mapper-az (enabled={})",
+            action, config.az.enabled
+        );
+        match std::process::Command::new("snapctl")
+            .args([action, "thin-edge-io.tedge-mapper-az"])
+            .output()
+        {
+            Ok(out) if out.status.success() => {
+                info!("[CONFIG] tedge-mapper-az {}ped successfully", action);
+            }
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                error!(
+                    "[CONFIG] snapctl {} tedge-mapper-az failed: {}",
+                    action, stderr
+                );
+            }
+            Err(e) => {
+                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
+            }
+        }
+    }
+
+    let mapper_state = if config.az.enabled {
+        "started"
+    } else {
+        "stopped"
+    };
+    info!(
+        "Azure configuration saved successfully (mapper {})",
+        mapper_state
+    );
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "success": true,
-        "message": "Azure configuration saved. Please restart services to apply changes."
+        "message": format!("Azure configuration saved. Mapper {}.", mapper_state)
     })))
 }
 

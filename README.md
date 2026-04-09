@@ -75,14 +75,185 @@ https://<device-ip>/thin-edge-io/
 
 ### UI Sections
 
-- **Connection Status** — Live service status for all thin-edge.io services
-- **Cloud Configuration** — Configure Cumulocity IoT, AWS IoT, or Azure IoT Hub connection
-- **Device Configuration & Certificate** — Manage device ID and X.509 certificates
-- **Device Connection** — Connect, disconnect, reconnect to cloud platforms; send test messages
-- **Logs & Diagnostics** — Live log viewer with selectable service and adjustable log level (applied via `RUST_LOG` on next service restart)
-- **Tedge Configuration** — Full output of `tedge config list`
-- **Data Points (DataLayer)** — Browse ctrlX Data Layer nodes and view/edit bridge mapping configuration
-- **System Information** — Build info, snap version, architecture
+Each section is a collapsible card in the sidebar UI. All sections are always visible simultaneously (no navigation required).
+
+---
+
+#### CONNECTION STATUS
+
+Three-column live status dashboard, auto-refreshing every 30 seconds (also on demand via **Refresh Status** button):
+
+| Column | Items |
+|--------|-------|
+| **Services** | MQTT Broker, Tedge Agent, Datalayer Bridge, Watchdog, Log Manager — each label is clickable to restart the service |
+| **Mappers** | Cumulocity IoT, AWS IoT, Azure IoT — shows whether the mapper process is running |
+| **Cloud Connections** | Cumulocity IoT, AWS IoT, Azure IoT — shows MQTT bridge state (`$SYS/broker/connection/*/state`) |
+
+Status indicators:
+- 🟢 **Running** — process active
+- 🔴 **Stopped** — process not running  
+- ⚫ **Inactive** — disabled/not configured
+- ⚪ **Unknown** — not yet checked
+
+---
+
+#### CLOUD CONFIGURATION
+
+Three tabs — **Cumulocity IoT**, **AWS IoT**, **Azure IoT**:
+
+| Tab | Fields |
+|-----|--------|
+| **Cumulocity IoT** | C8Y URL (e.g. `https://your-tenant.cumulocity.com`), Tenant ID, Enable Cumulocity Mapper toggle |
+| **AWS IoT** | AWS IoT Endpoint URL (e.g. `xxxxxxxxxx.iot.us-east-1.amazonaws.com`), Enable AWS Mapper toggle |
+| **Azure IoT** | Azure IoT Hub URL (e.g. `your-hub.azure-devices.net`), Enable Azure Mapper toggle |
+
+Each tab has a **Save Configuration** button that writes values via `POST /api/config/{cloud}`. The **Enable Mapper** toggle immediately starts (`snapctl start thin-edge-io.tedge-mapper-<cloud>`) or stops (`snapctl stop`) the corresponding mapper service — no manual restart required.
+
+---
+
+#### DEVICE CONFIGURATION & CERTIFICATE
+
+Left panel — device identity:
+
+| Element | Description |
+|---------|-------------|
+| **Device ID** | Read-only; the unique device identifier derived from the serial number |
+| **Device Name** | Editable CN used when creating / renewing the X.509 certificate |
+| **Certificate Status** | Indicates whether a valid device certificate exists |
+| **Upload Status** | Shows whether the certificate has been uploaded to Cumulocity (persisted in `tedge-web-config.json`) |
+| **Save** | Saves device name changes |
+| **Renew Certificate** | Recreates the certificate with the current Device Name as CN |
+| **Upload Certificate** | Expands a credential form (Cumulocity username + password) and uploads the certificate via `POST /api/cert/upload/c8y` |
+
+Right panel (shown when a certificate exists): **Certificate Details** — displays subject, issuer, validity dates, and fingerprint.
+
+---
+
+#### CONNECT DEVICE
+
+Three tabs — **Cumulocity IoT**, **AWS IoT**, **Azure IoT** — each with:
+
+- **Connect** — runs `tedge connect <cloud>`
+- **Reconnect** — runs `tedge reconnect <cloud>`
+- **Disconnect** — runs `tedge disconnect <cloud>`
+- **Setup ↗** — opens the thin-edge.io documentation for the respective cloud
+
+For **Cumulocity IoT** only, an additional **MQTT Port** toggle selects between:
+- `Core MQTT (8883)` — standard TLS MQTT
+- `MQTT Service (9883)` — Cumulocity MQTT Service (connection only; SmartREST operations not supported)
+
+**Test Messages** section (bottom, shared across all tabs):
+
+| Button | MQTT Topic |
+|--------|-----------|
+| Test Measurement | publishes a sample measurement payload |
+| Test Event | publishes a sample event payload |
+| Test Alarm | publishes a sample alarm payload |
+
+Output of connect/disconnect/test operations appears in the **Logs & Diagnostics** viewer.
+
+---
+
+#### LOGS & DIAGNOSTICS
+
+Live log viewer with controls:
+
+| Control | Options |
+|---------|---------|
+| **Service** | `tedge-agent`, `tedge-mapper-c8y`, `tedge-mapper-aws`, `tedge-mapper-az`, `tedge-bridge`, `log-upload`, `mosquitto`, `webserver` |
+| **Log Level** | `error`, `warn`, `info` (default), `debug`, `trace` |
+| **Apply Level** | Writes the selected level via `RUST_LOG` to `$SNAP_DATA/log-levels/<service>` and restarts the service |
+| **Load Logs** | Fetches recent log lines via `GET /api/logs?service=<name>` |
+| **Copy** | Copies viewer content to clipboard |
+
+The viewer is a 320 px high monospace scrollable area.
+
+---
+
+#### TEDGE CONFIGURATION
+
+Read-only view of the complete `tedge config list` output (equivalent to running `thin-edge-io.tedge config list` on the device):
+
+- **Load** — fetches via `GET /api/tedge-config-list`
+- **Copy** — copies all lines to clipboard
+
+The viewer is a 400 px high monospace scrollable area.
+
+---
+
+#### SNAP CONFIGURATION FILES
+
+Direct file editor for the snap's configuration files stored in `$SNAP_DATA`. Useful for advanced manual edits without SSH access.
+
+**File selector:**
+
+| File | Location | Description |
+|------|----------|-------------|
+| `datalayer-mappings.json` | `$SNAP_DATA/datalayer-mappings.json` | ctrlX Data Layer ↔ MQTT bridge mapping definitions |
+| `inventory.json` | `$SNAP_DATA/tedge/device/inventory.json` | Device inventory reported to cloud (hardware, snap list) |
+| `mosquitto.conf` | `$SNAP_DATA/mosquitto/mosquitto.conf` | Mosquitto MQTT broker configuration (ports, TLS, bridge) |
+| `tedge.toml` | `$SNAP_DATA/tedge/tedge.toml` | Main thin-edge.io configuration (URLs, paths, plugin settings) |
+| `tedge-log-plugin.toml` | `$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml` | Log file paths exposed for remote log upload requests |
+| `tedge-configuration-plugin.toml` | `$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml` | Config files exposed for remote configuration management |
+
+The file's full path is shown below the selector as a hint. The editor textarea is resizable vertically.
+
+- **Load** — reads the file via `GET /api/snapconfig?file=<name>`
+- **Save** — writes back via `POST /api/snapconfig` (requires `thin-edge-io.rw` scope)
+- **Copy** — copies editor content to clipboard
+
+---
+
+#### CTRLX DATA POINTS (DATALAYER)
+
+Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-bridge`).
+
+**Status row:** Shows the bridge service dot and connection state; **Refresh** button re-polls `GET /api/datalayer/status`.
+
+**Connection Settings** (collapsible `<details>`):
+
+| Field | Description |
+|-------|-------------|
+| Base URL | ctrlX Data Layer base URL (default `https://localhost`) |
+| Username | Data Layer username (default `boschrexroth`) |
+| Password | Data Layer password |
+| Poll interval (ms) | How often the bridge polls Data Layer nodes (default `5000`) |
+| Static Token | Optional bearer token (overrides username/password) |
+| Enabled toggle | Enable/disable the bridge |
+| Accept invalid TLS certs | Skip TLS verification (useful for self-signed certificiates on local device) |
+| **Save Connection** | Saves via `POST /api/datalayer/config` |
+
+**Node Browser** (collapsible `<details>`):
+- Path input + **Browse** button — lists child nodes of the given Data Layer path via `GET /api/datalayer/browse`
+- **↑ Up** — navigates to the parent path
+- Clicking a node reads its current value; a **+** icon in the node list opens the Add Mapping form pre-filled with that path
+
+**Mappings Form** (shown when adding or editing):
+
+| Field | Description |
+|-------|-------------|
+| Datalayer Path | Full path to the Data Layer node |
+| Direction | `Datalayer ➔ tedge` (read) or `tedge ➔ Datalayer` (write) |
+| tedge MQTT Topic | Auto-suggested based on transform type; editable |
+| Transform | `raw`, `measurement`, `event`, or `alarm` |
+| Field name | JSON field name in the payload (auto-derived from path if left empty) |
+| Unit | Optional unit string (e.g. `°C`, `bar`) appended to measurements |
+
+**Mappings Table** (bottom): lists all saved mappings with columns Path, Topic, Direction (arrow icon), Type · Field, Active toggle, and an edit button. Changes to individual rows are saved via `PUT /api/datalayer/mappings/{id}` or `DELETE /api/datalayer/mappings/{id}`.
+
+---
+
+#### SYSTEM INFORMATION
+
+Displays read-only device and build metadata:
+
+| Field | Source |
+|-------|--------|
+| **Version** | Snap version (from `GET /api/build-info`) |
+| **Build** | Build number / Git commit from `configs/build-info.txt` |
+| **Architecture** | CPU architecture (`amd64` or `arm64`) |
+
+**Refresh** button reloads all status data (same as the button in Connection Status).
 
 ### Web API (REST)
 
@@ -124,6 +295,7 @@ The web server exposes the following API endpoints under `/api/`:
 | GET | `/datalayer/mappings` | List MQTT ↔ Data Layer mappings |
 | POST | `/datalayer/mappings` | Save all mappings |
 | POST | `/datalayer/mappings/add` | Add a single mapping |
+| PUT | `/datalayer/mappings/{id}` | Update a mapping by ID |
 | DELETE | `/datalayer/mappings/{id}` | Delete a mapping by ID |
 | GET | `/datalayer/browse` | Browse Data Layer nodes |
 | GET | `/datalayer/node` | Read a single Data Layer node value |
@@ -231,6 +403,54 @@ snap remove --purge thin-edge-io
 
 # Revert to previous snap revision after update
 snap revert thin-edge-io
+```
+
+### Snap CLI Commands
+
+Das Snap stellt folgende CLI-Befehle bereit (erreichbar per SSH oder Terminal):
+
+#### `thin-edge-io.manage-device-id` — Device-ID Verwaltung
+
+```bash
+thin-edge-io.manage-device-id <command> [device-id]
+```
+
+| Command | Beschreibung |
+|---------|-------------|
+| `get-serial` | Gibt die Systemseriennummer aus (DMI/UUID-basiert, für neue Geräte ohne Zertifikat) |
+| `get-current` | Gibt die aktuelle Device-ID aus dem vorhandenen Gerätezertifikat aus |
+| `status` | Zeigt Systemseriennummer und aktuelle Device-ID (aus Zertifikat) an |
+| `create [device-id]` | Erstellt ein neues Zertifikat — ohne Argument wird `get-serial` verwendet |
+| `recreate [device-id]` | Erstellt das Zertifikat neu (z.B. nach Gerätewechsel) |
+| `set <device-id>` | Setzt eine explizite Device-ID und erstellt das Zertifikat |
+
+**Beispiele:**
+```bash
+# Status anzeigen
+sudo thin-edge-io.manage-device-id status
+
+# Zertifikat mit automatisch erkannter Seriennummer erstellen
+sudo thin-edge-io.manage-device-id create
+
+# Explizite Device-ID setzen
+sudo thin-edge-io.manage-device-id set my-device-001
+```
+
+#### `thin-edge-io.tedge-connect` — Cloud-Verbindung
+
+```bash
+# Mit Cumulocity IoT verbinden (registriert Gerät, lädt Zertifikat hoch)
+thin-edge-io.tedge-connect c8y
+
+# Verbindung trennen
+thin-edge-io.tedge-connect c8y --disconnect
+```
+
+#### `thin-edge-io.build-info` — Build-Informationen
+
+```bash
+# Zeigt Versionsinformationen des installierten Snaps
+thin-edge-io.build-info
 ```
 
 **Important Paths:**
@@ -417,3 +637,99 @@ The project uses a modular build process:
 ### Clean
 
     ./scripts/clean.sh
+
+
+## thin-edge.io Configuration Interface
+
+The snap auto-configures all required tedge settings on first install and after every update. Below is the complete reference of all configuration blocks managed by this snap.
+
+### Auto-Configured Settings (tedge.toml)
+
+These are set automatically by the `install` hook and kept current by the `post-refresh` hook.
+
+#### `device` block
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `device.type` | `ctrlX-CORE` | Device type reported to cloud |
+| `device.cert_path` | `$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem` | Device certificate (ctrlX Certificate Store) |
+| `device.key_path` | `$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/private/tedge-private-key.pem` | Private key (ctrlX Certificate Store, mode 700) |
+
+#### `mqtt` block
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `mqtt.bind.address` | `127.0.0.1` | Mosquitto listens on localhost only |
+| `mqtt.bind.port` | `1883` | Local broker port |
+| `mqtt.client.port` | `1883` | Port used by tedge services to connect to the broker |
+
+#### `http` block
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `http.bind.address` | `127.0.0.1` | File-transfer service listens on localhost only |
+| `http.bind.port` | `8000` | File-transfer service port |
+
+#### `software` block
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `software.plugin.default` | `snap` | Default software management plugin |
+
+#### `data` / `logs` / paths
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `data.path` | `$SNAP_COMMON/tedge` | Persistent data directory (survives snap updates) |
+| `logs.path` | `$SNAP_COMMON/tedge/log` | Log directory |
+| `run.path` | `$SNAP_DATA/tedge/run` | Runtime sockets and PID files (updated on each refresh) |
+| `tmp.path` | `$SNAP_DATA/tedge/tmp` | Temporary files |
+| `log.plugin_paths` | `$SNAP_DATA/tedge/log-plugins-disabled` | Set to empty dir to disable tedge-agent's built-in log manager; log uploads are handled by `tedge-log-upload-manager` |
+
+#### `sudo` block
+
+| Key | Value | Description |
+|-----|-------|-------------|
+| `sudo.enable` | `false` | Disabled — snap runs without root |
+
+### Snap-Managed Plugin Configurations
+
+These files are re-generated by the `post-refresh` hook after every snap update to fix revision-specific paths.
+
+#### `tedge-log-plugin.toml` (`$SNAP_DATA/tedge/plugins/`)
+
+| Log type | Path pattern |
+|----------|-------------|
+| `software-management` | `$SNAP_COMMON/tedge/log/agent/workflow-software_*` |
+| `tedge-agent` | `$SNAP_COMMON/tedge/log/tedge-agent.log` |
+| `tedge-datalayer-bridge` | `$SNAP_COMMON/tedge/log/tedge-datalayer-bridge.log` |
+| `tedge-mapper-c8y` | `$SNAP_COMMON/tedge/log/tedge-mapper.log` |
+| `mosquitto` | `$SNAP_COMMON/tedge/log/mosquitto.log` |
+| `webserver` | `$SNAP_COMMON/tedge/log/tedge-web-config.log` |
+| `log-upload-manager` | `$SNAP_COMMON/tedge/log/tedge-log-upload-manager.log` |
+
+#### `tedge-configuration-plugin.toml` (`$SNAP_DATA/tedge/plugins/`)
+
+| Config type | File path |
+|-------------|-----------|
+| `tedge.toml` / `default` | `$SNAP_DATA/tedge/tedge.toml` |
+| `mosquitto.conf` | `$SNAP_DATA/mosquitto/mosquitto.conf` |
+| `inventory.json` | `$SNAP_DATA/tedge/device/inventory.json` |
+| `tedge-log-plugin` | `$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml` |
+
+### REST API — Data Layer Mappings
+
+The following endpoints manage ctrlX Data Layer ↔ MQTT bridge mappings:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/datalayer/mappings` | List all mappings |
+| POST | `/api/datalayer/mappings` | Replace all mappings |
+| POST | `/api/datalayer/mappings/add` | Add a single mapping |
+| PUT | `/api/datalayer/mappings/{id}` | Update a mapping by ID |
+| DELETE | `/api/datalayer/mappings/{id}` | Delete a mapping by ID |
+
+## How to connect to Cumulocity IoT and other cloud platforms and run the thin-edge.io snap on ctrlX CORE 
+
+### Additional Operations/Scripts
+

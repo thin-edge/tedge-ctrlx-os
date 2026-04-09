@@ -121,6 +121,7 @@ apps:
       - network-bind
       - system-observe
       - log-observe    # Needed so log plugins can call journalctl for service logs
+      - snapd-control  # Needed for sm-plugin 'snap list' to report all installed snaps
     passthrough:
       restart-delay: 5s
       after:
@@ -339,7 +340,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: fd29bd0d8ef830b6cc169fbf07b118d4eb310fe2
+    source-commit: 1dc8a3fdfb51532005dfee8fcca7a117a8a1cb85
     build-packages:
       - pkg-config
       - libssl-dev

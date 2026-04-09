@@ -8,4 +8,4 @@ cp web/www/styles.css web-server-rust/www/styles.css
 
 cd web-server-rust
 cargo build --release
-cargo run --release
+SNAP_DATA=.. cargo run --release

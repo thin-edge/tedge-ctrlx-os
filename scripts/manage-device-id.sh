@@ -5,6 +5,7 @@
 set -e
 
 TEDGE_CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
+TEDGE_DATA_DIR="${SNAP_COMMON:-/var/snap/thin-edge-io/common}/tedge"
 TEDGE_BIN="${SNAP:-/snap/thin-edge-io/current}/bin/tedge"
 
 # ctrlX Certificate Store paths (managed by ctrlX Certificate Manager)
@@ -70,7 +71,7 @@ get_current_device_id() {
 # NEU: Aktualisiert die inventory.json mit der echten Seriennummer
 update_inventory() {
     local device_id="$1"
-    local inventory_file="$TEDGE_CONFIG_DIR/device/inventory.json"
+    local inventory_file="$TEDGE_DATA_DIR/device/inventory.json"
     
     if [ -f "$inventory_file" ]; then
         echo "Updating inventory.json with Device ID: $device_id" >&2
