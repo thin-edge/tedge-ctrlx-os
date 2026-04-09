@@ -44,24 +44,31 @@ log "Running: tedge $ACTION $CLOUD"
 # Step 1: Run tedge connect/disconnect/reconnect
 # This writes the bridge/config files (and silently swallows the systemd error).
 #
-# Port 9883 (MQTT Service): tedge connect tries to self-register the device via
-# SmartREST `100,...` on s/us. The MQTT Service rejects this message → connect fails
-# and never writes the necessary config files.
-# Fix: use --offline when port 9883 is configured. --offline skips device creation
-# AND the connection test, so we run the test ourselves afterwards.
+# Always use built-in bridge mode (works for both 8883 and 9883).
+# Built-in bridge uses a standard MQTT client connection instead of the
+# mosquitto proprietary bridge protocol — required for port 9883 (MQTT Service),
+# and equally valid for port 8883 (Core MQTT).
+#
+# For port 9883: use --offline to skip SmartREST device registration
+# (the MQTT Service endpoint rejects the 100,... registration payload).
+
+# Always enable built-in bridge for c8y
+if [[ "$CLOUD" == "c8y" ]]; then
+    "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" config set mqtt.bridge.built_in true 2>/dev/null || true
+fi
 
 CONNECT_FLAGS=""
 if [[ "$CLOUD" == "c8y" ]] && [[ "$ACTION" != "disconnect" ]]; then
     MQTT_PORT=$("$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" config get c8y.mqtt 2>/dev/null | grep -oE ':[0-9]+$' | tr -d ':' || echo "")
     if [[ "$MQTT_PORT" == "9883" ]]; then
-        log "Port 9883 detected: using --offline to skip device creation (MQTT Service does not support SmartREST registration)"
+        log "Port 9883 detected: using --offline to skip SmartREST registration"
         CONNECT_FLAGS="--offline"
     fi
 fi
 
 "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" "$ACTION" "$CLOUD" $CONNECT_FLAGS 2>&1 || true
 
-# Step 1b: Fix hardcoded revision paths in bridge configs.
+# Step 1c: Fix hardcoded revision paths in bridge configs.
 # tedge connect writes absolute paths like /var/snap/thin-edge-io/x42/...
 # After a snap update the revision changes, making cert paths invalid.
 # Replace all revision-specific paths with the stable "current" symlink.

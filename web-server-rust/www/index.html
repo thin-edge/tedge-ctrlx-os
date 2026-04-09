@@ -584,6 +584,8 @@
                 >
                   Cumulocity Credentials
                 </div>
+                <!-- form wraps user+pass so browser handles autocomplete/password warnings correctly -->
+                <form id="c8y-upload-form" onsubmit="return false;">
                 <div class="form-group" style="margin-bottom: 10px">
                   <label
                     for="c8y-upload-user"
@@ -611,6 +613,7 @@
                     id="c8y-upload-pass"
                     placeholder="••••••••"
                     autocomplete="current-password"
+                    form="c8y-upload-form"
                     style="margin-top: 4px"
                   />
                 </div>
@@ -630,6 +633,7 @@
                     Cancel
                   </button>
                 </div>
+                </form>
               </div>
             </div>
             <div
@@ -1323,6 +1327,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       type="password"
                       id="datalayer-password"
                       class="form-control"
+                      autocomplete="off"
                       data-i18n-placeholder="datalayer.password_hint"
                     />
                   </div>

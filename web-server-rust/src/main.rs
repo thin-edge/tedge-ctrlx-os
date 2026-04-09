@@ -525,21 +525,6 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             }
             "stopped"
         };
-        // Like check_process but returns "inactive" (neutral) instead of "stopped" (error)
-        // for optional services that may not be started yet
-        let _check_optional = |name: &str| -> &'static str {
-            if let Ok(entries) = std::fs::read_dir("/proc") {
-                for entry in entries.flatten() {
-                    let comm_path = entry.path().join("comm");
-                    if let Ok(comm) = std::fs::read_to_string(&comm_path) {
-                        if comm.trim() == name {
-                            return "running";
-                        }
-                    }
-                }
-            }
-            "inactive"
-        };
 
         status.mosquitto = check_process("mosquitto").to_string();
         status.agent = check_process("tedge-agent").to_string();
@@ -1322,6 +1307,21 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 "c8y.mqtt_service.enabled",
                 enabled_str,
             ])
+            .output()?;
+
+        // 4. Always use built-in bridge mode.
+        //    The built-in bridge uses a standard MQTT client connection (not the
+        //    mosquitto proprietary bridge protocol), which is required for port 9883
+        //    (MQTT Service) and also works correctly for port 8883.
+        Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                &tedge_config_dir,
+                "config",
+                "set",
+                "mqtt.bridge.built_in",
+                "true",
+            ])
             .output()
     })
     .await;
@@ -2044,6 +2044,20 @@ async fn set_device_id(
         })));
     }
 
+    // Validate device ID: only allow safe characters valid for X.509 CN and file system
+    // Allows alphanumeric, dash, underscore, dot (common in hostnames and serial numbers)
+    if device_id.len() > 64
+        || !device_id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+    {
+        warn!("[DEVICE-ID] Invalid device ID: {}", device_id);
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Device ID may only contain letters, digits, hyphens, underscores, and dots (max 64 chars)"
+        })));
+    }
+
     info!("[DEVICE-ID] Setting device ID to: {}", device_id);
     info!("[DEVICE-ID] Executing: {:?} set {}", script_path, device_id);
 
@@ -2361,75 +2375,6 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
     }
 }
 
-fn parse_system_toml_log_section(content: &str) -> std::collections::HashMap<String, String> {
-    let mut levels = std::collections::HashMap::new();
-    let mut in_log = false;
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed == "[log]" {
-            in_log = true;
-            continue;
-        }
-        if trimmed.starts_with('[') {
-            in_log = false;
-            continue;
-        }
-        if in_log {
-            if let Some((key, val)) = trimmed.split_once('=') {
-                let key = key.trim().to_string();
-                let val = val.trim().trim_matches('"').to_string();
-                levels.insert(key, val);
-            }
-        }
-    }
-    levels
-}
-
-fn update_system_toml_level(content: &str, service: &str, level: &str) -> String {
-    let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    let mut in_log = false;
-    let mut found_key = false;
-    let mut log_section_end: Option<usize> = None;
-    let mut has_log_section = false;
-
-    for (i, line) in lines.iter().enumerate() {
-        let trimmed = line.trim();
-        if trimmed == "[log]" {
-            in_log = true;
-            has_log_section = true;
-            continue;
-        }
-        if trimmed.starts_with('[') && in_log && log_section_end.is_none() {
-            log_section_end = Some(i);
-            in_log = false;
-            continue;
-        }
-        if in_log {
-            if let Some((key, _)) = trimmed.split_once('=') {
-                if key.trim() == service {
-                    lines[i] = format!("{} = \"{}\"", service, level);
-                    found_key = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    if !found_key {
-        let new_entry = format!("{} = \"{}\"", service, level);
-        if has_log_section {
-            let insert_pos = log_section_end.unwrap_or(lines.len());
-            lines.insert(insert_pos, new_entry);
-        } else {
-            lines.push(String::new());
-            lines.push("[log]".to_string());
-            lines.push(new_entry);
-        }
-    }
-
-    lines.join("\n")
-}
-
 async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
@@ -2543,9 +2488,19 @@ async fn get_log_level(req: HttpRequest) -> Result<HttpResponse> {
     }
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = format!("{}/tedge/system.toml", snap_data);
-    let content = fs::read_to_string(&path).unwrap_or_default();
-    let levels = parse_system_toml_log_section(&content);
+    let log_levels_dir = format!("{}/log-levels", snap_data);
+    let mut levels = std::collections::HashMap::new();
+
+    if let Ok(entries) = std::fs::read_dir(&log_levels_dir) {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) {
+                if let Ok(level) = std::fs::read_to_string(entry.path()) {
+                    levels.insert(name, level.trim().to_string());
+                }
+            }
+        }
+    }
+
     Ok(HttpResponse::Ok().json(LogLevelConfig { levels }))
 }
 
@@ -2570,15 +2525,14 @@ async fn set_log_level(
     }
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = format!("{}/tedge/system.toml", snap_data);
-    let content = fs::read_to_string(&path).unwrap_or_default();
-    let new_content = update_system_toml_level(&content, &body.service, &body.level);
-
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    fs::write(&path, new_content)?;
-    info!("[LOG-LEVEL] Set {} = {}", body.service, body.level);
+    let log_levels_dir = format!("{}/log-levels", snap_data);
+    let _ = fs::create_dir_all(&log_levels_dir);
+    let level_file = format!("{}/{}", log_levels_dir, body.service);
+    fs::write(&level_file, &body.level)?;
+    info!(
+        "[LOG-LEVEL] Set {} = {} (RUST_LOG file)",
+        body.service, body.level
+    );
 
     // Restart service to apply new log level (only in snap)
     // Skip restart for "webserver" — would kill ourselves mid-request
@@ -2710,14 +2664,14 @@ async fn get_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Re
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
 
-    let mut cfg = data.load_datalayer_config();
+    let mut cfg = web::block(move || data.load_datalayer_config())
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    // Anmeldedaten niemals im Klartext an den Client senden
-    // Wir prüfen, ob der Wert vorhanden (is_some) ist und maskieren ihn dann
+    // Never send credentials in plaintext to the client
     if cfg.password.is_some() {
         cfg.password = Some("***".to_string());
     }
-
     if cfg.token.is_some() {
         cfg.token = Some("***".to_string());
     }
@@ -2801,7 +2755,9 @@ async fn get_datalayer_mappings(
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
-    let cfg = data.load_datalayer_config();
+    let cfg = web::block(move || data.load_datalayer_config())
+        .await
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     Ok(HttpResponse::Ok().json(serde_json::json!({"mappings": cfg.mappings})))
 }
 

@@ -69,8 +69,15 @@ update_inventory() {
     
     if [ -f "$inventory_file" ]; then
         echo "Updating inventory.json with Device ID: $device_id" >&2
-        # Nutze sed um den Wert von "serialNumber" sicher zu ersetzen
-        sed -i "s/\"serialNumber\":[[:space:]]*\".*\"/\"serialNumber\": \"$device_id\"/" "$inventory_file"
+        # Use python3 for safe JSON manipulation (avoids sed injection with special chars in device_id)
+        python3 -c "
+import json, sys
+with open('$inventory_file', 'r') as f:
+    data = json.load(f)
+data['serialNumber'] = sys.argv[1]
+with open('$inventory_file', 'w') as f:
+    json.dump(data, f, indent=2)
+" "$device_id"
     else
         echo "WARNING: inventory.json not found at $inventory_file" >&2
     fi

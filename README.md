@@ -55,8 +55,6 @@ thin-edge-io-app/
 ### Plugins
 | Plugin | Description |
 |--------|-------------|
-| `c8y-remote-access-plugin` | Secure remote access via Cumulocity |
-
 | `tedge-file-config-plugin` | Configuration file management |
 | `tedge-snap-plugin` | Lists installed snaps in Cumulocity software inventory (read-only, install/remove not supported) |
 
@@ -77,12 +75,13 @@ https://<device-ip>/thin-edge-io/
 
 ### UI Sections
 
-- **Status** — Live service status for all thin-edge.io services
+- **Connection Status** — Live service status for all thin-edge.io services
 - **Cloud Configuration** — Configure Cumulocity IoT, AWS IoT, or Azure IoT Hub connection
-- **Device Identity** — Manage device ID and X.509 certificates
-- **Connection** — Connect, disconnect, reconnect to cloud platforms; send test messages
-- **Logs** — Live log viewer with selectable service and log level
+- **Device Configuration & Certificate** — Manage device ID and X.509 certificates
+- **Device Connection** — Connect, disconnect, reconnect to cloud platforms; send test messages
+- **Logs & Diagnostics** — Live log viewer with selectable service and adjustable log level (applied via `RUST_LOG` on next service restart)
 - **Tedge Configuration** — Full output of `tedge config list`
+- **Data Points (DataLayer)** — Browse ctrlX Data Layer nodes and view/edit bridge mapping configuration
 - **System Information** — Build info, snap version, architecture
 
 ### Web API (REST)
@@ -110,12 +109,12 @@ The web server exposes the following API endpoints under `/api/`:
 | GET | `/logs` | Fetch service logs |
 | GET | `/tedge-config-list` | Full `tedge config list` output |
 | GET | `/build-info` | Build and version information |
-| GET | `/log-level` | Get current log level |
-| POST | `/log-level` | Set log level |
+| GET | `/log-level` | Get configured log level per service |
+| POST | `/log-level` | Set log level for a service (`error`/`warn`/`info`/`debug`/`trace`); restarts service to apply |
 | POST | `/restart` | Restart all services |
 | POST | `/restart-service` | Restart a single named service |
 | GET | `/me` | Current authenticated user and role |
-| POST | `/set-mqtt-port` | Set `c8y.mqtt.port` (8883 or 9883) |
+| POST | `/set-mqtt-port` | Set MQTT port (8883 = MQTT Core, 9883 = MQTT Service) |
 | GET | `/snapconfig` | Read raw `tedge.toml` snap config file |
 | POST | `/snapconfig` | Write raw `tedge.toml` snap config file |
 | GET | `/datalayer/status` | Data Layer bridge status |
@@ -146,6 +145,8 @@ The web server exposes the following API endpoints under `/api/`:
 
 3. Navigate to **Settings → Apps**
 
+3a. If necessary set **Allow installation from unknown source.**
+
 4. Switch to **Service Mode**
 
 5. Click **Install from file** and select the snap file
@@ -159,7 +160,7 @@ The web server exposes the following API endpoints under `/api/`:
 Open `https://<device-ip>/thin-edge-io/` and configure cloud connection, device ID, and certificates directly in the browser.
 
 ### Via CLI (SSH / Terminal)
-
+SSH is only woking if yopur user is Member of the `ssh-users` group. You can add your user to this group via the ctrlX CORE web interface under **Settings → Users & Groups** and SSH is activated in **Settings → Apps → SSH**.
 ```bash
 # Configure Cumulocity IoT
 thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
@@ -205,7 +206,7 @@ This script installs all dependencies (Rust toolchain, Snapcraft) and builds sna
 ```bash
 # Rust toolchain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup default 1.85
+rustup default 1.94
 
 # Snapcraft
 sudo snap install snapcraft --classic
@@ -282,8 +283,9 @@ $SNAP_DATA/tedge/.agent/
 | Direction | Protocol | Port | Purpose |
 |-----------|----------|------|---------|
 | Outbound | HTTPS | 443 | Cloud platform REST API |
-| Outbound | MQTT/TLS | 8883 | Secure cloud MQTT |
-| Local | HTTP | 8888 | Web UI (proxied via ctrlX caddy) |
+| Outbound | MQTT/TLS | 8883 | Secure cloud MQTT (recommended) |
+| Outbound | MQTT/TLS | 9883 | Cumulocity MQTT Service (connection only; SmartREST operations not supported) |
+| Local | HTTP | 8888 | Web UI (proxied via ctrlX Caddy) |
 | Local | MQTT | 1883 | Local broker (internal) |
 
 ## Security
@@ -337,11 +339,11 @@ Das Projekt verwendet einen modularen Build-Prozess:
     - `setup-config.sh` — Interaktives Konfigurations-Hilfsskript
     - `setup-directories.sh` — Verzeichnis-Initialisierung beim Snap-Start
     - `mosquitto-wrapper.sh` — Mosquitto MQTT Broker Wrapper
-    - `connect-wrapper.sh` — Snap-aware tedge connect/disconnect
+    - `connect-wrapper.sh` — Snap-aware tedge connect/disconnect/reconnect (setzt `mqtt.bridge.built_in=true`, liest Cert-Pfade)
     - `watchdog-wrapper.sh` — Health-Monitoring Wrapper
-    - `webserver-wrapper.sh` — Webserver Starter
-    - `tedge-service-wrapper.sh` — Allgemeiner Service-Wrapper
-    - `manage-device-id.sh` — Geräte-ID Verwaltung
+    - `webserver-wrapper.sh` — Webserver Starter (liest Log-Level aus `$SNAP_DATA/log-levels/webserver`)
+    - `tedge-service-wrapper.sh` — Allgemeiner Service-Wrapper (liest Log-Level aus `$SNAP_DATA/log-levels/<service>`, setzt `RUST_LOG`)
+    - `manage-device-id.sh` — Geräte-ID Verwaltung (Seriennummer, Zertifikat erstellen)
     - `update-inventory.sh` — Inventory-Update Skript
     - `show-build-info.sh` — Build-Info anzeigen
     - `check-format.sh` — Code-Format-Prüfung

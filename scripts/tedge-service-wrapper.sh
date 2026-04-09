@@ -50,6 +50,14 @@ mkdir -p "$SNAP_COMMON/tedge/log"
 BINARY_NAME="$1"
 shift
 
+# Load per-service log level from $SNAP_DATA/log-levels/<service>
+# This is written by the web UI and read here at service start.
+LOG_LEVEL_FILE="$SNAP_DATA/log-levels/$BINARY_NAME"
+if [ -f "$LOG_LEVEL_FILE" ]; then
+    RUST_LOG=$(cat "$LOG_LEVEL_FILE")
+    export RUST_LOG
+fi
+
 # Pipe stdout+stderr to the service-specific log file (append) and
 # keep a copy going to the snapd journal (stdout of this wrapper).
 LOG_FILE="$SNAP_COMMON/tedge/log/${BINARY_NAME}.log"

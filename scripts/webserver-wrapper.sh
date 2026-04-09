@@ -28,12 +28,15 @@ if [ ! -f "$SNAP/web/www/index.html" ]; then
     exit 1
 fi
 
-# Set logging level - can be overridden with: snap set thin-edge-io rust-log=<level>
-export RUST_LOG="debug"
-echo "Logging level: $RUST_LOG (erzwungen)"
-
-# Set logging level - default debug
-export RUST_LOG="${RUST_LOG:-debug}"
+# Load log level from $SNAP_DATA/log-levels/webserver (set via the UI)
+# Falls back to "info" if not configured.
+LOG_LEVEL_FILE="${SNAP_DATA}/log-levels/webserver"
+if [ -f "$LOG_LEVEL_FILE" ]; then
+    RUST_LOG=$(cat "$LOG_LEVEL_FILE")
+else
+    RUST_LOG="info"
+fi
+export RUST_LOG
 echo "Logging level: $RUST_LOG"
 # Start the webserver
 echo "Starting tedge-web-config..."

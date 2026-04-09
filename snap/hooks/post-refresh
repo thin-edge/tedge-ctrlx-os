@@ -152,6 +152,23 @@ echo "Updating revision-specific tedge config paths..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>/dev/null || true
 
+# Fix hardcoded revision paths in mosquitto bridge configs.
+# tedge connect writes absolute paths like /var/snap/thin-edge-io/x42/...
+# After a snap update the revision changes, making cert/key paths invalid.
+# Replace all revision-specific paths with the stable "current" symlink.
+echo "Fixing revision paths in mosquitto bridge configs..." >&2
+MOSQUITTO_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
+SNAP_BASE="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}"
+if [ -d "$MOSQUITTO_CONF_DIR" ]; then
+    for f in "$MOSQUITTO_CONF_DIR"/*.conf; do
+        [ -f "$f" ] || continue
+        if grep -qE "${SNAP_BASE}/x[0-9]+" "$f" 2>/dev/null; then
+            sed -i -E "s|${SNAP_BASE}/x[0-9]+/|${SNAP_BASE}/current/|g" "$f"
+            echo "  Fixed revision paths in: $(basename "$f")" >&2
+        fi
+    done
+fi
+
 # =========================================================================
 # --- CRITICAL FIX: Repariere Plugin-Konfigurationen nach Update ---
 # =========================================================================

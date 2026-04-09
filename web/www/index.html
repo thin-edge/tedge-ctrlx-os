@@ -584,52 +584,56 @@
                 >
                   Cumulocity Credentials
                 </div>
-                <div class="form-group" style="margin-bottom: 10px">
-                  <label
-                    for="c8y-upload-user"
-                    style="font-size: 13px"
-                    data-i18n="device.c8y_user"
-                    >Cumulocity Username:</label
-                  >
-                  <input
-                    type="text"
-                    id="c8y-upload-user"
-                    placeholder="admin"
-                    autocomplete="username"
-                    style="margin-top: 4px"
-                  />
-                </div>
-                <div class="form-group" style="margin-bottom: 12px">
-                  <label
-                    for="c8y-upload-pass"
-                    style="font-size: 13px"
-                    data-i18n="device.c8y_pass"
-                    >Password:</label
-                  >
-                  <input
-                    type="password"
-                    id="c8y-upload-pass"
-                    placeholder="••••••••"
-                    autocomplete="current-password"
-                    style="margin-top: 4px"
-                  />
-                </div>
-                <div class="action-buttons">
-                  <button
-                    class="btn btn-primary btn-sm"
-                    onclick="submitCertUpload()"
-                    data-i18n="device.upload_btn"
-                  >
-                    Upload Certificate
-                  </button>
-                  <button
-                    class="btn btn-outline-secondary btn-sm"
-                    onclick="toggleCertUploadForm()"
-                    data-i18n="device.cancel"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <!-- form wraps user+pass so browser handles autocomplete/password warnings correctly -->
+                <form id="c8y-upload-form" onsubmit="return false;">
+                  <div class="form-group" style="margin-bottom: 10px">
+                    <label
+                      for="c8y-upload-user"
+                      style="font-size: 13px"
+                      data-i18n="device.c8y_user"
+                      >Cumulocity Username:</label
+                    >
+                    <input
+                      type="text"
+                      id="c8y-upload-user"
+                      placeholder="admin"
+                      autocomplete="username"
+                      style="margin-top: 4px"
+                    />
+                  </div>
+                  <div class="form-group" style="margin-bottom: 12px">
+                    <label
+                      for="c8y-upload-pass"
+                      style="font-size: 13px"
+                      data-i18n="device.c8y_pass"
+                      >Password:</label
+                    >
+                    <input
+                      type="password"
+                      id="c8y-upload-pass"
+                      placeholder="••••••••"
+                      autocomplete="current-password"
+                      form="c8y-upload-form"
+                      style="margin-top: 4px"
+                    />
+                  </div>
+                  <div class="action-buttons">
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="submitCertUpload()"
+                      data-i18n="device.upload_btn"
+                    >
+                      Upload Certificate
+                    </button>
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      onclick="toggleCertUploadForm()"
+                      data-i18n="device.cancel"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
             <div
@@ -1323,6 +1327,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       type="password"
                       id="datalayer-password"
                       class="form-control"
+                      autocomplete="off"
                       data-i18n-placeholder="datalayer.password_hint"
                     />
                   </div>

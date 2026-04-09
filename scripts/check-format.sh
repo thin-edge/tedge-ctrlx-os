@@ -69,4 +69,3 @@ find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/targ
   xargs "$RUSTFMT_CMD" --edition 2021 --check
 
 echo "Alle Format- und Lintprüfungen bestanden!"
-echo "Alle Format- und Lintprüfungen bestanden!"
