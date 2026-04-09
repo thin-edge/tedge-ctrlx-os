@@ -160,7 +160,7 @@ The web server exposes the following API endpoints under `/api/`:
 Open `https://<device-ip>/thin-edge-io/` and configure cloud connection, device ID, and certificates directly in the browser.
 
 ### Via CLI (SSH / Terminal)
-SSH is only woking if yopur user is Member of the `ssh-users` group. You can add your user to this group via the ctrlX CORE web interface under **Settings → Users & Groups** and SSH is activated in **Settings → Apps → SSH**.
+SSH is only woking if your user is Member of the `ssh-users` group. You can add your user to this group via the ctrlX CORE web interface under **Settings → Users & Groups** and SSH is activated in **Settings → Apps → SSH**.
 ```bash
 # Configure Cumulocity IoT
 thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
@@ -185,6 +185,64 @@ thin-edge-io.tedge cert show
 thin-edge-io.tedge connect c8y
 ```
 
+### Snap Configuration
+
+```bash
+# Show status of all services
+snap services thin-edge-io
+
+Service                                Startup  Current   Notes
+thin-edge-io.mosquitto                 enabled  active    -
+thin-edge-io.setup-directories         enabled  inactive  -
+thin-edge-io.tedge-agent               enabled  active    -
+thin-edge-io.tedge-datalayer-bridge    enabled  active    -
+thin-edge-io.tedge-log-upload-manager  enabled  active    -
+thin-edge-io.tedge-mapper-aws          enabled  inactive  -
+thin-edge-io.tedge-mapper-az           enabled  inactive  -
+thin-edge-io.tedge-mapper-c8y          enabled  active    -
+thin-edge-io.tedge-watchdog            enabled  active    -
+thin-edge-io.webserver                 enabled  active    -
+
+# Restart all services
+snap restart thin-edge-io
+
+# Restart a single service
+snap restart thin-edge-io.tedge-agent
+
+# View live logs of a service
+snap logs thin-edge-io.webserver -f
+snap logs thin-edge-io.tedge-agent -f
+
+# Show snap version and revision
+snap info thin-edge-io
+
+# Disable / enable snap
+snap disable thin-edge-io
+snap enable thin-edge-io
+
+# View snap configuration (tedge.toml)
+snap get thin-edge-io -d
+
+# Remove snap (configuration remains in $SNAP_DATA)
+snap remove thin-edge-io
+
+# Completely remove snap including all data
+snap remove --purge thin-edge-io
+
+# Revert to previous snap revision after update
+snap revert thin-edge-io
+```
+
+**Important Paths:**
+
+| Path | Contents |
+|------|----------|
+| `/var/snap/thin-edge-io/common/tedge/log/` | Service logs |
+| `/var/snap/thin-edge-io/common/package-certificates/thin-edge-io/tedge/` | Device certificate & private key (ctrlX Certificate Store) |
+| `/var/snap/thin-edge-io/current/package-run/thin-edge-io/` | Runtime status (ctrlX) |
+| `/var/snap/thin-edge-io/current/log-levels/` | Log level files per service |
+| `/var/snap/thin-edge-io/current/tedge/` | tedge configuration (`tedge.toml`) |
+
 ## Building from Source
 
 ### Automated Build (Recommended)
@@ -192,7 +250,7 @@ thin-edge-io.tedge connect c8y
 ```bash
 git clone https://github.com/Cumulocity-IoT/thin-edge-io-app.git
 cd thin-edge-io-app
-./setup-and-build-all.sh
+./setup-and-build-all.sh --fix
 ```
 
 This script installs all dependencies (Rust toolchain, Snapcraft) and builds snaps for both architectures.
@@ -222,7 +280,7 @@ sudo apt-get install pkg-config libssl-dev libsqlite3-dev
 ./build-snap-amd64.sh
 
 # ctrlX CORE hardware (arm64)
-# build-snap-arm64.sh  (requires arm64 build environment or cross-compilation)
+./build-snap-arm64.sh  (requires arm64 build environment or cross-compilation)
 ```
 
 ### Frontend Development
@@ -257,6 +315,7 @@ thin-edge-io.tedge cert show
 
 ```bash
 # View logs (follow)
+snap logs thin-edge-io.<service> -f
 snap logs thin-edge-io.tedge-agent -f
 snap logs thin-edge-io.webserver -f
 
@@ -330,28 +389,28 @@ Contributions to thin-edge.io are welcome! Visit the GitHub repository for contr
 
 thin-edge.io is the first open-source and cloud-agnostic edge framework designed for resource-constrained IoT devices. It provides re-usable and modular components for IoT device enablement across different cloud platforms and industrial IoT scenarios.
 
-## Build & Entwicklung
+## Build & Development
 
-Das Projekt verwendet einen modularen Build-Prozess:
+The project uses a modular build process:
 
-- **setup-and-build-all.sh**: Orchestriert den kompletten Build
-- **scripts/**: Enthält Runtime-Wrapper und Hilfsskripte
-    - `setup-config.sh` — Interaktives Konfigurations-Hilfsskript
-    - `setup-directories.sh` — Verzeichnis-Initialisierung beim Snap-Start
-    - `mosquitto-wrapper.sh` — Mosquitto MQTT Broker Wrapper
-    - `connect-wrapper.sh` — Snap-aware tedge connect/disconnect/reconnect (setzt `mqtt.bridge.built_in=true`, liest Cert-Pfade)
-    - `watchdog-wrapper.sh` — Health-Monitoring Wrapper
-    - `webserver-wrapper.sh` — Webserver Starter (liest Log-Level aus `$SNAP_DATA/log-levels/webserver`)
-    - `tedge-service-wrapper.sh` — Allgemeiner Service-Wrapper (liest Log-Level aus `$SNAP_DATA/log-levels/<service>`, setzt `RUST_LOG`)
-    - `manage-device-id.sh` — Geräte-ID Verwaltung (Seriennummer, Zertifikat erstellen)
-    - `update-inventory.sh` — Inventory-Update Skript
-    - `show-build-info.sh` — Build-Info anzeigen
-    - `check-format.sh` — Code-Format-Prüfung
-    - `clean.sh` — Entfernt Build-Artefakte
+- **setup-and-build-all.sh**: Orchestrates the complete build
+- **scripts/**: Contains runtime wrappers and helper scripts
+    - `setup-config.sh` — Interactive configuration helper script
+    - `setup-directories.sh` — Directory initialization at snap startup
+    - `mosquitto-wrapper.sh` — Mosquitto MQTT broker wrapper
+    - `connect-wrapper.sh` — Snap-aware tedge connect/disconnect/reconnect (sets `mqtt.bridge.built_in=true`, reads cert paths)
+    - `watchdog-wrapper.sh` — Health monitoring wrapper
+    - `webserver-wrapper.sh` — Webserver starter (reads log level from `$SNAP_DATA/log-levels/webserver`)
+    - `tedge-service-wrapper.sh` — General service wrapper (reads log level from `$SNAP_DATA/log-levels/<service>`, sets `RUST_LOG`)
+    - `manage-device-id.sh` — Device ID management (serial number, certificate creation)
+    - `update-inventory.sh` — Inventory update script
+    - `show-build-info.sh` — Build info display
+    - `check-format.sh` — Code format check
+    - `clean.sh` — Remove build artifacts
 
-**Tipp:** Für Anpassungen an Build oder Tests bitte die jeweiligen Skripte in `scripts/` bearbeiten.
+**Tip:** For modifications to build or tests, please edit the respective scripts in `scripts/`.
 
-### Build ausführen
+### Run Build
 
     ./setup-and-build-all.sh
 

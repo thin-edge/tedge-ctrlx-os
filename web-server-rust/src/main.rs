@@ -367,6 +367,38 @@ async fn add_datalayer_mapping(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "mapping": new_mapping})))
 }
 
+/// PUT /api/datalayer/mappings/{id}  — Aktualisiert ein bestehendes Mapping
+async fn update_datalayer_mapping(
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<DatalayerMapping>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+
+    let id = path.into_inner();
+    let updated = body.into_inner();
+    let mut cfg = data.load_datalayer_config();
+
+    if let Some(m) = cfg.mappings.iter_mut().find(|m| m.id == id) {
+        *m = updated.clone();
+    } else {
+        return Ok(HttpResponse::NotFound()
+            .json(serde_json::json!({"success": false, "error": "Mapping not found"})));
+    }
+
+    if let Err(e) = data.save_datalayer_config(&cfg) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
+    }
+
+    info!("[DL-CONFIG] Mapping aktualisiert: {}", id);
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "mapping": updated})))
+}
+
 /// DELETE /api/datalayer/mappings/{id}  — Löscht ein einzelnes Mapping
 async fn delete_datalayer_mapping(
     req: HttpRequest,
@@ -3230,6 +3262,10 @@ async fn main() -> io::Result<()> {
                                     .route("/mappings", web::get().to(get_datalayer_mappings))
                                     .route("/mappings", web::post().to(save_datalayer_mappings))
                                     .route("/mappings/add", web::post().to(add_datalayer_mapping))
+                                    .route(
+                                        "/mappings/{id}",
+                                        web::put().to(update_datalayer_mapping),
+                                    )
                                     .route(
                                         "/mappings/{id}",
                                         web::delete().to(delete_datalayer_mapping),

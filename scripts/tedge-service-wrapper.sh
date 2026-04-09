@@ -16,18 +16,11 @@ if [ -f "$SNAP/meta/build-info.txt" ]; then
     echo "===================================="
 fi
 
-# Ensure all necessary directories exist
-mkdir -p "$TEDGE_CONFIG_DIR"
-mkdir -p "$SNAP_DATA/tedge/run"
-
-
 # Lock-Verzeichnis Snap-Update-sicher machen:
 LOCK_TARGET="$SNAP_COMMON/tedge/run/lock"
 LOCK_LINK="$SNAP_DATA/tedge/run/lock"
 
-mkdir -p "$LOCK_TARGET"
 chmod 777 "$LOCK_TARGET"
-mkdir -p "$SNAP_DATA/tedge/run"
 
 # Entferne ggf. altes Lock-Verzeichnis oder Symlink
 if [ -d "$LOCK_LINK" ] && [ ! -L "$LOCK_LINK" ]; then
@@ -42,8 +35,6 @@ if [ ! -L "$LOCK_LINK" ]; then
   echo "[ERROR] Lock-Symlink konnte nicht angelegt werden: $LOCK_LINK -> $LOCK_TARGET" >&2
   exit 1
 fi
-
-mkdir -p "$SNAP_COMMON/tedge/log"
 
 # Execute the tedge service with the correct binary name
 # The binary name is passed as the first argument

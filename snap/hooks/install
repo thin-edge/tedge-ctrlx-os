@@ -15,15 +15,9 @@ set -e
 
 echo "=== thin-edge.io snap install hook starting ===" >&2
 
-# ── Verzeichnisse ────────────────────────────────────────────────────────────
-mkdir -p "$SNAP_DATA/package-run"
-chmod 777 "$SNAP_DATA/package-run"
-
-mkdir -p "$SNAP_DATA/mosquitto" "$SNAP_COMMON/mosquitto" "$SNAP_DATA/mosquitto/persistence"
-mkdir -p "$SNAP_DATA/tedge" "$SNAP_DATA/tedge/device-certs" "$SNAP_DATA/tedge/run"
-mkdir -p "$SNAP_DATA/tedge/tmp" "$SNAP_DATA/tedge/sm-plugins" "$SNAP_DATA/tedge/log-plugins"
-mkdir -p "$SNAP_DATA/tedge/plugins" "$SNAP_DATA/tedge/device" "$SNAP_DATA/tedge/.agent"
-mkdir -p "$SNAP_COMMON/tedge/log" "$SNAP_COMMON/tedge/cache"
+# ── Verzeichnisse über zentrales Setup-Skript ────────────────────────────────
+echo "Running centralized directory setup..." >&2
+bash "$SNAP/scripts/setup-directories.sh"
 
 # Copy mosquitto base config
 if [ -f "$SNAP/etc/mosquitto/mosquitto.conf" ]; then
@@ -51,6 +45,8 @@ echo "Setting tedge defaults..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.cert_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.key_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/private/tedge-private-key.pem" || true
 
 # ── Gerätezertifikat erstellen ───────────────────────────────────────────────
 echo "Auto-detecting device ID from system information..." >&2

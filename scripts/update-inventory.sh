@@ -12,8 +12,7 @@ STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
 
 INVENTORY_FILE="${STABLE_CURRENT}/tedge/device/inventory.json"
 
-# Stelle sicher, dass der Ordner existiert
-mkdir -p "$(dirname "$INVENTORY_FILE")"
+# Inventory directory is created by setup-directories.sh at snap startup
 
 # --- 1. Daten sammeln ---
 
@@ -81,8 +80,5 @@ cat <<EOF > "$INVENTORY_FILE"
   }
 }
 EOF
-
-# Setze korrekte Rechte, damit Cumulocity und der Agent die Datei lesen können
-chmod 644 "$INVENTORY_FILE"
 
 echo "Updated $INVENTORY_FILE successfully with detailed snap software list." >&2

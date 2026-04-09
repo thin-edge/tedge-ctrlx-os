@@ -4,28 +4,18 @@
 
 set -e
 
+echo "=== thin-edge.io snap configure hook starting ===" >&2
+
+# Ensure all directories exist (idempotent)
+bash "$SNAP/scripts/setup-directories.sh"
+
 # Ensure mosquitto config is up-to-date
 if [ -f "$SNAP/etc/mosquitto/mosquitto.conf" ] && [ ! -f "$SNAP_DATA/mosquitto/mosquitto.conf" ]; then
     mkdir -p "$SNAP_DATA/mosquitto"
     cp "$SNAP/etc/mosquitto/mosquitto.conf" "$SNAP_DATA/mosquitto/mosquitto.conf"
 fi
 
-# Ensure directories exist
-mkdir -p "$SNAP_COMMON/mosquitto"
-mkdir -p "$SNAP_DATA/tedge/run"
-mkdir -p "$SNAP_DATA/tedge/sm-plugins"
-mkdir -p "$SNAP_DATA/tedge/log-plugins"
-mkdir -p "$SNAP_DATA/tedge/.agent"
-mkdir -p "$SNAP_COMMON/tedge/log"
-mkdir -p "$SNAP_COMMON/tedge/cache"
-mkdir -p "$SNAP_DATA/package-run"
-chmod 777 "$SNAP_DATA/package-run"
-
-# CRITICAL FIX: Ensure lock directory in SNAP_COMMON (persists across updates!)
-mkdir -p "$SNAP_COMMON/tedge/run/lock"
-chmod 777 "$SNAP_COMMON/tedge/run/lock"
-
-# Ensure symlink exists
+# Ensure symlink exists for lock directory
 # Remove old directory or symlink (rmdir for empty dir, rm -rf as fallback)
 if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
   rmdir "$SNAP_DATA/tedge/run/lock" 2>/dev/null || rm -rf "$SNAP_DATA/tedge/run/lock"

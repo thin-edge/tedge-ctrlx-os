@@ -13,7 +13,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-
 struct TedgeDatalayerBridge {
     mqtt_host: String,
     mqtt_port: u16,
@@ -84,6 +83,24 @@ async fn main() -> Result<()> {
     let shutdown = Arc::new(AtomicBool::new(false));
     let mut bridge = TedgeDatalayerBridge::new(config.accept_invalid_certs);
 
+    // SIGTERM handler: set shutdown flag for graceful exit
+    let shutdown_signal = shutdown.clone();
+    tokio::spawn(async move {
+        if let Ok(()) = tokio::signal::ctrl_c().await {
+            shutdown_signal.store(true, Ordering::Relaxed);
+        }
+    });
+    #[cfg(unix)]
+    {
+        let shutdown_signal2 = shutdown.clone();
+        tokio::spawn(async move {
+            let mut sig = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("SIGTERM handler");
+            sig.recv().await;
+            shutdown_signal2.store(true, Ordering::Relaxed);
+        });
+    }
+
     let mut async_client = bridge.setup_mqtt(&config).await?;
     let mut msg_stream = async_client.get_stream(100);
 
@@ -103,5 +120,17 @@ async fn main() -> Result<()> {
     }
 
     let _ = tokio::time::timeout(Duration::from_secs(2), dl_handle).await;
+
+    // Publish health=down and logout session on clean exit
+    if let Some(cli) = client_arc.lock().await.as_ref() {
+        let _ = cli
+            .publish(mqtt::Message::new_retained(
+                "te/device/main/service/tedge-datalayer-bridge/status/health",
+                r#"{"status":"down"}"#,
+                1,
+            ))
+            .await;
+    }
+
     Ok(())
 }

@@ -7,6 +7,11 @@ set -e
 TEDGE_CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
 TEDGE_BIN="${SNAP:-/snap/thin-edge-io/current}/bin/tedge"
 
+# ctrlX Certificate Store paths (managed by ctrlX Certificate Manager)
+CERT_STORE_DIR="${SNAP_COMMON:-/var/snap/thin-edge-io/common}/package-certificates/thin-edge-io/tedge"
+CERT_FILE="$CERT_STORE_DIR/own/certs/tedge-certificate.pem"
+KEY_FILE="$CERT_STORE_DIR/own/private/tedge-private-key.pem"
+
 # Function to get system serial number
 get_system_serial() {
     local serial=""
@@ -54,8 +59,8 @@ get_system_serial() {
 
 # Function to get current device ID from certificate
 get_current_device_id() {
-    if [ -f "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" ]; then
-        openssl x509 -in "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" -noout -subject 2>/dev/null | \
+    if [ -f "$CERT_FILE" ]; then
+        openssl x509 -in "$CERT_FILE" -noout -subject 2>/dev/null | \
             sed -n 's/.*CN\s*=\s*\([^,/]*\).*/\1/p' | sed 's/[[:space:]]*$//' || echo ""
     else
         echo ""
@@ -94,9 +99,13 @@ create_certificate() {
     
     echo "Creating device certificate for: $device_id" >&2
     
+    # Configure tedge to use ctrlX certificate store paths
+    "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" config set device.cert_path "$CERT_FILE" 2>&1
+    "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" config set device.key_path "$KEY_FILE" 2>&1
+
     # Remove old certificate if exists
-    rm -f "$TEDGE_CONFIG_DIR/device-certs/tedge-certificate.pem" 2>/dev/null || true
-    rm -f "$TEDGE_CONFIG_DIR/device-certs/tedge-private-key.pem" 2>/dev/null || true
+    rm -f "$CERT_FILE" 2>/dev/null || true
+    rm -f "$KEY_FILE" 2>/dev/null || true
     
     # Create new certificate
     if "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" cert create --device-id "$device_id" 2>&1; then

@@ -80,5 +80,20 @@
       "name": "Read-only access to thin-edge.io",
       "description": "Read-only permissions for thin-edge.io monitoring"
     }
-  ]
+    ],
+    "certificatestores": [
+        {
+            "id": "tedge",
+            "title": "thin-edge.io Device Certificate",
+            "description": "X.509 device identity certificate and private key for cloud authentication (Cumulocity, AWS, Azure)",
+            "scopesR": [
+                "thin-edge-io.r",
+                "thin-edge-io.rw",
+                "thin-edge-io.rwx"
+            ],
+            "scopesRWX": [
+                "thin-edge-io.rwx"
+            ]
+        }
+    ]
 }

@@ -23,7 +23,6 @@ CUSTOM_CONFIG="$COMMON/mosquitto.conf"
 
 # Copy custom config if it doesn't exist (for future customization)
 if [ ! -e "$COMMON/mosquitto_example.conf" ]; then
-    mkdir -p "$COMMON"
     cp "$SNAP/etc/mosquitto/mosquitto.conf" "$COMMON/mosquitto_example.conf" 2>/dev/null || true
 fi
 

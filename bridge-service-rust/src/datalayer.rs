@@ -180,6 +180,8 @@ impl DatalayerEngine {
             }
         }
 
+        // Try to logout any existing session first to free up the session slot
+        self.logout_token().await;
         let user = match &self.config.username {
             Some(u) if !u.is_empty() => u.clone(),
             _ => return false,
@@ -236,6 +238,26 @@ impl DatalayerEngine {
             .unwrap_or_default()
     }
 
+    /// Logged die aktuelle Session aus, um den Session-Slot freizugeben
+    pub async fn logout_token(&mut self) {
+        let token = match &self.cached_token {
+            Some(t) if !t.is_empty() => t.clone(),
+            _ => return,
+        };
+        let url = format!(
+            "{}/identity-manager/api/v2/auth/token",
+            self.config.base_url.trim_end_matches('/')
+        );
+        let _ = self
+            .http_client
+            .delete(&url)
+            .bearer_auth(&token)
+            .send()
+            .await;
+        self.cached_token = None;
+        info!("[DATALAYER] Session ausgeloggt");
+    }
+
     pub async fn poll_mappings(&mut self) -> Vec<(String, String)> {
         let mut to_publish = Vec::new();
 
@@ -263,8 +285,36 @@ impl DatalayerEngine {
 
             if let Ok(resp) = req.send().await {
                 if resp.status() == 401 {
+                    // Token abgelaufen — Cache und Backoff zurücksetzen damit sofort neu geholt wird
                     self.cached_token = None;
-                } // Token ungültig? Cache leeren.
+                    self.token_fail_until = None;
+                    // Sofort neuen Token holen und nochmal versuchen
+                    if self.config.username.is_some() {
+                        self.fetch_token().await;
+                        let new_token = self.effective_token();
+                        let mut retry_req = self.http_client.get(&url);
+                        if !new_token.is_empty() {
+                            retry_req = retry_req.bearer_auth(&new_token);
+                        }
+                        if let Ok(retry_resp) = retry_req.send().await {
+                            if let Ok(node) = retry_resp.json::<DatalayerNodeValue>().await {
+                                let val = node.value.unwrap_or(Value::Null);
+                                if self.last_values.get(&mapping.id) != Some(&val) {
+                                    self.last_values.insert(mapping.id.clone(), val.clone());
+                                    let field = mapping.effective_field_name();
+                                    let payload = match mapping.transform {
+                                        MappingTransform::Measurement => {
+                                            json!({field: val}).to_string()
+                                        }
+                                        _ => val.to_string(),
+                                    };
+                                    to_publish.push((mapping.topic.clone(), payload));
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
                 if let Ok(node) = resp.json::<DatalayerNodeValue>().await {
                     let val = node.value.unwrap_or(Value::Null);
                     if self.last_values.get(&mapping.id) != Some(&val) {
@@ -293,8 +343,24 @@ pub async fn run_datalayer_loop(
     shutdown: Arc<AtomicBool>,
 ) {
     info!("[DATALAYER] Loop started");
+    const HEALTH_TOPIC: &str = "te/device/main/service/tedge-datalayer-bridge/status/health";
+    const HEALTH_UP: &str = r#"{"status":"up"}"#;
+    let mut health_tick: u32 = 0;
     while !shutdown.load(Ordering::Relaxed) {
         engine.reload_config();
+
+        // Publish health every ~30s (every 6 poll cycles at 5000ms default)
+        health_tick += 1;
+        if health_tick == 1 || health_tick.is_multiple_of(6) {
+            let guard = mqtt_client.lock().await;
+            if let Some(cli) = guard.as_ref() {
+                let _ = cli
+                    .publish(mqtt::Message::new_retained(HEALTH_TOPIC, HEALTH_UP, 1))
+                    .await;
+            }
+            drop(guard);
+        }
+
         if engine.is_enabled() {
             let messages = engine.poll_mappings().await;
             let guard = mqtt_client.lock().await;

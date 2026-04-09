@@ -7,10 +7,8 @@ set -e
 echo "=== thin-edge.io snap post-refresh hook starting ===" >&2
 
 # Ensure critical directories exist after update
-echo "Ensuring tedge directories exist..." >&2
-mkdir -p "$SNAP_DATA/tedge/run"
-mkdir -p "$SNAP_DATA/tedge/tmp"
-mkdir -p "$SNAP_DATA/tedge/sm-plugins"
+echo "Running centralized directory setup..." >&2
+bash "$SNAP/scripts/setup-directories.sh"
 
 # Remove stale apt symlinks from older versions (snap plugin is recreated below).
 rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
@@ -121,18 +119,6 @@ PLUGIN_EOF
 chmod +x "$SNAP_DATA/tedge/sm-plugins/snap"
 echo "snap sm-plugin created" >&2
 
-mkdir -p "$SNAP_DATA/tedge/log-plugins"
-mkdir -p "$SNAP_DATA/tedge/plugins"
-mkdir -p "$SNAP_DATA/tedge/device"
-mkdir -p "$SNAP_DATA/tedge/.agent"
-mkdir -p "$SNAP_COMMON/tedge/log"
-mkdir -p "$SNAP_COMMON/tedge/cache"
-
-# CRITICAL FIX: Create lock directory in SNAP_COMMON
-echo "Creating lock directory in SNAP_COMMON..." >&2
-mkdir -p "$SNAP_COMMON/tedge/run/lock"
-chmod 777 "$SNAP_COMMON/tedge/run/lock"
-
 # Create symlink from SNAP_DATA to SNAP_COMMON lock directory
 echo "Creating symlink for lock directory..." >&2
 if [ -d "$SNAP_DATA/tedge/run/lock" ] && [ ! -L "$SNAP_DATA/tedge/run/lock" ]; then
@@ -141,11 +127,6 @@ else
   rm -f "$SNAP_DATA/tedge/run/lock"
 fi
 ln -sf "$SNAP_COMMON/tedge/run/lock" "$SNAP_DATA/tedge/run/lock"
-
-# Set correct permissions
-echo "Setting permissions..." >&2
-chmod 777 "$SNAP_DATA/tedge/tmp"
-chmod 777 "$SNAP_COMMON/tedge/log"
 
 # Update revision-specific paths that were set during install but become stale after updates
 echo "Updating revision-specific tedge config paths..." >&2
@@ -254,8 +235,7 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 # log.plugin_paths: leeres Verzeichnis — tedge-agent's eingebauter LogManager wird deaktiviert.
-# Log-Uploads übernimmt unser tedge-log-upload-manager (Rust) direkt.
-mkdir -p "$SNAP_DATA/tedge/log-plugins-disabled"
+# Log-Uploads übernimmt unser tedge-log-upload-manager (Rust) direkt via MQTT.
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP_DATA/tedge/log-plugins-disabled" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
 
 

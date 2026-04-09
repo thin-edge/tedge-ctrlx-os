@@ -312,6 +312,12 @@ slots:
     source:
       read:
         - $SNAP/package-assets/thin-edge-io
+  package-certificates:
+    interface: content
+    content: package-certificates
+    source:
+      write:
+        - $SNAP_COMMON/package-certificates/thin-edge-io
   package-run:
     interface: content
     content: package-run

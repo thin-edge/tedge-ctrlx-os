@@ -27,16 +27,34 @@ fi
 
 mkdir -p "$SNAP_DATA_PATH/tedge"
 mkdir -p "$SNAP_DATA_PATH/tedge/run"
+mkdir -p "$SNAP_DATA_PATH/tedge/device"
 mkdir -p "$SNAP_DATA_PATH/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins"
+mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins-disabled"
 mkdir -p "$SNAP_DATA_PATH/tedge/.agent"
+mkdir -p "$SNAP_DATA_PATH/log-levels"
 mkdir -p "$SNAP_COMMON_PATH/tedge"
 mkdir -p "$SNAP_COMMON_PATH/tedge/run"
 mkdir -p "$SNAP_COMMON_PATH/tedge/log"
 mkdir -p "$SNAP_COMMON_PATH/mosquitto"
 mkdir -p "$SNAP_DATA_PATH/package-run/thin-edge-io"
+mkdir -p "$SNAP_DATA_PATH/mosquitto"
+mkdir -p "$SNAP_DATA_PATH/mosquitto/persistence"
+mkdir -p "$SNAP_DATA_PATH/tedge/tmp"
+mkdir -p "$SNAP_DATA_PATH/tedge/plugins"
+mkdir -p "$SNAP_COMMON_PATH/tedge/cache"
+
+# Certificate store (ctrlX Certificate Manager integration)
+# Structure: /own/certs (certificate), /own/private (private key, 700)
+mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/own/certs"
+mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/own/private"
+mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/ca"
+mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/trusted/certs"
+chmod 700 "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/own/private"
 chmod 777 "$SNAP_DATA_PATH/package-run"
 chmod 777 "$SNAP_DATA_PATH/package-run/thin-edge-io"
+chmod 777 "$SNAP_DATA_PATH/tedge/tmp"
+chmod 777 "$SNAP_COMMON_PATH/tedge/log"
 
 # Lock-Verzeichnis in allen relevanten Snap-Revisionen anlegen (current, SNAP_DATA, common)
 for LOCKDIR in "$SNAP_DATA_PATH/tedge/run/lock" "$SNAP_DATA/tedge/run/lock" "$SNAP_COMMON_PATH/tedge/run/lock"; do

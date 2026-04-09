@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script: check-format.sh
-# Prüft das Format von JS, HTML und Rust-Dateien im Projekt
-# Abbruch bei Fehlern (z.B. nicht formatiert)
+# Checks formatting of JS, HTML, and Rust files in the project
+# Exits on errors (e.g. unformatted files)
 
 set -e
 
@@ -13,29 +13,29 @@ cd "$PROJECT_ROOT"
 # JS/HTML: Prettier (muss installiert sein)
 PRETTIER_CMD=$(command -v prettier || true)
 if [ -z "$PRETTIER_CMD" ]; then
-  echo "[FEHLER] Prettier ist nicht installiert. Bitte mit 'npm install -g prettier' installieren."
+  echo "[ERROR] Prettier is not installed. Please run 'npm install -g prettier' to install it."
   exit 1
 fi
 
 # Rust: rustfmt (muss installiert sein)
 RUSTFMT_CMD=$(command -v rustfmt || true)
 if [ -z "$RUSTFMT_CMD" ]; then
-  echo "[FEHLER] rustfmt ist nicht installiert. Bitte mit 'rustup component add rustfmt' installieren."
+  echo "[ERROR] rustfmt is not installed. Please run 'rustup component add rustfmt' to install it."
   exit 1
 fi
 
 # JS Linting (nur wenn ESLint vorhanden)
 ESLINT_CMD=$(command -v eslint || true)
 if [ -z "$ESLINT_CMD" ]; then
-  echo "[WARNUNG] ESLint ist nicht installiert. JS-Linting wird übersprungen. (npm install -g eslint)"
+  echo "[WARNING] ESLint is not installed. JS linting will be skipped. (npm install -g eslint)"
 else
-  # Hinweis: Skript erwartet Ausführung aus dem Projekt-Root.
-  # Prüfe Node.js-Version für ESLint-Kompatibilität
+  # Note: Script expects to be run from the project root.
+  # Check Node.js version for ESLint compatibility
   if command -v node >/dev/null 2>&1; then
     NODE_VERSION=$(node -v | sed 's/v//')
     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
     if [ "$NODE_MAJOR" -lt 16 ]; then
-      echo "[FEHLER] Node.js >= 16 wird für moderne ESLint-Versionen benötigt. Bitte Node.js aktualisieren!"
+      echo "[ERROR] Node.js >= 16 is required for modern ESLint versions. Please update Node.js!"
       exit 1
     fi
   fi
@@ -52,15 +52,15 @@ if cargo clippy --version >/dev/null 2>&1; then
     (cd web-server-rust && cargo clippy --all-targets --all-features -- -D warnings)
   fi
 else
-  echo "[WARNUNG] Clippy ist nicht installiert. Rust-Linting wird übersprungen. (rustup component add clippy)"
+  echo "[WARNING] Clippy is not installed. Rust linting will be skipped. (rustup component add clippy)"
 fi
 
 # JS/HTML prüfen und ggf. automatisch formatieren
 if [ "$1" = "--fix" ]; then
-  echo "[i] Führe Prettier mit --write aus (automatische Korrektur)..."
+  echo "[i] Running Prettier with --write (auto-fix)..."
   find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
 else
-  echo "[i] Prüfe Formatierung mit Prettier..."
+  echo "[i] Checking formatting with Prettier..."
   find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
 fi
 
@@ -68,4 +68,4 @@ fi
 find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/target/*" | \
   xargs "$RUSTFMT_CMD" --edition 2021 --check
 
-echo "Alle Format- und Lintprüfungen bestanden!"
+echo "All format and lint checks passed!"
