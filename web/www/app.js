@@ -1478,7 +1478,9 @@ async function connectCloud(cloud) {
   if (viewer) viewer.textContent = `Connecting to ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/connect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/connect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1510,7 +1512,9 @@ async function disconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Disconnecting from ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/disconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/disconnect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1542,7 +1546,9 @@ async function reconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Reconnecting to ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/reconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/reconnect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1715,7 +1721,6 @@ async function saveDatalayerConfig() {
       password: password,
       accept_invalid_certs: acceptInvalidCerts,
     };
-
 
     const response = await fetchWithAuth("api/datalayer/config", {
       // Pfad inkl. /api/

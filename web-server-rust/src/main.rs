@@ -692,7 +692,11 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         })));
     }
 
-    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner()).clone();
+    let mut config = data
+        .config
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone();
     let mut changed = false;
 
     // device.id immer aus dem Zertifikat-CN lesen — das ist die ID, die Cumulocity kennt.
@@ -3003,13 +3007,11 @@ async fn browse_datalayer(
                 .json()
                 .await
                 .unwrap_or(serde_json::json!({"error": "invalid response"}));
-            Ok(
-                HttpResponse::build(
-                    actix_web::http::StatusCode::from_u16(status.as_u16())
-                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
-                )
-                .json(body),
+            Ok(HttpResponse::build(
+                actix_web::http::StatusCode::from_u16(status.as_u16())
+                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
             )
+            .json(body))
         }
         Err(e) => {
             Ok(HttpResponse::InternalServerError()
@@ -3071,13 +3073,11 @@ async fn read_datalayer_node(
                 .json()
                 .await
                 .unwrap_or(serde_json::json!({"error": "invalid response"}));
-            Ok(
-                HttpResponse::build(
-                    actix_web::http::StatusCode::from_u16(status.as_u16())
-                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
-                )
-                .json(body),
+            Ok(HttpResponse::build(
+                actix_web::http::StatusCode::from_u16(status.as_u16())
+                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
             )
+            .json(body))
         }
         Err(e) => {
             warn!("[DL-NODE] Request failed: {}", e);
