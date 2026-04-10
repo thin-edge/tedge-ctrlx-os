@@ -844,20 +844,44 @@ async function loadConfiguration() {
     if (config.c8y) {
       document.getElementById("c8y-url").value = config.c8y["c8y-url"] || "";
       document.getElementById("c8y-tenant").value = config.c8y.tenant || "";
-      document.getElementById("c8y-enabled").checked =
-        config.c8y.enabled || false;
     }
 
     if (config.aws) {
       document.getElementById("aws-url").value = config.aws["aws-url"] || "";
-      document.getElementById("aws-enabled").checked =
-        config.aws.enabled || false;
     }
 
     if (config.az) {
       document.getElementById("az-url").value = config.az["azure-url"] || "";
-      document.getElementById("az-enabled").checked =
-        config.az.enabled || false;
+    }
+
+    // Mapper-Toggles aus dem tatsächlichen Service-Zustand setzen (nicht aus JSON-Config)
+    // so dass der Toggle immer den echten Laufzustand widerspiegelt
+    try {
+      const statusResp = await fetchWithAuth("api/status");
+      if (statusResp.ok) {
+        const status = await statusResp.json();
+        const isRunning = (s) => s === "running" || s === "active";
+        document.getElementById("c8y-enabled").checked = isRunning(
+          status.mapper_c8y,
+        );
+        document.getElementById("aws-enabled").checked = isRunning(
+          status.mapper_aws,
+        );
+        document.getElementById("az-enabled").checked = isRunning(
+          status.mapper_az,
+        );
+      }
+    } catch (_) {
+      // Fallback auf JSON-Config wenn Status-API nicht erreichbar
+      if (config.c8y)
+        document.getElementById("c8y-enabled").checked =
+          config.c8y.enabled || false;
+      if (config.aws)
+        document.getElementById("aws-enabled").checked =
+          config.aws.enabled || false;
+      if (config.az)
+        document.getElementById("az-enabled").checked =
+          config.az.enabled || false;
     }
 
     updateCertUploadStatusDisplay(config.cert_upload || null);
@@ -1478,7 +1502,9 @@ async function connectCloud(cloud) {
   if (viewer) viewer.textContent = `Connecting to ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/connect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/connect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1510,7 +1536,9 @@ async function disconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Disconnecting from ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/disconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/disconnect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1542,7 +1570,9 @@ async function reconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Reconnecting to ${name}...`;
 
   try {
-    const response = await fetchWithAuth(`api/reconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/reconnect/${cloud}`, {
+      method: "POST",
+    });
     const data = await response.json();
 
     if (viewer) {
@@ -1715,7 +1745,6 @@ async function saveDatalayerConfig() {
       password: password,
       accept_invalid_certs: acceptInvalidCerts,
     };
-
 
     const response = await fetchWithAuth("api/datalayer/config", {
       // Pfad inkl. /api/
@@ -2422,9 +2451,8 @@ async function browseDatalayer() {
     const r = await fetchWithAuth(
       `api/datalayer/browse?path=${encodeURIComponent(path)}`,
     );
-    if (!r.ok) throw new Error("Browse failed");
-
     const data = await r.json();
+    if (!r.ok) throw new Error(data?.error || "Browse failed");
     const nodeList = data.value || [];
     const formattedNodes = nodeList.map((name) => ({
       path: (path.endsWith("/") ? path : path + "/") + name,

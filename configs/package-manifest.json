@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.boschrexroth.com/ctrlx-automation/ctrlx-core/apps/package-manifest/package-manifest.v1.4.schema.json",
-  "version": "1.7.1",
+  "version": "2.0.0",
   "id": "thin-edge-io",
   "title": "thin-edge.io IoT Edge Framework",
   "description": "Open-source cloud-agnostic IoT edge framework for resource-constrained devices",

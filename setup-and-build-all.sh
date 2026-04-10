@@ -77,7 +77,7 @@ echo "Step 4: Generate Build Info"
 echo "=============================================="
 echo "[build-info.sh] Erzeuge build-info.txt ..."
 
-VERSION="1.7.1"
+VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
 BUILD_NUMBER="$(date +%Y%m%d%H%M%S)"
 BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 BUILD_HOST="$(hostname)"

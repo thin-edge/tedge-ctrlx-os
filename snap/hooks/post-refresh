@@ -14,40 +14,103 @@ bash "$SNAP/scripts/setup-directories.sh"
 rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
 
 # Regenerate snap inventory JSON.
-# Tries 'snap list' first (works in hook context), falls back to reading
-# /snap/*/current/meta/snap.yaml if snap list is not accessible.
+# Priority: 1) snap list (requires snapd-control, works if connected)
+#           2) /snap/*/current/meta/snap.yaml scan (works in hook AppArmor profile)
+#           3) env vars only (always works, current snap only)
 echo "Regenerating snap inventory..." >&2
 
-# Helper: build JSON entry
-make_snap_entry() {
-    local name="$1" version="$2" rev="$3"
-    printf '{"name":"%s","version":"%s","url":"rev:%s","softwareType":"snap"}' \
-        "$name" "$version" "$rev"
-}
+snap_json=$(python3 - <<'INNER_EOF' 2>/dev/null
+import subprocess, json, os, glob
 
-# Collect all snap entries into an array-style JSON
-snap_entries=""
+def via_snap_list():
+    try:
+        out = subprocess.check_output(
+            ["snap", "list", "--json"],
+            stderr=subprocess.DEVNULL,
+            timeout=10
+        )
+        data = json.loads(out)
+        snaps = data if isinstance(data, list) else data.get("snaps", [])
+        if not snaps:
+            return None
+        result = []
+        for sn in snaps:
+            name = sn.get("name", "")
+            if not name:
+                continue
+            result.append({
+                "name": name,
+                "version": sn.get("version", "?"),
+                "url": "rev:" + str(sn.get("revision", "?")),
+                "softwareType": "snap"
+            })
+        return result if result else None
+    except Exception:
+        return None
 
-# In hook context, snap list is AppArmor-restricted to only showing the current snap.
-# Use /snap/*/current/meta/snap.yaml to discover all installed snaps from the filesystem.
-echo "Building snap inventory from /snap meta files..." >&2
-snap_entries=$(make_snap_entry "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION")
-for yaml_file in /snap/*/current/meta/snap.yaml; do
-    [ -f "$yaml_file" ] || continue
-    name=$(grep '^name:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    version=$(grep '^version:' "$yaml_file" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"')
-    [ -z "$name" ] && continue
-    [ "$name" = "$SNAP_NAME" ] && continue  # skip ourselves — already added above
-    snap_current_dir="${yaml_file%/meta/snap.yaml}"
-    rev=$(readlink "$snap_current_dir" 2>/dev/null || echo "?")
-    entry=$(make_snap_entry "$name" "$version" "$rev")
-    snap_entries="${snap_entries},${entry}"
-done
+def via_yaml_scan():
+    entries = []
+    for yaml_file in glob.glob("/snap/*/current/meta/snap.yaml"):
+        try:
+            name = version = None
+            with open(yaml_file) as f:
+                for line in f:
+                    if line.startswith("name:") and name is None:
+                        name = line.split(":", 1)[1].strip().strip('"')
+                    elif line.startswith("version:") and version is None:
+                        version = line.split(":", 1)[1].strip().strip('"')
+            if name:
+                snap_dir = yaml_file.replace("/meta/snap.yaml", "")
+                try:
+                    rev = os.path.basename(os.readlink(snap_dir))
+                except Exception:
+                    rev = "?"
+                entries.append({
+                    "name": name,
+                    "version": version or "?",
+                    "url": f"rev:{rev}",
+                    "softwareType": "snap"
+                })
+        except Exception:
+            continue
+    return entries if entries else None
 
-snap_json="[${snap_entries}]"
+def via_env():
+    name = os.environ.get("SNAP_NAME", "")
+    if not name:
+        return []
+    return [{
+        "name": name,
+        "version": os.environ.get("SNAP_VERSION", "?"),
+        "url": "rev:" + os.environ.get("SNAP_REVISION", "?"),
+        "softwareType": "snap"
+    }]
+
+result = via_snap_list() or via_yaml_scan() or via_env()
+print(json.dumps(result))
+INNER_EOF
+)
+
+# Fallback if Python3 failed completely
+if [ -z "$snap_json" ] || [ "$snap_json" = "[]" ]; then
+    snap_json=$(printf '[{"name":"%s","version":"%s","url":"rev:%s","softwareType":"snap"}]' \
+        "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION")
+fi
+
 echo "$snap_json" > "$SNAP_DATA/snap-inventory.json"
 chmod 644 "$SNAP_DATA/snap-inventory.json"
-echo "Snap inventory written: $(echo "$snap_json" | grep -o 'softwareType' | wc -l) entries" >&2
+entry_count=$(echo "$snap_json" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?")
+echo "Snap inventory written: $entry_count entries" >&2
+
+# Immediately publish the new inventory to MQTT so C8y reflects changes without
+# waiting for the hourly log_upload_manager cycle.
+# mosquitto_pub is bundled in the snap — simpler and more reliable than tedge mqtt pub
+# during refresh (no connection retry, no signal risk). || true = never fail hook.
+"$SNAP/usr/bin/mosquitto_pub" \
+    -h 127.0.0.1 -p 1883 -r \
+    -t "te/device/main///twin/c8y_SoftwareList" \
+    -m "$snap_json" 2>/dev/null || true
+echo "Published c8y_SoftwareList to MQTT ($entry_count entries)" >&2
 
 # Create snap sm-plugin so tedge-agent can answer software_list requests from C8y.
 # snap list is AppArmor-blocked in strict confinement — use env vars directly.

@@ -844,20 +844,44 @@ async function loadConfiguration() {
     if (config.c8y) {
       document.getElementById("c8y-url").value = config.c8y["c8y-url"] || "";
       document.getElementById("c8y-tenant").value = config.c8y.tenant || "";
-      document.getElementById("c8y-enabled").checked =
-        config.c8y.enabled || false;
     }
 
     if (config.aws) {
       document.getElementById("aws-url").value = config.aws["aws-url"] || "";
-      document.getElementById("aws-enabled").checked =
-        config.aws.enabled || false;
     }
 
     if (config.az) {
       document.getElementById("az-url").value = config.az["azure-url"] || "";
-      document.getElementById("az-enabled").checked =
-        config.az.enabled || false;
+    }
+
+    // Mapper-Toggles aus dem tatsächlichen Service-Zustand setzen (nicht aus JSON-Config)
+    // so dass der Toggle immer den echten Laufzustand widerspiegelt
+    try {
+      const statusResp = await fetchWithAuth("api/status");
+      if (statusResp.ok) {
+        const status = await statusResp.json();
+        const isRunning = (s) => s === "running" || s === "active";
+        document.getElementById("c8y-enabled").checked = isRunning(
+          status.mapper_c8y,
+        );
+        document.getElementById("aws-enabled").checked = isRunning(
+          status.mapper_aws,
+        );
+        document.getElementById("az-enabled").checked = isRunning(
+          status.mapper_az,
+        );
+      }
+    } catch (_) {
+      // Fallback auf JSON-Config wenn Status-API nicht erreichbar
+      if (config.c8y)
+        document.getElementById("c8y-enabled").checked =
+          config.c8y.enabled || false;
+      if (config.aws)
+        document.getElementById("aws-enabled").checked =
+          config.aws.enabled || false;
+      if (config.az)
+        document.getElementById("az-enabled").checked =
+          config.az.enabled || false;
     }
 
     updateCertUploadStatusDisplay(config.cert_upload || null);
@@ -2427,9 +2451,8 @@ async function browseDatalayer() {
     const r = await fetchWithAuth(
       `api/datalayer/browse?path=${encodeURIComponent(path)}`,
     );
-    if (!r.ok) throw new Error("Browse failed");
-
     const data = await r.json();
+    if (!r.ok) throw new Error(data?.error || "Browse failed");
     const nodeList = data.value || [];
     const formattedNodes = nodeList.map((name) => ({
       path: (path.endsWith("/") ? path : path + "/") + name,

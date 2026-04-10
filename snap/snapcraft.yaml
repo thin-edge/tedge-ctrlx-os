@@ -4,7 +4,7 @@
 
 name: thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 1.7.1
+version: 2.0.0
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -41,12 +41,10 @@ confinement: strict
 icon: web/www/icon.png
 
 # Map hard-coded system paths used by tedge-agent binaries into snap locations.
-# IMPORTANT: log-plugins and config-plugins bind from $SNAP (read-only) so that
+# IMPORTANT: log-plugins binds from $SNAP (read-only) so that
 # AppArmor allows executing them in strict confinement. $SNAP_DATA would cause
 # Permission denied (os error 13) when tedge-agent tries to spawn the plugins.
 layout:
-  /usr/share/tedge/config-plugins:
-    bind: $SNAP/scripts/config-plugins
   /usr/share/tedge/sm-plugins:
     bind: $SNAP_DATA/tedge/sm-plugins
 
@@ -433,7 +431,6 @@ parts:
       - scripts/log-plugins/
       - scripts/log-plugins/file
       - scripts/log-plugins/journald
-      - scripts/config-plugins/
 
   hooks:
     plugin: dump

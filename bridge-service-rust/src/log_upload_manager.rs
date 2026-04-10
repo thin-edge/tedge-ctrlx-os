@@ -17,6 +17,9 @@ use tokio::{fs, time};
 const MQTT_CLIENT_ID: &str = "tedge-log-upload-manager";
 const LOG_UPLOAD_TOPIC: &str = "te/device/main///cmd/log_upload";
 const LOG_UPLOAD_SUBSCRIBE: &str = "te/device/main///cmd/log_upload/+";
+const HEALTH_TOPIC: &str = "te/device/main/service/tedge-log-upload-manager/status/health";
+const HEALTH_CHECK_TOPIC: &str = "te/device/main/service/tedge-log-upload-manager/cmd/health/check";
+const SERVICE_REG_TOPIC: &str = "te/device/main/service/tedge-log-upload-manager";
 const ANNOUNCE_INTERVAL_SECS: u64 = 3600; // 1 hour
 
 /// Twin topic for installed snaps — published as retained c8y_SoftwareList fragment.
@@ -94,49 +97,31 @@ fn get_config_path() -> PathBuf {
 
 // ─── Snap Inventory ───────────────────────────────────────────────────────────
 
-/// Query the snapd REST API via Unix socket to get all installed snaps.
-/// Returns None if the socket is not accessible (e.g. AppArmor blocks it).
-fn query_snapd_for_snaps() -> Option<Vec<serde_json::Value>> {
-    use std::io::{Read, Write};
-    use std::os::unix::net::UnixStream;
+/// Query snap list via `snap list --json` — works when snapd-control interface is connected.
+/// Returns None if snapd-control is not connected (command fails or returns empty).
+fn query_snap_list() -> Option<Vec<serde_json::Value>> {
+    let out = std::process::Command::new("snap")
+        .args(["list", "--json"])
+        .output()
+        .ok()?;
 
-    let socket_candidates = ["/run/snapd.socket", "/run/snapd-snap.socket"];
-    let mut stream = None;
-    for path in &socket_candidates {
-        if let Ok(s) = UnixStream::connect(path) {
-            stream = Some(s);
-            break;
-        }
-    }
-    let mut stream = stream?;
-
-    // Minimal HTTP/1.1 request over Unix socket
-    let request = "GET /v2/snaps HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n";
-    if stream.write_all(request.as_bytes()).is_err() {
+    if !out.status.success() {
         return None;
     }
 
-    let mut response = String::new();
-    if stream.read_to_string(&mut response).is_err() {
-        return None;
-    }
-
-    // Strip HTTP headers — body starts after \r\n\r\n
-    let body = response.split("\r\n\r\n").nth(1).unwrap_or("");
-
-    // snapd may use chunked transfer encoding: skip chunk-size lines
-    // Simple heuristic: find the first '{' which starts the JSON
-    let json_start = body.find('{')?;
-    let json_str = &body[json_start..];
-
-    let parsed: serde_json::Value = serde_json::from_str(json_str).ok()?;
-    let snaps_arr = parsed.get("result")?.as_array()?;
+    let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).ok()?;
+    // `snap list --json` returns either a JSON array or {"snaps": [...]}
+    let snaps_arr = if parsed.is_array() {
+        parsed.as_array()?.clone()
+    } else {
+        parsed.get("snaps")?.as_array()?.clone()
+    };
 
     let result: Vec<serde_json::Value> = snaps_arr
         .iter()
         .filter_map(|s| {
             let name = s.get("name")?.as_str()?;
-            let version = s.get("version")?.as_str().unwrap_or("unknown");
+            let version = s.get("version").and_then(|v| v.as_str()).unwrap_or("?");
             let rev = s.get("revision").and_then(|r| r.as_str()).unwrap_or("?");
             Some(serde_json::json!({
                 "name": name,
@@ -150,13 +135,57 @@ fn query_snapd_for_snaps() -> Option<Vec<serde_json::Value>> {
     if result.is_empty() {
         None
     } else {
-        log::info!("[SNAP-INV] snapd socket: found {} snaps", result.len());
+        log::info!("[SNAP-INV] snap list: found {} snaps", result.len());
         Some(result)
     }
 }
 
-/// Fallback: build inventory from $SNAP_NAME/$SNAP_VERSION/$SNAP_REVISION env vars.
-/// Always available in strict confinement — returns at least the current snap.
+/// Fallback: scan /snap/*/current/meta/snap.yaml — readable in hook context.
+/// In service context this may be AppArmor-blocked, but is tried as secondary fallback.
+fn query_yaml_scan() -> Option<Vec<serde_json::Value>> {
+    let mut entries = Vec::new();
+    let pattern = "/snap/*/current/meta/snap.yaml";
+    let paths = match glob::glob(pattern) {
+        Ok(p) => p,
+        Err(_) => return None,
+    };
+    for entry in paths.flatten() {
+        let content = match std::fs::read_to_string(&entry) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let mut name: Option<String> = None;
+        let mut version: Option<String> = None;
+        for line in content.lines() {
+            if name.is_none() && line.starts_with("name:") {
+                name = Some(line[5..].trim().trim_matches('"').to_string());
+            } else if version.is_none() && line.starts_with("version:") {
+                version = Some(line[8..].trim().trim_matches('"').to_string());
+            }
+        }
+        if let Some(n) = name {
+            let snap_dir = entry.to_string_lossy().replace("/meta/snap.yaml", "");
+            let rev = std::fs::read_link(&snap_dir)
+                .ok()
+                .and_then(|p| p.file_name().map(|f| f.to_string_lossy().into_owned()))
+                .unwrap_or_else(|| "?".to_string());
+            entries.push(serde_json::json!({
+                "name": n,
+                "version": version.unwrap_or_else(|| "?".to_string()),
+                "url": format!("rev:{}", rev),
+                "softwareType": "snap"
+            }));
+        }
+    }
+    if entries.is_empty() {
+        None
+    } else {
+        log::info!("[SNAP-INV] yaml scan: found {} snaps", entries.len());
+        Some(entries)
+    }
+}
+
+/// Last resort: build inventory from env vars — always works, current snap only.
 fn snap_inventory_from_env() -> Vec<serde_json::Value> {
     let name = std::env::var("SNAP_NAME").unwrap_or_default();
     let version = std::env::var("SNAP_VERSION").unwrap_or_default();
@@ -200,15 +229,18 @@ fn collect_installed_snaps(snap_data: &str) -> Vec<serde_json::Value> {
                 return filtered;
             }
             log::warn!("[SNAP-INV] snap-inventory.json was empty or all entries filtered");
-            // Fall through to snapd / env fallback
-            query_snapd_for_snaps().unwrap_or_else(snap_inventory_from_env)
+            query_snap_list()
+                .or_else(query_yaml_scan)
+                .unwrap_or_else(snap_inventory_from_env)
         }
         Err(_) => {
             log::warn!(
-                "[SNAP-INV] snap-inventory.json not found at {}, trying snapd socket",
+                "[SNAP-INV] snap-inventory.json not found at {}, trying snap list",
                 path.display()
             );
-            query_snapd_for_snaps().unwrap_or_else(snap_inventory_from_env)
+            query_snap_list()
+                .or_else(query_yaml_scan)
+                .unwrap_or_else(snap_inventory_from_env)
         }
     }
 }
@@ -408,6 +440,18 @@ async fn publish_final(
     let _ = client.publish(topic, QoS::AtLeastOnce, true, payload).await;
 }
 
+/// Publish a retained health=up message with current PID and time.
+async fn publish_health_up(client: &AsyncClient, pid: u32) {
+    let time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+    let payload = format!(r#"{{"pid":{pid},"status":"up","time":{time}}}"#);
+    let _ = client
+        .publish(HEALTH_TOPIC, QoS::AtLeastOnce, true, payload)
+        .await;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -436,11 +480,26 @@ async fn main() -> Result<()> {
 
     let (client, mut eventloop) = AsyncClient::new(mqttopts, 100);
     let http = Client::new();
+    let pid = std::process::id();
+
+    // Register service and publish initial health=up (retained)
+    let _ = client
+        .publish(
+            SERVICE_REG_TOPIC,
+            QoS::AtLeastOnce,
+            true,
+            r#"{"@parent":"device/main//","@type":"service","name":"tedge-log-upload-manager"}"#,
+        )
+        .await;
+    publish_health_up(&client, pid).await;
 
     client
         .subscribe(LOG_UPLOAD_SUBSCRIBE, QoS::AtLeastOnce)
         .await?;
-    log::info!("Subscribed to {LOG_UPLOAD_SUBSCRIBE}");
+    client
+        .subscribe(HEALTH_CHECK_TOPIC, QoS::AtLeastOnce)
+        .await?;
+    log::info!("Subscribed to {LOG_UPLOAD_SUBSCRIBE} and {HEALTH_CHECK_TOPIC}");
 
     // Initial announce right after startup
     announce_log_types(&client, &config_path).await;
@@ -466,6 +525,13 @@ async fn main() -> Result<()> {
             Ok(Event::Incoming(Packet::Publish(p))) => {
                 let topic = p.topic.clone();
                 let payload = p.payload.to_vec();
+
+                // Health check: respond immediately
+                if topic == HEALTH_CHECK_TOPIC {
+                    publish_health_up(&client, pid).await;
+                    continue;
+                }
+
                 let c = client.clone();
                 let h = http.clone();
                 let cp = config_path.clone();

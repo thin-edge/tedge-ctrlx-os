@@ -1,7 +1,7 @@
 # Architecture Overview: thin-edge.io for ctrlX AUTOMATION
 
 **App Name**: thin-edge.io  
-**Version**: 1.7.1  
+**Version**: 2.0.0  
 **Date**: March 2026  
 
 ---

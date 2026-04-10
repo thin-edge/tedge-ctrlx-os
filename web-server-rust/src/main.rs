@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerConfig, DatalayerMapping};
+use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
@@ -132,7 +132,7 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
     if std::path::Path::new(&sub_bin).exists() {
         let topic = format!("$SYS/broker/connection/{}/state", bridge_name);
         let result = tokio::time::timeout(
-            std::time::Duration::from_secs(4),
+            std::time::Duration::from_secs(3),
             tokio::process::Command::new(&sub_bin)
                 .args([
                     "-h",
@@ -144,7 +144,7 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
                     "-C",
                     "1",
                     "-W",
-                    "3",
+                    "2",
                 ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
@@ -166,9 +166,10 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
 
     // Step 3: fallback — use mapper snapctl status as proxy.
     // bridge.conf exists → tedge connect was run. Active mapper ≈ bridge is up.
-    match std::process::Command::new("snapctl")
+    match tokio::process::Command::new("snapctl")
         .args(["services", mapper_svc])
         .output()
+        .await
     {
         Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
         _ => "stopped",
@@ -191,11 +192,16 @@ struct AppState {
     config: std::sync::Mutex<Config>,
     config_path: PathBuf,
     datalayer_config_path: PathBuf,
+    datalayer_credentials_path: PathBuf,
 }
 
 impl AppState {
     fn new(config_path: PathBuf, datalayer_config_path: PathBuf) -> Self {
         info!("[INIT] Loading configuration from: {:?}", config_path);
+        let credentials_path = datalayer_config_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("datalayer-credentials.json");
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
 
@@ -233,6 +239,7 @@ impl AppState {
             config: std::sync::Mutex::new(config),
             config_path,
             datalayer_config_path,
+            datalayer_credentials_path: credentials_path,
         }
     }
 
@@ -332,6 +339,35 @@ impl AppState {
         info!(
             "[DL-CONFIG] Datalayer config saved to {:?}",
             self.datalayer_config_path
+        );
+        Ok(())
+    }
+
+    fn load_datalayer_credentials(&self) -> DatalayerCredentials {
+        match std::fs::read_to_string(&self.datalayer_credentials_path) {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Err(_) => DatalayerCredentials::default(),
+        }
+    }
+
+    fn save_datalayer_credentials(&self, creds: &DatalayerCredentials) -> io::Result<()> {
+        if let Some(parent) = self.datalayer_credentials_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(creds)?;
+        fs::write(&self.datalayer_credentials_path, &json)?;
+        // Restrict permissions to owner-only (0600)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(
+                &self.datalayer_credentials_path,
+                fs::Permissions::from_mode(0o600),
+            );
+        }
+        info!(
+            "[DL-CONFIG] Credentials saved to {:?} (mode 0600)",
+            self.datalayer_credentials_path
         );
         Ok(())
     }
@@ -543,66 +579,69 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
     };
 
     if is_snap {
-        // systemctl is blocked by AppArmor in strict snap → check via /proc/*/comm
-        let check_process = |name: &str| -> &'static str {
+        // /proc/comm scanning is fast (sync) – only for short process names
+        let check_process = |name: &str| -> bool {
             if let Ok(entries) = std::fs::read_dir("/proc") {
                 for entry in entries.flatten() {
                     let comm_path = entry.path().join("comm");
                     if let Ok(comm) = std::fs::read_to_string(&comm_path) {
                         if comm.trim() == name {
-                            return "running";
+                            return true;
                         }
                     }
                 }
             }
-            "stopped"
+            false
         };
 
-        status.mosquitto = check_process("mosquitto").to_string();
-        status.agent = check_process("tedge-agent").to_string();
-        status.bridge = check_process("tedge-datalayer").to_string(); // /proc/comm truncates to 15 chars
-                                                                      // watchdog-wrapper.sh is a bash script → /proc/comm shows "bash", not "tedge-watchdog"
-                                                                      // Use snapctl services to reliably detect the running state instead
-        status.watchdog = {
-            let out = std::process::Command::new("snapctl")
-                .args(["services", "thin-edge-io.tedge-watchdog"])
-                .output();
-            match out {
-                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
-                _ => "inactive",
-            }
-        }
-        .to_string();
-
-        // Mapper process checks via snapctl (column 2)
-        // /proc/comm truncates to 15 chars: "tedge-mapper-c8y" → "tedge-mapper-c8" → check_process fails
-        let check_snapctl = |svc: &str| -> &'static str {
+        // Helper: async snapctl services check
+        let snapctl_active = |svc: &'static str| async move {
             let full = format!("thin-edge-io.{}", svc);
-            match std::process::Command::new("snapctl")
+            match tokio::process::Command::new("snapctl")
                 .args(["services", &full])
                 .output()
+                .await
             {
                 Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
                 _ => "stopped",
             }
         };
-        status.mapper_c8y = check_snapctl("tedge-mapper-c8y").to_string();
-        status.mapper_aws = check_snapctl("tedge-mapper-aws").to_string();
-        status.mapper_az = check_snapctl("tedge-mapper-az").to_string();
-        status.webserver = check_snapctl("webserver").to_string();
-        status.log_upload_manager = check_snapctl("tedge-log-upload-manager").to_string();
 
-        // Cloud connection checks via $SYS/broker/connection/<name>/state (column 3)
-        // Uses mosquitto_sub; runs all 3 in parallel to avoid cumulative timeout
         let snap_dir = env::var("SNAP").unwrap_or_default();
         let snap_data_dir = env::var("SNAP_DATA").unwrap_or_else(|_| "/etc/tedge/..".to_string());
         let sub_bin = format!("{}/usr/bin/mosquitto_sub", snap_dir);
 
-        let (c8y_conn, aws_conn, az_conn) = tokio::join!(
+        // Run ALL service checks in parallel: snapctl × 6 + mosquitto_sub × 3
+        let (
+            watchdog_state,
+            mapper_c8y_state,
+            mapper_aws_state,
+            mapper_az_state,
+            webserver_state,
+            log_mgr_state,
+            c8y_conn,
+            aws_conn,
+            az_conn,
+        ) = tokio::join!(
+            snapctl_active("tedge-watchdog"),
+            snapctl_active("tedge-mapper-c8y"),
+            snapctl_active("tedge-mapper-aws"),
+            snapctl_active("tedge-mapper-az"),
+            snapctl_active("webserver"),
+            snapctl_active("tedge-log-upload-manager"),
             check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "c8y"),
             check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "aws"),
             check_bridge_state(sub_bin, snap_data_dir, "az"),
         );
+        status.mosquitto = if check_process("mosquitto") { "running" } else { "stopped" }.to_string();
+        status.agent = if check_process("tedge-agent") { "running" } else { "stopped" }.to_string();
+        status.bridge = if check_process("tedge-datalayer") { "running" } else { "stopped" }.to_string();
+        status.watchdog = watchdog_state.to_string();
+        status.mapper_c8y = mapper_c8y_state.to_string();
+        status.mapper_aws = mapper_aws_state.to_string();
+        status.mapper_az = mapper_az_state.to_string();
+        status.webserver = webserver_state.to_string();
+        status.log_upload_manager = log_mgr_state.to_string();
         status.c8y = c8y_conn.to_string();
         status.aws = aws_conn.to_string();
         status.az = az_conn.to_string();
@@ -2778,7 +2817,10 @@ async fn fetch_dl_token(
     }
 }
 
-async fn dl_client_and_token(cfg: &DatalayerConfig) -> (reqwest::Client, Option<String>) {
+async fn dl_client_and_token(
+    cfg: &DatalayerConfig,
+    creds: &DatalayerCredentials,
+) -> (reqwest::Client, Option<String>) {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .timeout(std::time::Duration::from_secs(5))
@@ -2786,16 +2828,14 @@ async fn dl_client_and_token(cfg: &DatalayerConfig) -> (reqwest::Client, Option<
         .unwrap_or_default();
 
     // 1. Automatischer Auth-Versuch, wenn Zugangsdaten vorhanden sind
-    if let (Some(username), Some(password)) = (&cfg.username, &cfg.password) {
+    if let (Some(username), Some(password)) = (&creds.username, &creds.password) {
         if let Some(t) = fetch_dl_token(&client, &cfg.base_url, username, password).await {
             return (client, Some(t));
         }
     }
 
-    // 2. Fallback: Statischer Token aus der Konfiguration
-    // Da cfg.token bereits ein Option<String> ist, geben wir es direkt zurück.
-    // Wir klonen es nur, um die Besitzverhältnisse zu wahren.
-    (client, cfg.token.clone())
+    // 2. Fallback: Statischer Token aus den Credentials
+    (client, creds.token.clone())
 }
 
 /// GET /api/datalayer/config  — returns config (password + token masked)
@@ -2805,19 +2845,27 @@ async fn get_datalayer_config(req: HttpRequest, data: web::Data<AppState>) -> Re
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
 
-    let mut cfg = web::block(move || data.load_datalayer_config())
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let cfg = web::block(move || {
+        let cfg = data.load_datalayer_config();
+        let creds = data.load_datalayer_credentials();
+        (cfg, creds)
+    })
+    .await
+    .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    // Never send credentials in plaintext to the client
-    if cfg.password.is_some() {
-        cfg.password = Some("***".to_string());
-    }
-    if cfg.token.is_some() {
-        cfg.token = Some("***".to_string());
-    }
+    let (cfg, creds) = cfg;
 
-    Ok(HttpResponse::Ok().json(cfg))
+    // Return config + masked credentials (never send plaintext password to client)
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "enabled": cfg.enabled,
+        "baseUrl": cfg.base_url,
+        "pollIntervalMs": cfg.poll_interval_ms,
+        "acceptInvalidCerts": cfg.accept_invalid_certs,
+        "mappings": cfg.mappings,
+        "username": creds.username.as_deref().unwrap_or(""),
+        "password": if creds.password.is_some() { "***" } else { "" },
+        "token": if creds.token.is_some() { "***" } else { "" },
+    })))
 }
 
 #[derive(Debug, Deserialize)]
@@ -2867,15 +2915,19 @@ async fn save_datalayer_config_handler(
     // FIX 2: Zuweisung des neuen Feldes
     cfg.accept_invalid_certs = body.accept_invalid_certs;
 
-    // FIX 3: Mit Some() verpacken, da Zieltyp Option<String> ist
+    // Credentials separat speichern (nicht in datalayer-mappings.json)
+    let mut creds = data.load_datalayer_credentials();
     if !body.username.is_empty() && body.username != "***" {
-        cfg.username = Some(body.username.clone());
+        creds.username = Some(body.username.clone());
     }
     if !body.password.is_empty() && body.password != "***" {
-        cfg.password = Some(body.password.clone());
+        creds.password = Some(body.password.clone());
     }
     if !body.token.is_empty() && body.token != "***" {
-        cfg.token = Some(body.token.clone());
+        creds.token = Some(body.token.clone());
+    }
+    if let Err(e) = data.save_datalayer_credentials(&creds) {
+        error!("[DL-CONFIG] Credentials save failed: {}", e);
     }
 
     if let Err(e) = data.save_datalayer_config(&cfg) {
@@ -2975,6 +3027,12 @@ async fn browse_datalayer(
     }
 
     let cfg = data.load_datalayer_config();
+    let creds = data.load_datalayer_credentials();
+
+    if cfg.base_url.is_empty() {
+        return Ok(HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
+    }
 
     // 2. Pfad für ctrlX aufbereiten
     let path = query.path.trim_start_matches('/').trim_end_matches('/');
@@ -2992,7 +3050,7 @@ async fn browse_datalayer(
     };
 
     // 3. Client holen (dieser holt bei Bedarf ein neues Token via User/Passwort!)
-    let (http_client, stored_token) = dl_client_and_token(&cfg).await;
+    let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
     let mut req_builder = http_client.get(&url);
 
     // Priorität: Token vom Browser > Token vom Backend (User/Passwort)
@@ -3031,6 +3089,7 @@ async fn read_datalayer_node(
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
     let cfg = data.load_datalayer_config();
+    let creds = data.load_datalayer_credentials();
     if cfg.base_url.is_empty() {
         return Ok(HttpResponse::ServiceUnavailable()
             .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
@@ -3051,7 +3110,7 @@ async fn read_datalayer_node(
         })
         .map(|s| s.to_string());
 
-    let (http_client, token) = dl_client_and_token(&cfg).await;
+    let (http_client, token) = dl_client_and_token(&cfg, &creds).await;
 
     let path = query.path.trim_matches('/');
     let url = format!(
@@ -3202,6 +3261,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     }
 
     let cfg = data.load_datalayer_config();
+    let creds = data.load_datalayer_credentials();
     let mapping_count = cfg.mappings.len();
     let active_count = cfg.mappings.iter().filter(|m| m.enabled).count();
 
@@ -3229,7 +3289,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
                 .map(|s| s.to_string())
         });
 
-    let (http_client, stored_token) = dl_client_and_token(&cfg).await;
+    let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
 
     // ctrlX API Pfad (Prüfe ob /automation/... oder /admin/...)
     let url = format!(

@@ -3,7 +3,8 @@ mod datalayer;
 use anyhow::Result;
 // handle_mqtt_message zum Import hinzugefügt
 use crate::datalayer::{
-    handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerEngine, MappingDirection,
+    handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
+    DatalayerEngine, MappingDirection,
 };
 use futures::StreamExt;
 use paho_mqtt as mqtt;
@@ -58,9 +59,13 @@ impl TedgeDatalayerBridge {
         Ok(cli)
     }
 
-    async fn process_message(&mut self, msg: &mqtt::Message, config: &DatalayerConfig) {
-        // Jetzt wird die Funktion gefunden
-        handle_mqtt_message(msg, config, &self.http_client).await;
+    async fn process_message(
+        &mut self,
+        msg: &mqtt::Message,
+        config: &DatalayerConfig,
+        credentials: &DatalayerCredentials,
+    ) {
+        handle_mqtt_message(msg, config, credentials, &self.http_client).await;
     }
 }
 
@@ -77,9 +82,13 @@ async fn main() -> Result<()> {
     } else {
         PathBuf::from("/tmp/datalayer-mappings.json")
     };
+    let credentials_path = config_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join("datalayer-credentials.json");
 
-    // DatalayerEngine::load_config wird jetzt gefunden
     let config = DatalayerEngine::load_config(&config_path);
+    let credentials = DatalayerEngine::load_credentials(&credentials_path);
     let shutdown = Arc::new(AtomicBool::new(false));
     let mut bridge = TedgeDatalayerBridge::new(config.accept_invalid_certs);
 
@@ -113,7 +122,7 @@ async fn main() -> Result<()> {
     ));
 
     while let Some(Some(msg)) = msg_stream.next().await {
-        bridge.process_message(&msg, &config).await;
+        bridge.process_message(&msg, &config, &credentials).await;
         if shutdown.load(Ordering::Relaxed) {
             break;
         }

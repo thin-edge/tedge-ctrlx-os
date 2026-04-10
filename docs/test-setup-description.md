@@ -1,7 +1,7 @@
 # thin-edge.io CTRLX App - Test Setup Description
 
 **App Name**: thin-edge.io  
-**Version**: 1.7.1  
+**Version**: 2.0.0  
 **Date**: February 2026  
 
 ---
@@ -32,8 +32,8 @@ One of the following cloud platforms must be available for testing:
 ### 2.1 Download Snap Package
 
 Download the appropriate snap file:
-- For ctrlX COREvirtual: `thin-edge-io_1.7.1_amd64.snap`
-- For ctrlX CORE: `thin-edge-io_1.7.1_arm64.snap`
+- For ctrlX COREvirtual: `thin-edge-io_2.0.0_amd64.snap`
+- For ctrlX CORE: `thin-edge-io_2.0.0_arm64.snap`
 
 ### 2.2 Install App
 

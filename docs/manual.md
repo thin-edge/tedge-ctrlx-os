@@ -1,6 +1,6 @@
 # thin-edge.io CTRLX App - User Manual
 
-**Version**: 1.7.1  
+**Version**: 2.0.0  
 **Date**: March 2026  
 **App ID**: thin-edge-io  
 
@@ -85,8 +85,8 @@ This app is designed for:
 ### 3.1 Download
 
 Download the appropriate snap package:
-- **ctrlX COREvirtual**: `thin-edge-io_1.7.1_amd64.snap`
-- **ctrlX CORE Hardware**: `thin-edge-io_1.7.1_arm64.snap`
+- **ctrlX COREvirtual**: `thin-edge-io_2.0.0_amd64.snap`
+- **ctrlX CORE Hardware**: `thin-edge-io_2.0.0_arm64.snap`
 
 ### 3.2 Install via Web Interface
 

@@ -62,51 +62,42 @@ MAC_ADDRESS=$(cat /sys/class/net/"$INTERFACE"/address 2>/dev/null)
 
 # ---------------------------------------------------------------------------
 # Snap software list — same priority chain as serial number:
-# 1. snapd REST API via /run/snapd-snap.socket (no extra interface needed)
-# 2. snap list (requires snapd-control)
+# 1. snap list --json (requires snapd-control — connected during service context)
+# 2. snap list (plain text fallback)
 # 3. Fallback: own snap only ($SNAP_NAME/$SNAP_VERSION/$SNAP_REVISION)
 # Result is a JSON array written directly into inventory.json as c8y_SoftwareList.
 # ---------------------------------------------------------------------------
 echo "Querying installed snaps..." >&2
 SOFTWARE_LIST_JSON=$(python3 - 2>/dev/null << 'PYEOF'
-import socket, json, sys, os
+import subprocess, json, sys, os
 
-def query_snapd_socket():
+def query_snap_list_json():
     try:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(5)
-        sock.connect('/run/snapd-snap.socket')
-        sock.sendall(b'GET /v2/snaps HTTP/1.0\r\nHost: localhost\r\n\r\n')
-        data = b''
-        while True:
-            chunk = sock.recv(8192)
-            if not chunk:
-                break
-            data += chunk
-        sock.close()
-        body = data.split(b'\r\n\r\n', 1)[-1]
-        result = json.loads(body)
+        out = subprocess.check_output(
+            ['snap', 'list', '--json'],
+            stderr=subprocess.DEVNULL, timeout=10
+        )
+        data = json.loads(out)
+        snaps_raw = data if isinstance(data, list) else data.get('snaps', [])
         snaps = []
-        for snap in result.get('result', []):
-            name = snap.get('name', '')
-            version = snap.get('version', '')
-            revision = snap.get('revision', '')
-            if name:
-                snaps.append({
-                    "name": name,
-                    "version": version,
-                    "softwareType": "snap",
-                    "url": f"rev:{revision}"
-                })
+        for sn in snaps_raw:
+            name = sn.get('name', '')
+            if not name:
+                continue
+            snaps.append({
+                "name": name,
+                "version": sn.get('version', '?'),
+                "softwareType": "snap",
+                "url": f"rev:{sn.get('revision', '?')}"
+            })
         if snaps:
-            print(f"[SNAP-INV] snapd socket: {len(snaps)} snaps", file=sys.stderr)
+            print(f"[SNAP-INV] snap list --json: {len(snaps)} snaps", file=sys.stderr)
             return snaps
     except Exception as e:
-        print(f"[SNAP-INV] snapd socket failed: {e}", file=sys.stderr)
+        print(f"[SNAP-INV] snap list --json failed: {e}", file=sys.stderr)
     return None
 
 def query_snap_list():
-    import subprocess
     try:
         out = subprocess.check_output(
             ['snap', 'list', '--unicode=never', '--color=never'],
@@ -138,7 +129,7 @@ def fallback_env():
         return [{"name": name, "version": version, "softwareType": "snap", "url": f"rev:{revision}"}]
     return []
 
-snaps = query_snapd_socket() or query_snap_list() or fallback_env()
+snaps = query_snap_list_json() or query_snap_list() or fallback_env()
 print(json.dumps(snaps))
 PYEOF
 )

@@ -94,11 +94,17 @@ pub struct DatalayerConfig {
     pub poll_interval_ms: u32,
     #[serde(default)]
     pub mappings: Vec<DatalayerMapping>,
+    #[serde(rename = "acceptInvalidCerts", default)]
+    pub accept_invalid_certs: bool,
+}
+
+/// Credentials stored separately in datalayer-credentials.json (mode 0600)
+/// Never mixed into datalayer-mappings.json
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DatalayerCredentials {
     pub username: Option<String>,
     pub password: Option<String>,
     pub token: Option<String>,
-    #[serde(rename = "acceptInvalidCerts", default)]
-    pub accept_invalid_certs: bool,
 }
 
 impl Default for DatalayerConfig {
@@ -108,9 +114,6 @@ impl Default for DatalayerConfig {
             base_url: "https://localhost".to_string(),
             poll_interval_ms: 5000,
             mappings: Vec::new(),
-            username: None,
-            password: None,
-            token: None,
             accept_invalid_certs: true,
         }
     }
@@ -125,7 +128,9 @@ pub struct DatalayerNodeValue {
 
 pub struct DatalayerEngine {
     config_path: PathBuf,
+    credentials_path: PathBuf,
     config: DatalayerConfig,
+    credentials: DatalayerCredentials,
     http_client: Client,
     last_values: HashMap<String, Value>,
     pub cached_token: Option<String>,
@@ -134,18 +139,32 @@ pub struct DatalayerEngine {
 
 impl DatalayerEngine {
     pub fn new(config_path: PathBuf) -> Self {
+        let credentials_path = config_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("datalayer-credentials.json");
         let config = Self::load_config(&config_path);
+        let credentials = Self::load_credentials(&credentials_path);
         let http_client = reqwest::Client::builder()
             .danger_accept_invalid_certs(config.accept_invalid_certs)
             .build()
             .unwrap_or_default();
         Self {
             config_path,
+            credentials_path,
             config,
+            credentials,
             http_client,
             last_values: HashMap::new(),
             cached_token: None,
             token_fail_until: None,
+        }
+    }
+
+    pub fn load_credentials(path: &PathBuf) -> DatalayerCredentials {
+        match fs::read_to_string(path) {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+            Err(_) => DatalayerCredentials::default(),
         }
     }
 
@@ -167,6 +186,7 @@ impl DatalayerEngine {
 
     pub fn reload_config(&mut self) {
         self.config = Self::load_config(&self.config_path);
+        self.credentials = Self::load_credentials(&self.credentials_path);
     }
     pub fn is_enabled(&self) -> bool {
         self.config.enabled && !self.config.base_url.is_empty()
@@ -182,11 +202,11 @@ impl DatalayerEngine {
 
         // Try to logout any existing session first to free up the session slot
         self.logout_token().await;
-        let user = match &self.config.username {
+        let user = match &self.credentials.username {
             Some(u) if !u.is_empty() => u.clone(),
             _ => return false,
         };
-        let pass = self.config.password.clone().unwrap_or_default();
+        let pass = self.credentials.password.clone().unwrap_or_default();
         let url = format!(
             "{}/identity-manager/api/v2/auth/token",
             self.config.base_url.trim_end_matches('/')
@@ -234,7 +254,7 @@ impl DatalayerEngine {
     fn effective_token(&self) -> String {
         self.cached_token
             .clone()
-            .or_else(|| self.config.token.clone())
+            .or_else(|| self.credentials.token.clone())
             .unwrap_or_default()
     }
 
@@ -262,7 +282,7 @@ impl DatalayerEngine {
         let mut to_publish = Vec::new();
 
         // Automatischer Token-Refresh bei Bedarf
-        if self.cached_token.is_none() && self.config.username.is_some() {
+        if self.cached_token.is_none() && self.credentials.username.is_some() {
             self.fetch_token().await;
         }
 
@@ -289,7 +309,7 @@ impl DatalayerEngine {
                     self.cached_token = None;
                     self.token_fail_until = None;
                     // Sofort neuen Token holen und nochmal versuchen
-                    if self.config.username.is_some() {
+                    if self.credentials.username.is_some() {
                         self.fetch_token().await;
                         let new_token = self.effective_token();
                         let mut retry_req = self.http_client.get(&url);
@@ -344,7 +364,7 @@ pub async fn run_datalayer_loop(
 ) {
     info!("[DATALAYER] Loop started");
     const HEALTH_TOPIC: &str = "te/device/main/service/tedge-datalayer-bridge/status/health";
-    const HEALTH_UP: &str = r#"{"status":"up"}"#;
+    let pid = std::process::id();
     let mut health_tick: u32 = 0;
     while !shutdown.load(Ordering::Relaxed) {
         engine.reload_config();
@@ -352,10 +372,19 @@ pub async fn run_datalayer_loop(
         // Publish health every ~30s (every 6 poll cycles at 5000ms default)
         health_tick += 1;
         if health_tick == 1 || health_tick.is_multiple_of(6) {
+            let time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f64();
+            let health_up = format!(r#"{{"pid":{pid},"status":"up","time":{time}}}"#);
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
                 let _ = cli
-                    .publish(mqtt::Message::new_retained(HEALTH_TOPIC, HEALTH_UP, 1))
+                    .publish(mqtt::Message::new_retained(
+                        HEALTH_TOPIC,
+                        health_up.as_str(),
+                        1,
+                    ))
                     .await;
             }
             drop(guard);
@@ -447,6 +476,7 @@ pub async fn run_datalayer_loop(
 pub async fn handle_mqtt_message(
     msg: &mqtt::Message,
     config: &DatalayerConfig,
+    credentials: &DatalayerCredentials,
     http_client: &Client,
 ) {
     let topic = msg.topic();
@@ -459,11 +489,7 @@ pub async fn handle_mqtt_message(
             m.path.trim_start_matches('/')
         );
         let mut req = http_client.put(&url).body(msg.payload_str().to_string());
-        let token = config
-            .token
-            .clone()
-            .or(config.token.clone())
-            .unwrap_or_default();
+        let token = credentials.token.clone().unwrap_or_default();
         if !token.is_empty() {
             req = req.bearer_auth(token);
         }
