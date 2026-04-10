@@ -2,9 +2,7 @@
 # Setup script that runs BEFORE any tedge service starts
 # This ensures all necessary directories exist
 
-set -e
-
-echo "=== thin-edge.io Directory Setup ==="
+set -eo pipefail
 echo "SNAP: $SNAP"
 echo "SNAP_DATA: $SNAP_DATA"
 echo "SNAP_COMMON: $SNAP_COMMON"

@@ -2,9 +2,7 @@
 # Mosquitto wrapper based on official mosquitto snap
 # Uses minimal config to avoid user switching issues
 
-set -e
-
-# Log build information at service start
+set -eo pipefail
 if [ -f "$SNAP/meta/build-info.txt" ]; then
     BUILD_VERSION=$(head -n 1 "$SNAP/meta/build-info.txt")
     echo "=== Mosquitto Broker Wrapper ==="

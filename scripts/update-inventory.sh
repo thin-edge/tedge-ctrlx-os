@@ -2,7 +2,7 @@
 # Update inventory.json with system information for thin-edge.io
 # Extracts hardware, OS, network data, and a list of installed snap packages.
 
-set -e
+set -eo pipefail
 
 echo "Gathering system information for inventory..." >&2
 

@@ -2,7 +2,7 @@
 # Device ID Management Script for thin-edge.io Snap
 # Handles automatic detection, manual setting, certificate creation, and inventory update
 
-set -e
+set -eo pipefail
 
 TEDGE_CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
 TEDGE_DATA_DIR="${SNAP_COMMON:-/var/snap/thin-edge-io/common}/tedge"

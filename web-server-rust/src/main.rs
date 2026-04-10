@@ -222,7 +222,7 @@ impl AppState {
             }
             match std::fs::write(
                 &datalayer_config_path,
-                serde_json::to_string_pretty(&default_dl).unwrap(),
+                serde_json::to_string_pretty(&default_dl).unwrap_or_default(),
             ) {
                 Ok(_) => info!("[INIT] Datalayer config written with defaults."),
                 Err(e) => warn!("[INIT] Failed to write datalayer config: {}", e),
@@ -609,7 +609,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
         // Auto-record cert upload when c8y bridge is running (cert was accepted by C8y = it's trusted)
         if c8y_conn == "running" {
-            let mut config = data.config.lock().unwrap();
+            let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
             if config
                 .cert_upload
                 .as_ref()
@@ -692,7 +692,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         })));
     }
 
-    let mut config = data.config.lock().unwrap().clone();
+    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner()).clone();
     let mut changed = false;
 
     // device.id immer aus dem Zertifikat-CN lesen — das ist die ID, die Cumulocity kennt.
@@ -790,7 +790,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
     // Falls neue Werte gelesen wurden: auch in die JSON-Datei zurückschreiben
     if changed {
-        let mut locked = data.config.lock().unwrap();
+        let mut locked = data.config.lock().unwrap_or_else(|p| p.into_inner());
         *locked = config.clone();
         if let Err(e) = data.save_config(&locked) {
             warn!(
@@ -875,7 +875,7 @@ async fn save_c8y_config(
     }
 
     // Save to local JSON config
-    let mut config = data.config.lock().unwrap();
+    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
     config.c8y = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -1000,7 +1000,7 @@ async fn save_aws_config(
     }
 
     // Save to local JSON config
-    let mut config = data.config.lock().unwrap();
+    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
     config.aws = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -1125,7 +1125,7 @@ async fn save_az_config(
     }
 
     // Save to local JSON config
-    let mut config = data.config.lock().unwrap();
+    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
     config.az = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -1201,7 +1201,7 @@ async fn save_device_config(
     let new_config = device_config.into_inner();
     info!("[CONFIG] New device ID: {}", new_config.id);
 
-    let mut config = data.config.lock().unwrap();
+    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
     config.device = new_config;
 
     if let Err(e) = data.save_config(&config) {
@@ -1567,7 +1567,7 @@ async fn upload_cert_c8y(
                     .map(|d| d.as_secs())
                     .unwrap_or(0);
                 {
-                    let mut config = data.config.lock().unwrap();
+                    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
                     config.cert_upload = Some(CertUploadStatus {
                         uploaded: true,
                         timestamp: Some(ts.to_string()),
@@ -3005,7 +3005,8 @@ async fn browse_datalayer(
                 .unwrap_or(serde_json::json!({"error": "invalid response"}));
             Ok(
                 HttpResponse::build(
-                    actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap(),
+                    actix_web::http::StatusCode::from_u16(status.as_u16())
+                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
                 )
                 .json(body),
             )
@@ -3072,7 +3073,8 @@ async fn read_datalayer_node(
                 .unwrap_or(serde_json::json!({"error": "invalid response"}));
             Ok(
                 HttpResponse::build(
-                    actix_web::http::StatusCode::from_u16(status.as_u16()).unwrap(),
+                    actix_web::http::StatusCode::from_u16(status.as_u16())
+                        .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
                 )
                 .json(body),
             )

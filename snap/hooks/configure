@@ -2,7 +2,7 @@
 # thin-edge.io snap configure hook
 # Handles configuration changes
 
-set -e
+set -eo pipefail
 
 echo "=== thin-edge.io snap configure hook starting ===" >&2
 

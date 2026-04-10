@@ -818,7 +818,7 @@ function updateCertUploadStatusDisplay(certUpload) {
 
 async function loadConfiguration() {
   try {
-    const response = await fetch("api/config");
+    const response = await fetchWithAuth("api/config");
 
     if (response.status === 403) {
       showNotification(t("notify.config_error"), "error");
@@ -876,9 +876,8 @@ async function saveC8yConfig() {
   };
 
   try {
-    const response = await fetch("api/config/c8y", {
+    const response = await fetchWithAuth("api/config/c8y", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
     });
 
@@ -901,9 +900,8 @@ async function saveAwsConfig() {
   };
 
   try {
-    const response = await fetch("api/config/aws", {
+    const response = await fetchWithAuth("api/config/aws", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
     });
 
@@ -926,9 +924,8 @@ async function saveAzConfig() {
   };
 
   try {
-    const response = await fetch("api/config/az", {
+    const response = await fetchWithAuth("api/config/az", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
     });
 
@@ -951,9 +948,8 @@ async function saveDeviceConfig() {
   };
 
   try {
-    const response = await fetch("api/config/device", {
+    const response = await fetchWithAuth("api/config/device", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
     });
 
@@ -980,7 +976,7 @@ async function loadLogs() {
   const viewer = document.getElementById("log-viewer");
   viewer.textContent = t("logs.loading", service);
   try {
-    const response = await fetch(
+    const response = await fetchWithAuth(
       `api/logs?service=${encodeURIComponent(service)}&lines=100`,
     );
     if (response.status === 403) {
@@ -1003,7 +999,7 @@ async function loadLogs() {
 async function updateLogLevelDropdown() {
   const service = document.getElementById("log-service-select").value;
   try {
-    const response = await fetch("api/log-level");
+    const response = await fetchWithAuth("api/log-level");
     if (!response.ok) return;
     const data = await response.json();
     if (data.levels && data.levels[service]) {
@@ -1023,9 +1019,8 @@ async function applyLogLevel() {
   const service = document.getElementById("log-service-select").value;
   const level = document.getElementById("log-level-select").value;
   try {
-    const response = await fetch("api/log-level", {
+    const response = await fetchWithAuth("api/log-level", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ service, level }),
     });
     if (response.status === 403) {
@@ -1136,7 +1131,7 @@ async function restartServices() {
   }
 
   try {
-    const response = await fetch("api/restart", {
+    const response = await fetchWithAuth("api/restart", {
       method: "POST",
     });
 
@@ -1194,7 +1189,7 @@ function showNotification(message, type = "info") {
 // Load device ID information
 async function loadDeviceIdInfo() {
   try {
-    const response = await fetch("api/device-id");
+    const response = await fetchWithAuth("api/device-id");
     if (!response.ok) {
       if (response.status === 403)
         showNotification(t("notify.no_perm_device"), "error");
@@ -1272,7 +1267,7 @@ async function loadDeviceIdInfo() {
 // Check current user role and enable/disable admin-only fields
 async function applyRoleRestrictions() {
   try {
-    const response = await fetch("api/me");
+    const response = await fetchWithAuth("api/me");
     if (!response.ok) return;
     const data = await response.json();
     const isAdmin = data.role === "admin";
@@ -1326,9 +1321,8 @@ async function setDeviceId() {
   }
 
   try {
-    const response = await fetch("api/device-id", {
+    const response = await fetchWithAuth("api/device-id", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: commonName }),
     });
 
@@ -1365,7 +1359,7 @@ async function loadCertDetailsInline() {
   const pre = document.getElementById("cert-details-pre");
   if (!inline || !pre) return;
   try {
-    const response = await fetch("api/device-id/cert-info");
+    const response = await fetchWithAuth("api/device-id/cert-info");
     const text = await response.text();
     let data = {};
     try {
@@ -1484,7 +1478,7 @@ async function connectCloud(cloud) {
   if (viewer) viewer.textContent = `Connecting to ${name}...`;
 
   try {
-    const response = await fetch(`api/connect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/connect/${cloud}`, { method: "POST" });
     const data = await response.json();
 
     if (viewer) {
@@ -1516,7 +1510,7 @@ async function disconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Disconnecting from ${name}...`;
 
   try {
-    const response = await fetch(`api/disconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/disconnect/${cloud}`, { method: "POST" });
     const data = await response.json();
 
     if (viewer) {
@@ -1548,7 +1542,7 @@ async function reconnectCloud(cloud) {
   if (viewer) viewer.textContent = `Reconnecting to ${name}...`;
 
   try {
-    const response = await fetch(`api/reconnect/${cloud}`, { method: "POST" });
+    const response = await fetchWithAuth(`api/reconnect/${cloud}`, { method: "POST" });
     const data = await response.json();
 
     if (viewer) {
@@ -1593,9 +1587,8 @@ async function sendTestMessage(type) {
     const body = { type };
     if (mappingTopic) body.topic = mappingTopic;
 
-    const response = await fetch("api/test-message", {
+    const response = await fetchWithAuth("api/test-message", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const data = await response.json();
@@ -1659,9 +1652,8 @@ async function submitCertUpload() {
   if (viewer) viewer.textContent = "Uploading certificate to Cumulocity...";
 
   try {
-    const response = await fetch("api/cert/upload/c8y", {
+    const response = await fetchWithAuth("api/cert/upload/c8y", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
     const data = await response.json();
@@ -1723,7 +1715,7 @@ async function saveDatalayerConfig() {
       password: password,
       accept_invalid_certs: acceptInvalidCerts,
     };
-    console.log("Datalayer-Konfig wird gesendet:", config);
+
 
     const response = await fetchWithAuth("api/datalayer/config", {
       // Pfad inkl. /api/
@@ -1845,7 +1837,7 @@ function initCollapsibleSections() {
 
 async function loadBuildInfo() {
   try {
-    const response = await fetch("api/build-info");
+    const response = await fetchWithAuth("api/build-info");
     if (!response.ok) return;
     const data = await response.json();
     const el = (id) => document.getElementById(id);

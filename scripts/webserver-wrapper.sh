@@ -1,8 +1,5 @@
 #!/bin/bash
-set -e
-
-echo "=============================================="
-echo "thin-edge.io Configuration Webserver"
+set -eo pipefail
 echo "=============================================="
 
 # Read build information if available

@@ -2,7 +2,7 @@
 # thin-edge.io snap post-refresh hook
 # Runs after snap update/refresh
 
-set -e
+set -eo pipefail
 
 echo "=== thin-edge.io snap post-refresh hook starting ===" >&2
 

@@ -11,7 +11,7 @@
 # Alles andere (Inventory, sm-plugin, Plugin-Configs) delegiert an den
 # post-refresh Hook — so gibt es keine doppelte Logik.
 
-set -e
+set -eo pipefail
 
 echo "=== thin-edge.io snap install hook starting ===" >&2
 
