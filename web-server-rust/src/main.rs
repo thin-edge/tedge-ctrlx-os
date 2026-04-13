@@ -3422,12 +3422,44 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
             "path": path,
             "content": content
         }))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // File does not exist yet — create it with a sensible default
+            let default = default_snap_config_content(&file_name);
+            if let Some(parent) = std::path::Path::new(&path).parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&path, &default) {
+                Ok(_) => {
+                    info!("[SNAP-CONFIG] Created default file: {}", path);
+                    Ok(HttpResponse::Ok().json(serde_json::json!({
+                        "file": file_name,
+                        "path": path,
+                        "content": default
+                    })))
+                }
+                Err(we) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                    "file": file_name,
+                    "path": path,
+                    "content": "",
+                    "error": format!("Datei existiert noch nicht und konnte nicht erstellt werden: {}", we)
+                })))
+            }
+        }
         Err(e) => Ok(HttpResponse::Ok().json(serde_json::json!({
             "file": file_name,
             "path": path,
             "content": "",
             "error": format!("{}", e)
         }))),
+    }
+}
+
+/// Returns sensible default content for a newly created snap config file
+fn default_snap_config_content(file_name: &str) -> String {
+    match file_name {
+        "datalayer-mappings.json" => "[]".to_string(),
+        f if f.ends_with(".json") => "{}".to_string(),
+        _ => String::new(),
     }
 }
 
