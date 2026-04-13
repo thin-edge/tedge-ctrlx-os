@@ -171,7 +171,21 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
         .output()
         .await
     {
-        Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            // Check Current column == "active" (not "inactive")
+            let running = stdout.lines().skip(1).any(|line| {
+                line.split_whitespace()
+                    .nth(2)
+                    .map(|s| s == "active")
+                    .unwrap_or(false)
+            });
+            if running {
+                "running"
+            } else {
+                "stopped"
+            }
+        }
         _ => "stopped",
     }
 }
@@ -594,7 +608,10 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             false
         };
 
-        // Helper: async snapctl services check
+        // Helper: async snapctl services check.
+        // IMPORTANT: check the "Current" column == "active", NOT contains("active")
+        // because "inactive" also contains the substring "active"!
+        // snapctl output: "Service  Startup  Current  Notes" → col[2] must be exactly "active"
         let snapctl_active = |svc: &'static str| async move {
             let full = format!("thin-edge-io.{}", svc);
             match tokio::process::Command::new("snapctl")
@@ -602,7 +619,20 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
                 .output()
                 .await
             {
-                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "running",
+                Ok(o) => {
+                    let stdout = String::from_utf8_lossy(&o.stdout);
+                    let running = stdout.lines().skip(1).any(|line| {
+                        line.split_whitespace()
+                            .nth(2)
+                            .map(|s| s == "active")
+                            .unwrap_or(false)
+                    });
+                    if running {
+                        "running"
+                    } else {
+                        "stopped"
+                    }
+                }
                 _ => "stopped",
             }
         };
@@ -633,9 +663,24 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             check_bridge_state(sub_bin.clone(), snap_data_dir.clone(), "aws"),
             check_bridge_state(sub_bin, snap_data_dir, "az"),
         );
-        status.mosquitto = if check_process("mosquitto") { "running" } else { "stopped" }.to_string();
-        status.agent = if check_process("tedge-agent") { "running" } else { "stopped" }.to_string();
-        status.bridge = if check_process("tedge-datalayer") { "running" } else { "stopped" }.to_string();
+        status.mosquitto = if check_process("mosquitto") {
+            "running"
+        } else {
+            "stopped"
+        }
+        .to_string();
+        status.agent = if check_process("tedge-agent") {
+            "running"
+        } else {
+            "stopped"
+        }
+        .to_string();
+        status.bridge = if check_process("tedge-datalayer") {
+            "running"
+        } else {
+            "stopped"
+        }
+        .to_string();
         status.watchdog = watchdog_state.to_string();
         status.mapper_c8y = mapper_c8y_state.to_string();
         status.mapper_aws = mapper_aws_state.to_string();
@@ -919,6 +964,14 @@ async fn save_c8y_config(
 
     // Save to local JSON config
     let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+    let mut cloud = cloud;
+    // Force disabled when no URL is configured
+    if cloud.url.as_deref().unwrap_or("").is_empty() {
+        if cloud.enabled {
+            warn!("[CONFIG] c8y mapper enabled but no URL set — forcing disabled");
+        }
+        cloud.enabled = false;
+    }
     config.c8y = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -929,15 +982,20 @@ async fn save_c8y_config(
         })));
     }
 
-    // Start or stop the Cumulocity mapper based on the enabled toggle
+    // Start or stop the Cumulocity mapper based on the enabled toggle.
+    // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let action = if config.c8y.enabled { "start" } else { "stop" };
+        let (action, flag) = if config.c8y.enabled {
+            ("start", "--enable")
+        } else {
+            ("stop", "--disable")
+        };
         info!(
             "[CONFIG] {}ing tedge-mapper-c8y (enabled={})",
             action, config.c8y.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, "thin-edge-io.tedge-mapper-c8y"])
+            .args([action, flag, "thin-edge-io.tedge-mapper-c8y"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1044,6 +1102,14 @@ async fn save_aws_config(
 
     // Save to local JSON config
     let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+    let mut cloud = cloud;
+    // Force disabled when no URL is configured
+    if cloud.url.as_deref().unwrap_or("").is_empty() {
+        if cloud.enabled {
+            warn!("[CONFIG] aws mapper enabled but no URL set — forcing disabled");
+        }
+        cloud.enabled = false;
+    }
     config.aws = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -1054,15 +1120,20 @@ async fn save_aws_config(
         })));
     }
 
-    // Start or stop the AWS mapper based on the enabled toggle
+    // Start or stop the AWS mapper based on the enabled toggle.
+    // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let action = if config.aws.enabled { "start" } else { "stop" };
+        let (action, flag) = if config.aws.enabled {
+            ("start", "--enable")
+        } else {
+            ("stop", "--disable")
+        };
         info!(
             "[CONFIG] {}ing tedge-mapper-aws (enabled={})",
             action, config.aws.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, "thin-edge-io.tedge-mapper-aws"])
+            .args([action, flag, "thin-edge-io.tedge-mapper-aws"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1169,6 +1240,14 @@ async fn save_az_config(
 
     // Save to local JSON config
     let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+    let mut cloud = cloud;
+    // Force disabled when no URL is configured
+    if cloud.url.as_deref().unwrap_or("").is_empty() {
+        if cloud.enabled {
+            warn!("[CONFIG] az mapper enabled but no URL set — forcing disabled");
+        }
+        cloud.enabled = false;
+    }
     config.az = cloud;
 
     if let Err(e) = data.save_config(&config) {
@@ -1179,15 +1258,20 @@ async fn save_az_config(
         })));
     }
 
-    // Start or stop the Azure mapper based on the enabled toggle
+    // Start or stop the Azure mapper based on the enabled toggle.
+    // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let action = if config.az.enabled { "start" } else { "stop" };
+        let (action, flag) = if config.az.enabled {
+            ("start", "--enable")
+        } else {
+            ("stop", "--disable")
+        };
         info!(
             "[CONFIG] {}ing tedge-mapper-az (enabled={})",
             action, config.az.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, "thin-edge-io.tedge-mapper-az"])
+            .args([action, flag, "thin-edge-io.tedge-mapper-az"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -2499,6 +2583,36 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
         }));
     }
 
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| ".".to_string());
+
+    // snap-hooks and tedge-mapper read from log files directly
+    let file_log_service = match service.as_str() {
+        "snap-hooks" => Some(format!("{}/tedge/log/snap-hooks.log", snap_common)),
+        "tedge-mapper" => Some(format!("{}/tedge/log/tedge-mapper.log", snap_common)),
+        _ => None,
+    };
+
+    if let Some(log_path) = file_log_service {
+        let result = web::block(move || match std::fs::read_to_string(&log_path) {
+            Ok(content) => {
+                let all_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                let total = all_lines.len();
+                let start = total.saturating_sub(lines);
+                all_lines[start..].to_vec()
+            }
+            Err(e) => vec![format!("[Log-Datei nicht lesbar: {}]", e)],
+        })
+        .await;
+        return match result {
+            Ok(log_lines) => Ok(HttpResponse::Ok().json(LogResponse {
+                lines: log_lines,
+                service,
+            })),
+            Err(e) => Ok(HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": format!("{}", e)}))),
+        };
+    }
+
     let snap_service = format!("thin-edge-io.{}", service);
     let lines_str = lines.to_string();
 
@@ -3146,6 +3260,136 @@ async fn read_datalayer_node(
     }
 }
 
+/// GET /api/inventory  — reads inventory.json from SNAP_DATA (= /var/snap/.../current)
+async fn get_inventory(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
+    }
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let path = format!("{}/tedge/device/inventory.json", snap_data);
+    // If file doesn't exist, try to generate it via update-inventory.sh
+    if !std::path::Path::new(&path).exists() {
+        let snap_dir = env::var("SNAP").unwrap_or_default();
+        let script = format!("{}/scripts/update-inventory.sh", snap_dir);
+        if std::path::Path::new(&script).exists() {
+            info!("[INVENTORY] File not found, running update-inventory.sh");
+            let _ = web::block(move || Command::new("bash").arg(&script).status()).await;
+        }
+    }
+
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "content": content,
+            "path": path
+        }))),
+        Err(e) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "content": "{}",
+            "path": path,
+            "error": format!("{}", e)
+        }))),
+    }
+}
+
+/// POST /api/inventory  — saves inventory.json and publishes all fragments to MQTT
+async fn save_and_publish_inventory(
+    req: HttpRequest,
+    body: web::Json<serde_json::Value>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Insufficient permissions"})));
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let snap_dir = env::var("SNAP").unwrap_or_default();
+
+    let content = match body.get("content").and_then(|v| v.as_str()) {
+        Some(c) => c.to_string(),
+        None => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"success": false, "error": "Missing content"})))
+        }
+    };
+
+    // Validate JSON
+    let parsed: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => {
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": format!("Invalid JSON: {}", e)
+            })))
+        }
+    };
+
+    // Save to SNAP_DATA path (= /var/snap/.../current)
+    let path = format!("{}/tedge/device/inventory.json", snap_data);
+
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Cannot create directory: {}", e)
+            })));
+        }
+    }
+    if let Err(e) = std::fs::write(&path, &content) {
+        return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Save failed: {}", e)
+        })));
+    }
+
+    // Publish each top-level fragment to MQTT
+    let pub_bin = format!("{}/usr/bin/mosquitto_pub", snap_dir);
+    let pub_bin = if std::path::Path::new(&pub_bin).exists() {
+        pub_bin
+    } else {
+        "mosquitto_pub".to_string()
+    };
+
+    let mut published = vec![];
+    let mut errors = vec![];
+
+    if let serde_json::Value::Object(map) = &parsed {
+        for (key, value) in map {
+            let topic = format!("te/device/main///twin/{}", key);
+            let payload = value.to_string();
+            let t = topic.clone();
+            let p = payload.clone();
+            let bin = pub_bin.clone();
+            let result = web::block(move || {
+                Command::new(&bin)
+                    .args(["-h", "127.0.0.1", "-p", "1883", "-r", "-t", &t, "-m", &p])
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()?
+                    .wait_with_output()
+            })
+            .await;
+            match result {
+                Ok(Ok(out)) if out.status.success() => published.push(key.clone()),
+                _ => errors.push(key.clone()),
+            }
+        }
+    }
+
+    info!(
+        "[INVENTORY] Saved and published {} fragments, {} errors",
+        published.len(),
+        errors.len()
+    );
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "published": published,
+        "errors": errors,
+        "path": path
+    })))
+}
+
 /// GET /api/snapconfig?file=<name>  — reads an allowed snap config file
 async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -3242,9 +3486,10 @@ fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> 
             "{}/tedge/plugins/tedge-configuration-plugin.toml",
             snap_data
         )),
-        "mosquitto.conf" => Some(format!("{}/mosquitto/mosquitto.conf", snap_data)),
         "tedge.toml" => Some(format!("{}/tedge/tedge.toml", snap_data)),
         "inventory.json" => Some(format!("{}/tedge/device/inventory.json", snap_data)),
+        "snap-inventory.json" => Some(format!("{}/snap-inventory.json", snap_data)),
+        "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_data)),
         "datalayer-mappings.json" => {
             // liegt direkt in SNAP_DATA (nicht in einem Unterordner)
             Some(format!("{}/datalayer-mappings.json", snap_data))
@@ -3419,6 +3664,8 @@ async fn main() -> io::Result<()> {
                             .route("/log-level", web::post().to(set_log_level))
                             .route("/snapconfig", web::get().to(get_snap_config_file))
                             .route("/snapconfig", web::post().to(save_snap_config_file))
+                            .route("/inventory", web::get().to(get_inventory))
+                            .route("/inventory", web::post().to(save_and_publish_inventory))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")

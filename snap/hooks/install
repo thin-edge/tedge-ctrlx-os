@@ -13,7 +13,23 @@
 
 set -eo pipefail
 
-echo "=== thin-edge.io snap install hook starting ===" >&2
+# ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
+_HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
+mkdir -p "$(dirname "$_HOOK_LOG")" 2>/dev/null || true
+exec > >(tee -a "$_HOOK_LOG") 2>&1
+export _SNAP_HOOK_LOG_ACTIVE=1
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [install] snap=${SNAP_NAME} version=${SNAP_VERSION} rev=${SNAP_REVISION} ==="
+
+echo "=== thin-edge.io snap install hook starting ==="
+
+# ── tedge System-User anlegen (wird vom tedge-Binary für chown erwartet) ─────
+if ! id "tedge" &>/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin tedge 2>/dev/null && \
+        echo "Created tedge system user" || \
+        echo "WARNING: Could not create tedge user (non-fatal)"
+else
+    echo "tedge system user already exists"
+fi
 
 # ── Verzeichnisse über zentrales Setup-Skript ────────────────────────────────
 echo "Running centralized directory setup..." >&2
@@ -27,7 +43,7 @@ fi
 # ── tedge Initialisierung ────────────────────────────────────────────────────
 echo "Initializing tedge config directory at: $SNAP_DATA/tedge" >&2
 export TEDGE_CONFIG_DIR="$SNAP_DATA/tedge"
-if "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" init 2>&1 | tee -a /tmp/tedge-init.log >&2; then
+if "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" init; then
     echo "tedge init succeeded" >&2
 else
     echo "WARNING: tedge init failed, but continuing..." >&2
@@ -35,24 +51,24 @@ fi
 
 # ── Erstmalige tedge-Defaults (nur bei Neuinstallation relevant) ─────────────
 echo "Setting tedge defaults..." >&2
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.type "ctrlX-CORE" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set software.plugin.default "snap" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port "1883" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.cert_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem" || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.type "ctrlX-CORE" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set software.plugin.default "snap" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.address "127.0.0.1" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.bind.port "1883" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port "1883" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.address "127.0.0.1" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set http.bind.port "8000" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.cert_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.key_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/private/tedge-private-key.pem" || true
 
 # ── Gerätezertifikat erstellen ───────────────────────────────────────────────
 echo "Auto-detecting device ID from system information..." >&2
 if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
-    "$SNAP/scripts/manage-device-id.sh" create 2>&1 | tee -a /tmp/tedge-cert.log >&2 || \
-        echo "WARNING: Failed to create device certificate automatically" >&2
+    "$SNAP/scripts/manage-device-id.sh" create || \
+        echo "WARNING: Failed to create device certificate automatically"
 else
     echo "WARNING: Device ID management script not found" >&2
 fi
@@ -69,4 +85,4 @@ snapctl connect :snapd-control 2>/dev/null && echo "snapd-control connected" >&2
 echo "Delegating shared state setup to post-refresh hook..." >&2
 bash "$SNAP/snap/hooks/post-refresh"
 
-echo "Install hook completed successfully" >&2
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [install] completed successfully ==="

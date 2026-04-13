@@ -505,7 +505,20 @@ async fn main() -> Result<()> {
     announce_log_types(&client, &config_path).await;
     announce_installed_snaps(&client, &snap_data).await;
 
-    // Periodic re-announce every 10 minutes
+    // Delayed re-announce after 15s: tedge-agent may publish {"types":[]} on startup
+    // (if no executable log plugin is found). We re-publish to overwrite.
+    {
+        let c = client.clone();
+        let cp = config_path.clone();
+        let sd = snap_data.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(15)).await;
+            announce_log_types(&c, &cp).await;
+            announce_installed_snaps(&c, &sd).await;
+        });
+    }
+
+    // Periodic re-announce every hour
     let announce_client = client.clone();
     let announce_config = config_path.clone();
     let announce_snap_data = snap_data.clone();

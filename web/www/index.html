@@ -429,13 +429,17 @@
                 >Enable AWS IoT Mapper</span
               >
             </div>
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="saveAwsConfig()"
-              data-i18n="cloud.save_short"
+            <div
+              style="display: flex; justify-content: flex-end; margin-top: 16px"
             >
-              Save
-            </button>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="saveAwsConfig()"
+                data-i18n="cloud.save_short"
+              >
+                Save
+              </button>
+            </div>
           </div>
 
           <div id="az-config" class="cloud-config">
@@ -457,21 +461,23 @@
                 >Enable Azure IoT Mapper</span
               >
             </div>
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="saveAzConfig()"
-              data-i18n="cloud.save"
+            <div
+              style="display: flex; justify-content: flex-end; margin-top: 16px"
             >
-              Save Configuration
-            </button>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="saveAzConfig()"
+                data-i18n="cloud.save"
+              >
+                Save Configuration
+              </button>
+            </div>
           </div>
         </section>
 
-        <!-- Device Configuration & Certificate Management -->
+        <!-- Device Certificate Management -->
         <section id="sec-device" class="card">
-          <h2 data-i18n="section.device">
-            Device Configuration &amp; Certificate
-          </h2>
+          <h2 data-i18n="section.device">Device Certificate</h2>
           <div style="display: flex; gap: 24px; flex-wrap: wrap">
             <div style="flex: 1; min-width: 260px">
               <div class="form-group">
@@ -668,6 +674,322 @@
                 "
               ></pre>
             </div>
+          </div>
+        </section>
+
+        <!-- Device Configuration (Inventory) -->
+        <section id="sec-device-config" class="card">
+          <h2 data-i18n="section.device_config">Device Configuration</h2>
+
+          <div
+            style="
+              display: flex;
+              justify-content: flex-end;
+              align-items: center;
+              margin-bottom: 16px;
+              gap: 8px;
+            "
+          >
+            <span
+              id="inventory-status"
+              style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+            ></span>
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="saveAndPublishInventory()"
+              data-i18n="device.save"
+            >
+              Speichern
+            </button>
+          </div>
+
+          <!-- c8y_Hardware -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Hardware
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                flex-wrap: wrap;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Model</label>
+                <input
+                  type="text"
+                  id="inv-hw-model"
+                  placeholder="Bosch ctrlX CORE"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Serial Number</label>
+                <input
+                  type="text"
+                  id="inv-hw-serial"
+                  placeholder="auto-detected"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Revision</label>
+                <input type="text" id="inv-hw-revision" placeholder="1.0" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Firmware -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Firmware
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Name</label>
+                <input type="text" id="inv-fw-name" placeholder="Linux" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Version</label>
+                <input
+                  type="text"
+                  id="inv-fw-version"
+                  placeholder="Ubuntu Core 22"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">URL</label>
+                <input type="text" id="inv-fw-url" placeholder="http://" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Position -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Position
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Latitude</label>
+                <input type="text" id="inv-pos-lat" placeholder="51.151977" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Longitude</label>
+                <input type="text" id="inv-pos-lng" placeholder="6.95173" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Altitude</label>
+                <input type="text" id="inv-pos-alt" placeholder="67" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Network -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Network
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Interface</label>
+                <input type="text" id="inv-net-iface" placeholder="eth0" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">IP Address</label>
+                <input type="text" id="inv-net-ip" placeholder="192.168.1.1" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">MAC Address</label>
+                <input
+                  type="text"
+                  id="inv-net-mac"
+                  placeholder="00:00:00:00:00:00"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- ctrlX_Info -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              ctrlX_Info
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Device Type</label>
+                <input
+                  type="text"
+                  id="inv-ctrlx-type"
+                  placeholder="PLC / Edge Controller"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label style="font-size: 12px">Manufacturer</label>
+                <input
+                  type="text"
+                  id="inv-ctrlx-mfr"
+                  placeholder="Bosch Rexroth"
+                />
+              </div>
+              <div></div>
+            </div>
+          </div>
+
+          <!-- c8y_SoftwareList (read-only) -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 8px;
+                font-family: monospace;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              c8y_SoftwareList
+              <span
+                style="
+                  font-size: 10px;
+                  font-weight: 400;
+                  text-transform: none;
+                  color: var(--c8y-palette-gray-50);
+                "
+                >(auto-populated from snap list)</span
+              >
+            </div>
+            <pre
+              id="inv-software-list"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 11px;
+                font-family: monospace;
+                margin: 0;
+                max-height: 120px;
+                overflow-y: auto;
+                color: var(--c8y-palette-gray-40);
+                white-space: pre-wrap;
+              "
+            >
+—</pre
+            >
           </div>
         </section>
 
@@ -999,13 +1321,12 @@
                 "
               >
                 <option value="tedge-agent">tedge-agent</option>
-                <option value="tedge-mapper-c8y">tedge-mapper-c8y</option>
-                <option value="tedge-mapper-aws">tedge-mapper-aws</option>
-                <option value="tedge-mapper-az">tedge-mapper-az</option>
+                <option value="tedge-mapper">tedge-mapper</option>
                 <option value="tedge-datalayer-bridge">tedge-bridge</option>
                 <option value="tedge-log-upload-manager">log-upload</option>
                 <option value="mosquitto">mosquitto</option>
                 <option value="webserver">webserver</option>
+                <option value="snap-hooks">snap-hooks</option>
               </select>
             </div>
             <div class="form-group" style="margin: 0">
@@ -1127,7 +1448,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
 
         <!-- Snap Config Editor -->
         <section id="sec-snap-config" class="card">
-          <h2 data-i18n="section.snapconfig">Snap Konfigurationsdateien</h2>
+          <h2 data-i18n="section.snapconfig">Konfigurationsdateien</h2>
           <div
             style="
               display: flex;
@@ -1157,7 +1478,10 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   datalayer-mappings.json
                 </option>
                 <option value="inventory.json">inventory.json</option>
-                <option value="mosquitto.conf">mosquitto.conf</option>
+                <option value="snap-inventory.json">snap-inventory.json</option>
+                <option value="tedge-web-config.json">
+                  tedge-web-config.json
+                </option>
                 <option value="tedge.toml">tedge.toml</option>
                 <option value="tedge-log-plugin.toml">
                   tedge-log-plugin.toml
@@ -1664,11 +1988,13 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
           <h2 data-i18n="section.sysinfo">System Information</h2>
           <div class="info-grid">
             <div>
-              <strong data-i18n="sysinfo.version">Version:</strong>
+              <strong data-i18n="sysinfo.version"
+                >Thin-Edge Basis Version:</strong
+              >
               <span id="tedge-version">-</span>
             </div>
             <div>
-              <strong data-i18n="sysinfo.build">Build:</strong>
+              <strong data-i18n="sysinfo.build">App Build:</strong>
               <span id="build-number">-</span>
             </div>
             <div>

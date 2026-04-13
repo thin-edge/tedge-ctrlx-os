@@ -4,6 +4,15 @@
 
 set -eo pipefail
 
+# ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
+if [ -z "$_SNAP_HOOK_LOG_ACTIVE" ]; then
+    _HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
+    mkdir -p "$(dirname "$_HOOK_LOG")" 2>/dev/null || true
+    exec > >(tee -a "$_HOOK_LOG") 2>&1
+    export _SNAP_HOOK_LOG_ACTIVE=1
+fi
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [configure] snap=${SNAP_NAME} version=${SNAP_VERSION} rev=${SNAP_REVISION} ==="
+
 echo "=== thin-edge.io snap configure hook starting ===" >&2
 
 # Ensure all directories exist (idempotent)
@@ -24,4 +33,4 @@ else
 fi
 ln -sf "$SNAP_COMMON/tedge/run/lock" "$SNAP_DATA/tedge/run/lock"
 
-echo "thin-edge.io snap configured"
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [configure] completed successfully ==="

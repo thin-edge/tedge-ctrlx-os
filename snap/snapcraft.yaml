@@ -148,6 +148,7 @@ apps:
   tedge-mapper-aws:
     command: scripts/tedge-service-wrapper.sh tedge-mapper aws
     daemon: simple
+    install-mode: disable
     restart-condition: on-failure
     environment:
       TZ: Europe/Berlin
@@ -165,6 +166,7 @@ apps:
   tedge-mapper-az:
     command: scripts/tedge-service-wrapper.sh tedge-mapper az
     daemon: simple
+    install-mode: disable
     restart-condition: on-failure
     environment:
       TZ: Europe/Berlin
@@ -338,7 +340,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: 1dc8a3fdfb51532005dfee8fcca7a117a8a1cb85
+    source-commit: f392965dbb7266ca4de4240389b1af9c8918245c
     build-packages:
       - pkg-config
       - libssl-dev

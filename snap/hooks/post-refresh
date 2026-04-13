@@ -4,7 +4,28 @@
 
 set -eo pipefail
 
-echo "=== thin-edge.io snap post-refresh hook starting ===" >&2
+# ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
+# Guard: skip if already set up by a parent hook (e.g. install calls post-refresh)
+if [ -z "$_SNAP_HOOK_LOG_ACTIVE" ]; then
+    _HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
+    mkdir -p "$(dirname "$_HOOK_LOG")" 2>/dev/null || true
+    # Rotate when > 1 MB
+    if [ -f "$_HOOK_LOG" ] && [ "$(stat -c%s "$_HOOK_LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+        mv "$_HOOK_LOG" "${_HOOK_LOG}.1" 2>/dev/null || true
+    fi
+    exec > >(tee -a "$_HOOK_LOG") 2>&1
+    export _SNAP_HOOK_LOG_ACTIVE=1
+fi
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] snap=${SNAP_NAME} version=${SNAP_VERSION} rev=${SNAP_REVISION} ==="
+
+echo "=== thin-edge.io snap post-refresh hook starting ==="
+
+# Ensure tedge system user exists (may be missing after OS update or first install fallback)
+if ! id "tedge" &>/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin tedge 2>/dev/null && \
+        echo "Created tedge system user" || \
+        echo "WARNING: Could not create tedge user (non-fatal)"
+fi
 
 # Ensure critical directories exist after update
 echo "Running centralized directory setup..." >&2
@@ -209,6 +230,38 @@ if [ -d "$MOSQUITTO_CONF_DIR" ]; then
 fi
 
 # =========================================================================
+# --- Migrate datalayer credentials to separate file (x2→x3 upgrade) ---
+# =========================================================================
+# In x3+ credentials (username/password/token) are stored in datalayer-credentials.json (0600).
+# Older versions stored them inside datalayer-mappings.json. Migrate if needed.
+CREDS_FILE="$SNAP_DATA/datalayer-credentials.json"
+MAPPINGS_FILE="$SNAP_DATA/datalayer-mappings.json"
+if [ ! -f "$CREDS_FILE" ] && [ -f "$MAPPINGS_FILE" ]; then
+    echo "Migrating datalayer credentials from mappings file..." >&2
+    python3 - <<MIGEOF 2>/dev/null || true
+import json, os
+mappings_path = os.environ.get("SNAP_DATA", "") + "/datalayer-mappings.json"
+creds_path    = os.environ.get("SNAP_DATA", "") + "/datalayer-credentials.json"
+try:
+    with open(mappings_path) as f:
+        data = json.load(f)
+    creds = {}
+    for key in ("username", "password", "token"):
+        if data.get(key):
+            creds[key] = data[key]
+    if creds:
+        with open(creds_path, "w") as f:
+            json.dump(creds, f, indent=2)
+        os.chmod(creds_path, 0o600)
+        print(f"Migrated credentials: {list(creds.keys())}")
+    else:
+        print("No credentials found in mappings file to migrate")
+except Exception as e:
+    print(f"Migration error (non-fatal): {e}")
+MIGEOF
+fi
+
+# =========================================================================
 # --- CRITICAL FIX: Repariere Plugin-Konfigurationen nach Update ---
 # =========================================================================
 echo "Regenerating stable plugin configurations..." >&2
@@ -288,13 +341,10 @@ chmod 644 "$STABLE_COMMON/tedge/device/inventory.json"
 # Korrigiere stale data.path und sudo.enable nach Update
 # =========================================================================
 echo "Correcting stale tedge config values after update..." >&2
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
-# log.plugin_paths: leeres Verzeichnis — tedge-agent's eingebauter LogManager wird deaktiviert.
-# Log-Uploads übernimmt unser tedge-log-upload-manager (Rust) direkt via MQTT.
-"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set log.plugin_paths "$SNAP_DATA/tedge/log-plugins-disabled" 2>&1 | tee -a /tmp/post-refresh.log >&2 || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set sudo.enable false 2>/dev/null || true
+"$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>/dev/null || true
 
 
 # =========================================================================
@@ -304,9 +354,53 @@ if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
     echo "Running inventory update script..." >&2
     "$SNAP/scripts/update-inventory.sh" 2>&1 || true
 fi
+
+# =========================================================================
+# Enforce mapper start/stop state from saved config.
+# snapd restarts ALL Startup=enabled services on every snap update.
+# We must re-apply the user's saved enabled/disabled preference here.
+# =========================================================================
+echo "Enforcing mapper states from saved config..." >&2
+python3 - <<'ENFORCEEOF' 2>&1 || true
+import json, subprocess, os, sys
+
+snap_data = os.environ.get("SNAP_DATA", "")
+snap_instance = os.environ.get("SNAP_INSTANCE_NAME", "thin-edge-io")
+cfg_path = os.path.join(snap_data, "tedge-web-config.json")
+
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except Exception as e:
+    print(f"  Cannot read config (non-fatal): {e}", file=sys.stderr)
+    sys.exit(0)
+
+# (service_config_key, url_field, snap_service_name)
+mappers = [
+    ("c8y", "c8y-url",    "tedge-mapper-c8y"),
+    ("aws", "aws-url",    "tedge-mapper-aws"),
+    ("az",  "azure-url",  "tedge-mapper-az"),
+]
+
+for cfg_key, url_field, svc in mappers:
+    cloud = cfg.get(cfg_key, {})
+    enabled = bool(cloud.get("enabled", False))
+    url = (cloud.get(url_field) or "").strip()
+    # Force disabled when no URL configured
+    if not url:
+        enabled = False
+    full_svc = f"{snap_instance}.{svc}"
+    if enabled:
+        r = subprocess.run(["snapctl", "start", "--enable", full_svc], capture_output=True)
+        state = "started"
+    else:
+        r = subprocess.run(["snapctl", "stop", "--disable", full_svc], capture_output=True)
+        state = "stopped"
+    print(f"  {full_svc}: {state} (rc={r.returncode})", file=sys.stderr)
+ENFORCEEOF
 # =========================================================================
 
-echo "Post-refresh hook completed successfully" >&2
+echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] completed successfully ==="
 
 # Clear retained health topics of removed services so they disappear from Cumulocity.
 # An empty retained payload deletes the retained message on the broker.

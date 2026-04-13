@@ -17,7 +17,8 @@ const I18N = {
     // Nav / Sections
     "section.status": "Verbindungsstatus",
     "section.cloud": "Cloud-Konfiguration",
-    "section.device": "Gerätekonfiguration & Zertifikat",
+    "section.device": "Geräte Zertifikat",
+    "section.device_config": "Gerätekonfiguration",
     "section.connect": "Gerät verbinden",
     "connect.mqtt_port_label": "MQTT Port",
     "connect.port_core": "Core MQTT (8883)",
@@ -268,7 +269,8 @@ const I18N = {
     // Nav / Sections
     "section.status": "Connection Status",
     "section.cloud": "Cloud Configuration",
-    "section.device": "Device Configuration & Certificate",
+    "section.device": "Device Certificate",
+    "section.device_config": "Device Configuration",
     "section.connect": "Connect Device",
     "connect.mqtt_port_label": "MQTT Port",
     "connect.port_core": "Core MQTT (8883)",
@@ -542,6 +544,19 @@ async function fetchWithAuth(url, options = {}) {
   return fetch(url, { ...options, headers });
 }
 
+/**
+ * Disables the mapper toggle and forces it off if the URL field is empty.
+ * Re-enables it when the URL is filled.
+ */
+function updateMapperToggleState(urlId, toggleId) {
+  const urlEl = document.getElementById(urlId);
+  const toggleEl = document.getElementById(toggleId);
+  if (!urlEl || !toggleEl) return;
+  const hasUrl = urlEl.value.trim() !== "";
+  toggleEl.disabled = !hasUrl;
+  if (!hasUrl) toggleEl.checked = false;
+}
+
 const _savedLang = localStorage.getItem("tedge-lang");
 let _lang =
   _savedLang || ((navigator.language || "en").startsWith("de") ? "de" : "en");
@@ -730,6 +745,16 @@ window.addEventListener("DOMContentLoaded", () => {
   // All other sections load their data lazily when the user opens them.
   loadStatus();
 
+  // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
+  ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
+    const toggleId = urlId.replace("-url", "-enabled");
+    const el = document.getElementById(urlId);
+    if (el)
+      el.addEventListener("input", () =>
+        updateMapperToggleState(urlId, toggleId),
+      );
+  });
+
   // Auto-refresh service status every 30 seconds (only if section is open)
   setInterval(() => {
     const sec = document.getElementById("sec-status");
@@ -883,6 +908,11 @@ async function loadConfiguration() {
         document.getElementById("az-enabled").checked =
           config.az.enabled || false;
     }
+
+    // Toggle deaktivieren wenn URL-Feld leer ist (kein Mapper ohne URL möglich)
+    updateMapperToggleState("c8y-url", "c8y-enabled");
+    updateMapperToggleState("aws-url", "aws-enabled");
+    updateMapperToggleState("az-url", "az-enabled");
 
     updateCertUploadStatusDisplay(config.cert_upload || null);
   } catch (error) {
@@ -1221,23 +1251,11 @@ async function loadDeviceIdInfo() {
     }
     const data = await response.json();
 
-    // Fill device-id field: prefer current cert ID, fall back to system serial
+    // Fill device-id field: always show hardware UUID (system_serial)
     const deviceIdField = document.getElementById("device-id");
     if (deviceIdField) {
-      // Treat "not-set" / "No certificate found" as absent
-      const cert =
-        data.current &&
-        data.current !== "not-set" &&
-        !data.current.startsWith("No certificate")
-          ? data.current
-          : "";
-      const raw = cert || data.system_serial || "";
-      // Strip "ctrlx-" prefix for display
-      const value = raw.replace(/^ctrlx-/i, "");
-      deviceIdField.value = value;
-      deviceIdField.placeholder = (
-        data.system_serial || "48FC8D56-6F25-43B1-8DF6-380342AA3478"
-      ).replace(/^ctrlx-/i, "");
+      deviceIdField.value = (data.system_serial || "").replace(/^ctrlx-/i, "");
+      deviceIdField.placeholder = "Hardware UUID";
     }
 
     // Pre-fill cert-common-name from current cert CN
@@ -1393,6 +1411,23 @@ async function loadCertDetailsInline() {
       pre.textContent = data.details;
       inline.style.display = "flex";
       inline.style.flexDirection = "column";
+
+      // Update cert-status indicator based on cert-info result
+      const certStatus = document.getElementById("cert-status");
+      if (certStatus) {
+        const isValid = data.success && /status:\s*valid/i.test(data.details);
+        const isExpired = /status:\s*expired/i.test(data.details);
+        if (isValid) {
+          certStatus.className = "cert-status success";
+          certStatus.textContent = t("device.cert_active");
+        } else if (isExpired) {
+          certStatus.className = "cert-status error";
+          certStatus.textContent = t("device.cert_expired") || "⚠ Expired";
+        } else if (data.details && !data.success) {
+          certStatus.className = "cert-status error";
+          certStatus.textContent = t("device.cert_missing");
+        }
+      }
     }
   } catch (_) {}
 }
@@ -1807,6 +1842,9 @@ function initCollapsibleSections() {
       applyRoleRestrictions();
       loadCertDetailsInline();
     },
+    "sec-device-config": () => {
+      loadInventoryConfig();
+    },
     "sec-actions": () => {
       loadC8yMqttPort();
     },
@@ -2054,6 +2092,154 @@ function copySnapConfigContent() {
 }
 
 // ─── Snap Config Editor Ende ─────────────────────────────────────────────────
+
+// ─── Device Configuration (Inventory Editor) ─────────────────────────────────
+
+function _setInvField(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || "";
+}
+
+function _getInvField(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : "";
+}
+
+async function loadInventoryConfig() {
+  const status = document.getElementById("inventory-status");
+  if (status) status.textContent = "Loading…";
+  try {
+    const r = await fetchWithAuth("api/inventory");
+    const data = await r.json();
+
+    let inv = {};
+    try {
+      inv = JSON.parse(data.content || "{}");
+    } catch {}
+
+    // c8y_Hardware
+    const hw = inv.c8y_Hardware || {};
+    _setInvField("inv-hw-model", hw.model || "");
+    _setInvField("inv-hw-serial", hw.serialNumber || "");
+    _setInvField("inv-hw-revision", hw.revision || "");
+
+    // c8y_Firmware
+    const fw = inv.c8y_Firmware || {};
+    _setInvField("inv-fw-name", fw.name || "Linux");
+    _setInvField("inv-fw-version", fw.version || "");
+    _setInvField("inv-fw-url", fw.url || "");
+
+    // c8y_Position
+    const pos = inv.c8y_Position || {};
+    _setInvField("inv-pos-lat", pos.lat != null ? String(pos.lat) : "");
+    _setInvField("inv-pos-lng", pos.lng != null ? String(pos.lng) : "");
+    _setInvField("inv-pos-alt", pos.alt != null ? String(pos.alt) : "");
+
+    // c8y_Network → c8y_LAN
+    const lan = (inv.c8y_Network || {}).c8y_LAN || {};
+    _setInvField("inv-net-iface", lan.name || "");
+    _setInvField("inv-net-ip", lan.ip || "");
+    _setInvField("inv-net-mac", lan.mac || "");
+
+    // ctrlX_Info
+    const cx = inv.ctrlX_Info || {};
+    _setInvField("inv-ctrlx-type", cx.device_type || "");
+    _setInvField("inv-ctrlx-mfr", cx.manufacturer || "");
+
+    // c8y_SoftwareList (read-only)
+    const swPre = document.getElementById("inv-software-list");
+    if (swPre) {
+      const sw = inv.c8y_SoftwareList || [];
+      swPre.textContent = sw.length
+        ? sw.map((s) => `${s.name}  ${s.version}  ${s.url || ""}`).join("\n")
+        : "—";
+    }
+
+    if (status) status.textContent = data.error ? `⚠ ${data.error}` : "";
+  } catch (e) {
+    showNotification("Failed to load inventory.json", "error");
+    if (status) status.textContent = "";
+  }
+}
+
+async function saveAndPublishInventory() {
+  const status = document.getElementById("inventory-status");
+  if (status) status.textContent = "Saving…";
+
+  // Collect c8y_SoftwareList from existing (read-only)
+  let softwareList = [];
+  try {
+    const r = await fetchWithAuth("api/inventory");
+    const data = await r.json();
+    const inv = JSON.parse(data.content || "{}");
+    softwareList = inv.c8y_SoftwareList || [];
+  } catch {}
+
+  const payload = {
+    c8y_Hardware: {
+      model: _getInvField("inv-hw-model"),
+      serialNumber: _getInvField("inv-hw-serial"),
+      revision: _getInvField("inv-hw-revision"),
+    },
+    c8y_Firmware: {
+      name: _getInvField("inv-fw-name"),
+      version: _getInvField("inv-fw-version"),
+      url: _getInvField("inv-fw-url"),
+    },
+    c8y_Position: {
+      lat: parseFloat(_getInvField("inv-pos-lat")) || 0,
+      lng: parseFloat(_getInvField("inv-pos-lng")) || 0,
+      alt: parseFloat(_getInvField("inv-pos-alt")) || 0,
+    },
+    c8y_Network: {
+      c8y_LAN: {
+        name: _getInvField("inv-net-iface"),
+        ip: _getInvField("inv-net-ip"),
+        mac: _getInvField("inv-net-mac"),
+        enabled: 1,
+      },
+    },
+    ctrlX_Info: {
+      device_type: _getInvField("inv-ctrlx-type"),
+      manufacturer: _getInvField("inv-ctrlx-mfr"),
+    },
+    c8y_SoftwareList: softwareList,
+  };
+
+  try {
+    const r = await fetchWithAuth("api/inventory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: JSON.stringify(payload, null, 2) }),
+    });
+    const data = await r.json();
+    if (data.success) {
+      const count = (data.published || []).length;
+      const errs = (data.errors || []).length;
+      if (errs > 0) {
+        showNotification(
+          `Saved. Published ${count} fragments, ${errs} failed.`,
+          "warn",
+        );
+        if (status) status.textContent = `⚠ ${errs} publish errors`;
+      } else {
+        showNotification(
+          `Saved & published ${count} inventory fragments.`,
+          "success",
+        );
+        if (status) status.textContent = `✓ ${count} fragments published`;
+      }
+    } else {
+      showNotification(data.error || "Save failed", "error");
+      if (status) status.textContent = `✗ ${data.error || "Error"}`;
+    }
+  } catch (e) {
+    showNotification("Save & publish failed", "error");
+    if (status) status.textContent = "";
+  }
+}
+
+// ─── Device Configuration Ende ───────────────────────────────────────────────
 
 /** 3. Mapping aus dem Browser vorbereiten (Add to mapping) */
 function prepareMapping(path) {

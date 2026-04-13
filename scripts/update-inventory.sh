@@ -6,27 +6,18 @@ set -eo pipefail
 
 echo "Gathering system information for inventory..." >&2
 
-STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
-INVENTORY_FILE="${STABLE_COMMON}/tedge/device/inventory.json"
+# SNAP_DATA = /var/snap/<name>/current (revision-symlink) — survives updates
+STABLE_DIR="${SNAP_DATA:-/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current}"
+INVENTORY_FILE="${STABLE_DIR}/tedge/device/inventory.json"
 export INVENTORY_FILE
 
 # ---------------------------------------------------------------------------
-# Serial number — single source of truth:
-# 1. Cert CN (= tedge device identity) if certificate exists
-# 2. manage-device-id.sh get-serial (new device, no cert yet)
+# Serial number — always use hardware UUID (manage-device-id.sh get-serial)
+# This is the stable hardware identity independent of the certificate CN.
 # ---------------------------------------------------------------------------
-CERT_FILE="${STABLE_COMMON}/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem"
-SERIAL=""
-if [ -f "$CERT_FILE" ]; then
-    SERIAL=$(openssl x509 -in "$CERT_FILE" -noout -subject 2>/dev/null \
-        | sed -n 's/.*CN\s*=\s*\([^,/]*\).*/\1/p' | sed 's/[[:space:]]*$//')
-    [ -n "$SERIAL" ] && echo "Using cert CN as serial: $SERIAL" >&2
-fi
-if [ -z "$SERIAL" ]; then
-    SCRIPT_DIR="$(dirname "$0")"
-    SERIAL=$(bash "$SCRIPT_DIR/manage-device-id.sh" get-serial 2>/dev/null)
-    [ -n "$SERIAL" ] && echo "Using get-serial as serial: $SERIAL" >&2
-fi
+SCRIPT_DIR="$(dirname "$0")"
+SERIAL=$(bash "$SCRIPT_DIR/manage-device-id.sh" get-serial 2>/dev/null)
+[ -n "$SERIAL" ] && echo "Using hardware serial: $SERIAL" >&2
 [ -z "$SERIAL" ] && SERIAL="ctrlX-Unknown"
 
 # ---------------------------------------------------------------------------
@@ -149,40 +140,125 @@ echo "Snap list: $SOFTWARE_LIST_JSON" >&2
 python3 - "$MODEL" "$SERIAL" "$REVISION" "$OS_NAME" \
          "$INTERFACE" "$IP_ADDRESS" "$MAC_ADDRESS" \
          "$SOFTWARE_LIST_JSON" << 'PYEOF'
-import json, sys
+import json, sys, os
 
 model, serial, revision, os_name, iface, ip, mac, sw_json = sys.argv[1:9]
 
+inventory_path = os.environ.get('INVENTORY_FILE', '/var/snap/thin-edge-io/current/tedge/device/inventory.json')
+
+# Read existing inventory to preserve user-edited values
+existing = {}
+try:
+    with open(inventory_path) as f:
+        existing = json.load(f)
+except Exception:
+    pass
+
+def keep(fragment, key, detected):
+    """Return existing value if set, otherwise use auto-detected value."""
+    v = existing.get(fragment, {}).get(key)
+    if v is not None and str(v).strip() not in ("", "auto-detected"):
+        return v
+    return detected
+
 inventory = {
     "c8y_Hardware": {
-        "model": model,
+        "model":        keep("c8y_Hardware", "model",    model),
+        # serialNumber always from hardware UUID — never from cert CN
         "serialNumber": serial,
-        "revision": revision
+        "revision":     keep("c8y_Hardware", "revision", revision),
     },
-    "c8y_OS": {
-        "family": "Linux",
-        "version": os_name
+    "c8y_Firmware": {
+        "name":    keep("c8y_Firmware", "name",    "Linux"),
+        "version": keep("c8y_Firmware", "version", os_name),
+        "url":     keep("c8y_Firmware", "url",     ""),
     },
     "c8y_Network": {
         "c8y_LAN": {
-            "name": iface,
-            "ip": ip,
-            "mac": mac,
-            "enabled": 1
+            # IP/MAC are always refreshed (they can change)
+            "name":    iface,
+            "ip":      ip,
+            "mac":     mac,
+            "enabled": 1,
         }
     },
-    "ctrlX_Info": {
-        "device_type": "PLC / Edge Controller",
-        "manufacturer": "Bosch Rexroth"
+    "c8y_Position": {
+        "lat": keep("c8y_Position", "lat", 51.151977),
+        "lng": keep("c8y_Position", "lng", 6.96173),
+        "alt": keep("c8y_Position", "alt", 67),
     },
-    "c8y_SoftwareList": json.loads(sw_json)
+    "ctrlX_Info": {
+        "device_type":  keep("ctrlX_Info", "device_type",  "PLC / Edge Controller"),
+        "manufacturer": keep("ctrlX_Info", "manufacturer", "Bosch Rexroth"),
+    },
+    # Software list always refreshed
+    "c8y_SoftwareList": json.loads(sw_json),
 }
 
-import os
-inventory_path = os.environ.get('INVENTORY_FILE', '/var/snap/thin-edge-io/common/tedge/device/inventory.json')
+os.makedirs(os.path.dirname(inventory_path), exist_ok=True)
 with open(inventory_path, 'w') as f:
     json.dump(inventory, f, indent=2)
 print(f"Written: {inventory_path}", file=sys.stderr)
 PYEOF
 
-echo "Updated $INVENTORY_FILE with hardware info and $(echo "$SOFTWARE_LIST_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d))") snaps." >&2
+SNAP_COUNT=$(echo "$SOFTWARE_LIST_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo "?")
+echo "Updated $INVENTORY_FILE with hardware info and $SNAP_COUNT snaps." >&2
+
+# ---------------------------------------------------------------------------
+# Publish each inventory fragment individually as retained twin topics.
+# te/device/main///twin/<fragment> → c8y-mapper → C8y inventory update.
+# Uses mosquitto_pub (bundled in snap). || true = never fail hook.
+# ---------------------------------------------------------------------------
+MQTT_PUB=""
+if [ -n "${SNAP:-}" ] && [ -x "$SNAP/usr/bin/mosquitto_pub" ]; then
+    MQTT_PUB="$SNAP/usr/bin/mosquitto_pub"
+elif command -v mosquitto_pub >/dev/null 2>&1; then
+    MQTT_PUB="mosquitto_pub"
+fi
+
+if [ -n "$MQTT_PUB" ]; then
+    echo "Publishing inventory fragments to MQTT..." >&2
+
+    # Extract each fragment from inventory.json and publish as twin topic
+    python3 - "$INVENTORY_FILE" << 'PUBEOF'
+import json, sys, subprocess, os
+
+inv_path = sys.argv[1]
+mqtt_pub = ""
+snap = os.environ.get("SNAP", "")
+if snap and os.path.isfile(f"{snap}/usr/bin/mosquitto_pub"):
+    mqtt_pub = f"{snap}/usr/bin/mosquitto_pub"
+else:
+    mqtt_pub = "mosquitto_pub"
+
+try:
+    with open(inv_path) as f:
+        inv = json.load(f)
+except Exception as e:
+    print(f"Cannot read inventory: {e}", file=sys.stderr)
+    sys.exit(0)
+
+for key, value in inv.items():
+    topic = f"te/device/main///twin/{key}"
+    payload = json.dumps(value)
+    try:
+        subprocess.run(
+            [mqtt_pub, "-h", "127.0.0.1", "-p", "1883", "-r", "-t", topic, "-m", payload],
+            check=False, timeout=5, capture_output=True
+        )
+        print(f"  Published {topic}", file=sys.stderr)
+    except Exception as e:
+        print(f"  Failed to publish {topic}: {e}", file=sys.stderr)
+PUBEOF
+    echo "Inventory fragments published." >&2
+else
+    echo "mosquitto_pub not available — skipping MQTT publish" >&2
+fi
+
+# ---------------------------------------------------------------------------
+# Check if snapd-control is connected (for complete snap list)
+# ---------------------------------------------------------------------------
+if snap connections thin-edge-io 2>/dev/null | grep -q "snapd-control.*-$"; then
+    echo "WARNING: snapd-control not connected — snap list shows only own snap." >&2
+    echo "         Run: sudo snap connect thin-edge-io:snapd-control" >&2
+fi
