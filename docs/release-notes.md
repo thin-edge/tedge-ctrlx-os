@@ -1,14 +1,82 @@
 # thin-edge.io CTRLX App - Release Notes
 
-## Version 1.7.1 - March 2026
+## Version 2.0.0 - April 2026
 
-### ctrlX AUTOMATION Release
-
-This is the official release of thin-edge.io as a ctrlX AUTOMATION app.
+### Build Versioning
+Ab Version 2.0.0 trägt jeder Snap-Build einen Build-Suffix im Format `2.0.0-DDMM.HHMM`, z.B. `2.0.0-2004.1149`.
+Die Version wird automatisch beim Build in `snapcraft.yaml` gesetzt und nach dem Build zurückgesetzt.
 
 ---
 
-## New Features
+## Änderungen seit Version 1.7.1
+
+### Web UI
+
+#### Device Certificate
+- **Device ID** zeigt jetzt immer die Hardware-UUID (`system_serial`) statt des Cert-CN
+- **Device Name** bleibt der Cert-CN (wird als CN beim Erstellen des Zertifikats verwendet)
+- **Certificate Status** wird jetzt live aus der `tedge cert show`-API gelesen (`Status: VALID`) statt immer „Unknown" anzuzeigen
+
+#### Device Configuration (Inventory)
+- **Auto-Load**: Sektion lädt automatisch beim Aufrufen (Section Observer), kein Load-Button mehr
+- **c8y_Firmware**: Felder Name / Version / URL (war: c8y_OS / family / version)
+- **c8y_Position**: Neue Sektion mit Latitude / Longitude / Altitude
+- **Einheitliche Spaltenbreite**: Alle Formular-Grids auf `repeat(3, 1fr)` vereinheitlicht
+- Kein „Save"-Fallback-Default mehr – Felder werden exakt so gespeichert wie eingegeben
+
+#### Logs & Diagnostics
+- Log-Dropdown: Einzelner Eintrag `tedge-mapper` statt der drei getrennten Mapper (c8y/aws/az)
+- Neuer Eintrag `snap-hooks` (liest direkt aus `$SNAP_COMMON/tedge/log/snap-hooks.log`)
+
+#### Snap Configuration Files
+- Neuer Eintrag: `snap-inventory.json`
+- Neuer Eintrag: `tedge-web-config.json`
+- Entfernt: `mosquitto.conf`
+- Nicht vorhandene Dateien werden beim ersten Laden automatisch mit sinnvollen Defaults erstellt (JSON: `{}`, datalayer-mappings: `[]`)
+
+#### Accessibility
+- Alle `<label>`-Elemente haben jetzt ein `for`-Attribut (behebt 25 HTML-Accessibility-Warnungen)
+
+### Backend (Rust Webserver)
+
+#### Inventory-Pfad
+- Geändert von `SNAP_COMMON` → `SNAP_DATA` (`/var/snap/thin-edge-io/current`) für `inventory.json`
+- `update-inventory.sh` und beide Endpunkte (GET + POST) aktualisiert
+
+#### Datalayer-Credentials
+- `datalayer-credentials.json` liegt jetzt in `SNAP_COMMON` (`/var/snap/thin-edge-io/common`)
+- Überlebt Snap-Updates ohne Datenverlust (vorher: SNAP_DATA, wurde bei Updates gelöscht → 401-Fehler)
+
+#### Log-Endpunkt
+- `tedge-mapper`: Liest direkt aus `$SNAP_COMMON/tedge/log/tedge-mapper.log`
+- `snap-hooks`: Liest direkt aus `$SNAP_COMMON/tedge/log/snap-hooks.log`
+
+#### Config-Whitelist
+- `snap-inventory.json` → `$SNAP_DATA/snap-inventory.json`
+- `tedge-web-config.json` → `$SNAP_DATA/tedge-web-config.json`
+- `mosquitto.conf` entfernt
+
+#### Build-Versionierung
+- `get_build_info()` erkennt jetzt beide Formate: `2.0.0-2004.1149` (Bindestrich) und `2.0.0+build....` (Plus, legacy)
+
+### update-inventory.sh
+
+- **Pfad**: jetzt `SNAP_DATA` für `INVENTORY_FILE`
+- **Serial Number**: immer aus `manage-device-id.sh get-serial` (Hardware-UUID), nie mehr aus Cert-CN
+- **`keep()`-Helper**: Bewahrt bestehende Benutzerwerte, füllt nur fehlende Felder auto-detect
+- **c8y_Firmware**: Felder `name` / `version` / `url`
+- **c8y_Position**: Felder `lat` / `lng` / `alt` mit `keep()`
+
+### Build-Skript (`setup-and-build-all.sh`)
+
+- Build-Suffix Format: `DDMM.HHMM` (UTC), z.B. `2004.1149`
+- Snap-Version wird vor dem Build auf `2.0.0-<suffix>` gesetzt
+- Nach dem Build: automatisches Zurücksetzen auf `2.0.0` via `trap EXIT`
+- `build-info.txt` verwendet das neue Format
+
+---
+
+
 
 ### Core Functionality
 - ✅ **Multi-Cloud Connectivity**: Support for Cumulocity IoT, AWS IoT Core, and Azure IoT Hub

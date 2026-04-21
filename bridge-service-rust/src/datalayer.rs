@@ -3,7 +3,7 @@ use log::{info, warn};
 use paho_mqtt as mqtt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -68,6 +68,58 @@ fn default_poll_interval() -> u32 {
     5000
 }
 
+/// Formatiert Unix-Sekunden + Millisekunden als ISO-8601-UTC-String
+/// z.B. "2026-04-21T09:30:00.123Z"
+fn format_iso8601(secs: u64, millis: u32) -> String {
+    // Kalenderrechnung ohne externe Crate
+    let mut days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let h = time_of_day / 3600;
+    let m = (time_of_day % 3600) / 60;
+    let s = time_of_day % 60;
+
+    // Gregorianischer Kalender ab 1970-01-01
+    let mut year = 1970u32;
+    loop {
+        let leap =
+            (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+        let days_in_year = if leap { 366 } else { 365 };
+        if days < days_in_year {
+            break;
+        }
+        days -= days_in_year;
+        year += 1;
+    }
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
+    let month_days: [u64; 12] = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    let mut month = 1u32;
+    for &md in &month_days {
+        if days < md {
+            break;
+        }
+        days -= md;
+        month += 1;
+    }
+    let day = days + 1;
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        year, month, day, h, m, s, millis
+    )
+}
+
 impl DatalayerMapping {
     pub fn effective_field_name(&self) -> String {
         if let Some(name) = &self.field_name {
@@ -96,6 +148,12 @@ pub struct DatalayerConfig {
     pub mappings: Vec<DatalayerMapping>,
     #[serde(rename = "acceptInvalidCerts", default)]
     pub accept_invalid_certs: bool,
+    /// Wird aus tedge config gelesen: c8y.mqtt_service.enabled
+    #[serde(rename = "mqttServiceEnabled", default)]
+    pub mqtt_service_enabled: bool,
+    /// Hardware-UUID des Geräts (ctrlx-<uuid>) — wird beim Start befüllt
+    #[serde(rename = "deviceExternalId", default)]
+    pub device_external_id: String,
 }
 
 /// Credentials stored separately in datalayer-credentials.json (mode 0600)
@@ -115,6 +173,8 @@ impl Default for DatalayerConfig {
             poll_interval_ms: 5000,
             mappings: Vec::new(),
             accept_invalid_certs: true,
+            mqtt_service_enabled: false,
+            device_external_id: String::new(),
         }
     }
 }
@@ -161,6 +221,18 @@ impl DatalayerEngine {
         }
     }
 
+    /// Wie `new`, aber überschreibt device_external_id und mqtt_service_enabled
+    pub fn new_with_overrides(
+        config_path: PathBuf,
+        device_external_id: String,
+        mqtt_service_enabled: bool,
+    ) -> Self {
+        let mut engine = Self::new(config_path);
+        engine.config.device_external_id = device_external_id;
+        engine.config.mqtt_service_enabled = mqtt_service_enabled;
+        engine
+    }
+
     pub fn load_credentials(path: &PathBuf) -> DatalayerCredentials {
         match fs::read_to_string(path) {
             Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
@@ -185,7 +257,13 @@ impl DatalayerEngine {
     }
 
     pub fn reload_config(&mut self) {
+        // Runtime-Werte sichern, die nicht aus der Datei kommen
+        let device_external_id = self.config.device_external_id.clone();
+        let mqtt_service_enabled = self.config.mqtt_service_enabled;
         self.config = Self::load_config(&self.config_path);
+        // Runtime-Werte wiederherstellen
+        self.config.device_external_id = device_external_id;
+        self.config.mqtt_service_enabled = mqtt_service_enabled;
         self.credentials = Self::load_credentials(&self.credentials_path);
     }
     pub fn is_enabled(&self) -> bool {
@@ -278,7 +356,8 @@ impl DatalayerEngine {
         info!("[DATALAYER] Session ausgeloggt");
     }
 
-    pub async fn poll_mappings(&mut self) -> Vec<(String, String)> {
+    pub async fn poll_mappings(&mut self) -> Vec<(String, String, String)> {
+        // Returns (mapping_id, topic, raw_value)
         let mut to_publish = Vec::new();
 
         // Automatischer Token-Refresh bei Bedarf
@@ -319,16 +398,17 @@ impl DatalayerEngine {
                         if let Ok(retry_resp) = retry_req.send().await {
                             if let Ok(node) = retry_resp.json::<DatalayerNodeValue>().await {
                                 let val = node.value.unwrap_or(Value::Null);
-                                if self.last_values.get(&mapping.id) != Some(&val) {
+                                let should_publish = match mapping.transform {
+                                    MappingTransform::Measurement | MappingTransform::Raw => true,
+                                    _ => self.last_values.get(&mapping.id) != Some(&val),
+                                };
+                                if should_publish {
                                     self.last_values.insert(mapping.id.clone(), val.clone());
-                                    let field = mapping.effective_field_name();
-                                    let payload = match mapping.transform {
-                                        MappingTransform::Measurement => {
-                                            json!({field: val}).to_string()
-                                        }
-                                        _ => val.to_string(),
-                                    };
-                                    to_publish.push((mapping.topic.clone(), payload));
+                                    to_publish.push((
+                                        mapping.id.clone(),
+                                        mapping.topic.clone(),
+                                        val.to_string(),
+                                    ));
                                 }
                             }
                         }
@@ -337,16 +417,17 @@ impl DatalayerEngine {
                 }
                 if let Ok(node) = resp.json::<DatalayerNodeValue>().await {
                     let val = node.value.unwrap_or(Value::Null);
-                    if self.last_values.get(&mapping.id) != Some(&val) {
+                    let should_publish = match mapping.transform {
+                        MappingTransform::Measurement | MappingTransform::Raw => true,
+                        _ => self.last_values.get(&mapping.id) != Some(&val),
+                    };
+                    if should_publish {
                         self.last_values.insert(mapping.id.clone(), val.clone());
-
-                        // Hier nutzen wir jetzt effective_field_name()
-                        let field = mapping.effective_field_name();
-                        let payload = match mapping.transform {
-                            MappingTransform::Measurement => json!({field: val}).to_string(),
-                            _ => val.to_string(),
-                        };
-                        to_publish.push((mapping.topic.clone(), payload));
+                        to_publish.push((
+                            mapping.id.clone(),
+                            mapping.topic.clone(),
+                            val.to_string(),
+                        ));
                     }
                 }
             }
@@ -394,9 +475,10 @@ pub async fn run_datalayer_loop(
             let messages = engine.poll_mappings().await;
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
-                for (topic, payload) in messages {
-                    // 1. Das passende Mapping finden
-                    if let Some(mapping) = engine.config.mappings.iter().find(|m| m.topic == topic)
+                for (mapping_id, _topic, payload) in messages {
+                    // 1. Das passende Mapping per ID finden (nicht per Topic, da mehrere Mappings dasselbe Topic nutzen können)
+                    if let Some(mapping) =
+                        engine.config.mappings.iter().find(|m| m.id == mapping_id)
                     {
                         // Den Anzeigenamen ermitteln (Fallback auf die ID, falls field_name leer ist)
                         // Annahme: field_name ist vom Typ Option<String>. Falls es ein normaler String ist,
@@ -419,9 +501,31 @@ pub async fn run_datalayer_loop(
                                     }
                                 }
 
-                                // Sauberes JSON bauen: {"rSimuTemp": 26.0}
-                                let json_data =
-                                    serde_json::json!({ &field_name: parsed_value }).to_string();
+                                // JSON bauen: {"memfree-mb": 7432.3, "unit": "MB", "time": "2026-04-21T09:30:00.000Z", "externalId": "..."}
+                                // Unit als Top-Level-Feld wenn vorhanden, sonst weglassen
+                                let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                if let Some(unit) = &mapping.unit {
+                                    if !unit.is_empty() {
+                                        json_obj["unit"] = serde_json::json!(unit);
+                                    }
+                                }
+                                // UTC-Timestamp im ISO-8601-Format
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis();
+                                let secs = now / 1000;
+                                let millis = now % 1000;
+                                let ts = format_iso8601(secs as u64, millis as u32);
+                                json_obj["time"] = serde_json::json!(ts);
+                                // externalId bei MQTT Service (Port 9883) mitschicken
+                                if mapping.topic.starts_with("c8y/mqtt/out/")
+                                    && !engine.config.device_external_id.is_empty()
+                                {
+                                    json_obj["externalId"] =
+                                        serde_json::json!(engine.config.device_external_id.clone());
+                                }
+                                let json_data = json_obj.to_string();
 
                                 // Wir nutzen das Topic, das du in der UI konfiguriert hast
                                 (mapping.topic.clone(), json_data)

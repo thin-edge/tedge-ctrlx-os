@@ -389,7 +389,7 @@
               <small>Example: t12345678</small>
             </div>
             <div class="tedge-switch-group">
-              <label class="tedge-switch">
+              <label class="tedge-switch" for="c8y-enabled">
                 <input type="checkbox" id="c8y-enabled" />
                 <span class="tedge-switch-slider"></span>
               </label>
@@ -421,7 +421,7 @@
               <small>Example: xxxxxxxxxx.iot.us-east-1.amazonaws.com</small>
             </div>
             <div class="tedge-switch-group">
-              <label class="tedge-switch">
+              <label class="tedge-switch" for="aws-enabled">
                 <input type="checkbox" id="aws-enabled" />
                 <span class="tedge-switch-slider"></span>
               </label>
@@ -453,7 +453,7 @@
               <small>Example: your-iot-hub.azure-devices.net</small>
             </div>
             <div class="tedge-switch-group">
-              <label class="tedge-switch">
+              <label class="tedge-switch" for="az-enabled">
                 <input type="checkbox" id="az-enabled" />
                 <span class="tedge-switch-slider"></span>
               </label>
@@ -733,7 +733,7 @@
               "
             >
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Model</label>
+                <label for="inv-hw-model" style="font-size: 12px">Model</label>
                 <input
                   type="text"
                   id="inv-hw-model"
@@ -741,7 +741,9 @@
                 />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Serial Number</label>
+                <label for="inv-hw-serial" style="font-size: 12px"
+                  >Serial Number</label
+                >
                 <input
                   type="text"
                   id="inv-hw-serial"
@@ -749,7 +751,9 @@
                 />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Revision</label>
+                <label for="inv-hw-revision" style="font-size: 12px"
+                  >Revision</label
+                >
                 <input type="text" id="inv-hw-revision" placeholder="1.0" />
               </div>
             </div>
@@ -784,11 +788,13 @@
               "
             >
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Name</label>
+                <label for="inv-fw-name" style="font-size: 12px">Name</label>
                 <input type="text" id="inv-fw-name" placeholder="Linux" />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Version</label>
+                <label for="inv-fw-version" style="font-size: 12px"
+                  >Version</label
+                >
                 <input
                   type="text"
                   id="inv-fw-version"
@@ -796,7 +802,7 @@
                 />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">URL</label>
+                <label for="inv-fw-url" style="font-size: 12px">URL</label>
                 <input type="text" id="inv-fw-url" placeholder="http://" />
               </div>
             </div>
@@ -831,15 +837,21 @@
               "
             >
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Latitude</label>
+                <label for="inv-pos-lat" style="font-size: 12px"
+                  >Latitude</label
+                >
                 <input type="text" id="inv-pos-lat" placeholder="51.151977" />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Longitude</label>
+                <label for="inv-pos-lng" style="font-size: 12px"
+                  >Longitude</label
+                >
                 <input type="text" id="inv-pos-lng" placeholder="6.95173" />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Altitude</label>
+                <label for="inv-pos-alt" style="font-size: 12px"
+                  >Altitude</label
+                >
                 <input type="text" id="inv-pos-alt" placeholder="67" />
               </div>
             </div>
@@ -874,15 +886,21 @@
               "
             >
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Interface</label>
+                <label for="inv-net-iface" style="font-size: 12px"
+                  >Interface</label
+                >
                 <input type="text" id="inv-net-iface" placeholder="eth0" />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">IP Address</label>
+                <label for="inv-net-ip" style="font-size: 12px"
+                  >IP Address</label
+                >
                 <input type="text" id="inv-net-ip" placeholder="192.168.1.1" />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">MAC Address</label>
+                <label for="inv-net-mac" style="font-size: 12px"
+                  >MAC Address</label
+                >
                 <input
                   type="text"
                   id="inv-net-mac"
@@ -921,7 +939,9 @@
               "
             >
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Device Type</label>
+                <label for="inv-ctrlx-type" style="font-size: 12px"
+                  >Device Type</label
+                >
                 <input
                   type="text"
                   id="inv-ctrlx-type"
@@ -929,7 +949,9 @@
                 />
               </div>
               <div class="form-group" style="margin: 0">
-                <label style="font-size: 12px">Manufacturer</label>
+                <label for="inv-ctrlx-mfr" style="font-size: 12px"
+                  >Manufacturer</label
+                >
                 <input
                   type="text"
                   id="inv-ctrlx-mfr"
@@ -1040,7 +1062,11 @@
                   data-i18n="connect.port_core"
                   >Core MQTT (8883)</span
                 >
-                <label class="tedge-switch" style="margin: 0">
+                <label
+                  class="tedge-switch"
+                  for="c8y-mqtt-port-toggle"
+                  style="margin: 0"
+                >
                   <input
                     type="checkbox"
                     id="c8y-mqtt-port-toggle"
@@ -1637,7 +1663,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
               <div class="status-columns">
                 <div class="status-col">
                   <div class="form-group">
-                    <label data-i18n="datalayer.base_url">Base URL</label>
+                    <label
+                      for="datalayer-base-url"
+                      data-i18n="datalayer.base_url"
+                      >Base URL</label
+                    >
                     <input
                       type="text"
                       id="datalayer-base-url"
@@ -1646,7 +1676,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                     />
                   </div>
                   <div class="form-group">
-                    <label data-i18n="datalayer.password">Password</label>
+                    <label
+                      for="datalayer-password"
+                      data-i18n="datalayer.password"
+                      >Password</label
+                    >
                     <input
                       type="password"
                       id="datalayer-password"
@@ -1656,7 +1690,10 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                     />
                   </div>
                   <div class="tedge-switch-group">
-                    <label class="tedge-switch">
+                    <label
+                      class="tedge-switch"
+                      for="datalayer-accept-invalid-certs"
+                    >
                       <input
                         type="checkbox"
                         id="datalayer-accept-invalid-certs"
@@ -1672,7 +1709,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                 </div>
                 <div class="status-col">
                   <div class="form-group">
-                    <label data-i18n="datalayer.username">Username</label>
+                    <label
+                      for="datalayer-username"
+                      data-i18n="datalayer.username"
+                      >Username</label
+                    >
                     <input
                       type="text"
                       id="datalayer-username"
@@ -1784,16 +1825,22 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
             <div class="status-columns">
               <div class="status-col">
                 <div class="form-group">
-                  <label data-i18n="datalayer.path">Datalayer Path</label>
+                  <label for="datalayer-mapping-path" data-i18n="datalayer.path"
+                    >Datalayer Path</label
+                  >
                   <input
                     type="text"
                     id="datalayer-mapping-path"
                     class="form-control"
-                    placeholder="z.B. plc/app/..."
+                    placeholder="z.B. /framework/metrics/system/memfree-mb"
                   />
                 </div>
                 <div class="form-group">
-                  <label data-i18n="datalayer.direction">Direction</label>
+                  <label
+                    for="datalayer-mapping-direction"
+                    data-i18n="datalayer.direction"
+                    >Direction</label
+                  >
                   <select
                     id="datalayer-mapping-direction"
                     class="form-control"
@@ -1814,7 +1861,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   </select>
                 </div>
                 <div class="form-group">
-                  <label data-i18n="datalayer.field">Field name</label>
+                  <label
+                    for="datalayer-mapping-field"
+                    data-i18n="datalayer.field"
+                    >Field name</label
+                  >
                   <input
                     type="text"
                     id="datalayer-mapping-field"
@@ -1825,11 +1876,16 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
               </div>
               <div class="status-col">
                 <div class="form-group">
-                  <label data-i18n="datalayer.topic">tedge MQTT Topic</label>
+                  <label
+                    for="datalayer-mapping-topic"
+                    data-i18n="datalayer.topic"
+                    >tedge MQTT Topic</label
+                  >
                   <input
                     type="text"
                     id="datalayer-mapping-topic"
                     class="form-control"
+                    placeholder="z.B. c8y/mqtt/out/myTopic"
                   />
                   <small
                     id="datalayer-mapping-topic-hint"
@@ -1837,7 +1893,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   ></small>
                 </div>
                 <div class="form-group">
-                  <label data-i18n="datalayer.transform">Transform</label>
+                  <label
+                    for="datalayer-mapping-transform"
+                    data-i18n="datalayer.transform"
+                    >Transform</label
+                  >
                   <select
                     id="datalayer-mapping-transform"
                     class="form-control"
@@ -1850,7 +1910,9 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   </select>
                 </div>
                 <div class="form-group">
-                  <label data-i18n="datalayer.unit">Unit (optional)</label>
+                  <label for="datalayer-mapping-unit" data-i18n="datalayer.unit"
+                    >Unit (optional)</label
+                  >
                   <input
                     type="text"
                     id="datalayer-mapping-unit"

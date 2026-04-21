@@ -348,6 +348,29 @@ echo "Correcting stale tedge config values after update..." >&2
 
 
 # =========================================================================
+# Sicherstellen dass Cert-CN mit System-Seriennummer übereinstimmt
+# (verhindert externalId-Mismatch in Cumulocity nach Erstinstallation mit Hostname)
+# =========================================================================
+CERT_FILE="$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem"
+echo "Verifying device certificate CN matches system serial..." >&2
+EXPECTED_SERIAL=$("$SNAP/scripts/manage-device-id.sh" get-serial 2>/dev/null || echo "")
+if [ -n "$EXPECTED_SERIAL" ] && [ -f "$CERT_FILE" ]; then
+    CURRENT_CN=$(openssl x509 -in "$CERT_FILE" -noout -subject 2>/dev/null | \
+        sed -n 's/.*CN\s*=\s*\([^,/]*\).*/\1/p' | sed 's/[[:space:]]*$//' || echo "")
+    if [ "$CURRENT_CN" != "$EXPECTED_SERIAL" ]; then
+        echo "WARNING: Cert CN '$CURRENT_CN' differs from expected '$EXPECTED_SERIAL'. Recreating certificate..." >&2
+        "$SNAP/scripts/manage-device-id.sh" create "$EXPECTED_SERIAL" 2>&1 || \
+            echo "WARNING: Failed to recreate certificate (non-fatal)" >&2
+    else
+        echo "  Cert CN OK: $CURRENT_CN" >&2
+    fi
+elif [ -n "$EXPECTED_SERIAL" ] && [ ! -f "$CERT_FILE" ]; then
+    echo "  No cert found, creating for: $EXPECTED_SERIAL" >&2
+    "$SNAP/scripts/manage-device-id.sh" create "$EXPECTED_SERIAL" 2>&1 || \
+        echo "WARNING: Failed to create certificate (non-fatal)" >&2
+fi
+
+# =========================================================================
 # Inventory mit echten Systemdaten befüllen
 # =========================================================================
 if [ -f "$SNAP/scripts/update-inventory.sh" ]; then

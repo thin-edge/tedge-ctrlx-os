@@ -210,12 +210,12 @@ struct AppState {
 }
 
 impl AppState {
-    fn new(config_path: PathBuf, datalayer_config_path: PathBuf) -> Self {
+    fn new(
+        config_path: PathBuf,
+        datalayer_config_path: PathBuf,
+        credentials_path: PathBuf,
+    ) -> Self {
         info!("[INIT] Loading configuration from: {:?}", config_path);
-        let credentials_path = datalayer_config_path
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .join("datalayer-credentials.json");
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
 
@@ -2741,9 +2741,10 @@ async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     if let Ok(content) = fs::read_to_string(&build_info_path) {
         for line in content.lines() {
             if let Some(val) = line.strip_prefix("Version: ") {
-                if let Some(plus) = val.find('+') {
-                    version = val[..plus].to_string();
-                    build = val[plus + 1..].to_string();
+                // Format: "2.0.0-2004.1149" (dash) oder legacy "2.0.0+build...." (plus)
+                if let Some(sep) = val.find('-').or_else(|| val.find('+')) {
+                    version = val[..sep].to_string();
+                    build = val[sep + 1..].to_string();
                 } else {
                     version = val.to_string();
                 }
@@ -3627,6 +3628,14 @@ async fn main() -> io::Result<()> {
         PathBuf::from("./datalayer-mappings.json")
     };
 
+    // Credentials in SNAP_COMMON speichern – bleibt über Snap-Updates erhalten
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let credentials_path = if is_snap {
+        PathBuf::from(&snap_common).join("datalayer-credentials.json")
+    } else {
+        PathBuf::from("./datalayer-credentials.json")
+    };
+
     let web_root = if is_snap {
         let snap = env::var("SNAP").unwrap_or_default();
         PathBuf::from(&snap).join("web/www")
@@ -3642,7 +3651,11 @@ async fn main() -> io::Result<()> {
     info!("Web root: {:?}", web_root);
     info!("Config file: {:?}", config_path);
 
-    let app_state = web::Data::new(AppState::new(config_path, datalayer_config_path));
+    let app_state = web::Data::new(AppState::new(
+        config_path,
+        datalayer_config_path,
+        credentials_path,
+    ));
 
     let server = HttpServer::new(move || {
         App::new()

@@ -2285,8 +2285,9 @@ function updateTopicPrefix() {
   const lastPart = path.split("/").pop() || "value";
 
   if (isMqttServiceActive()) {
-    // MQTT Service (9883): c8y/mqtt/out/ Präfix
-    let topic = "c8y/mqtt/out/";
+    // MQTT Service (9883): c8y/mqtt/out/ Präfix erzwingen
+    const prefix = "c8y/mqtt/out/";
+    let topic = prefix;
     if (direction === "tedge_to_dl") {
       topic += "cmd/" + lastPart;
     } else {
@@ -2328,14 +2329,19 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-path").value =
     mapping.path || mapping.datalayer_path || "";
   const existingTopic = mapping.topic || mapping.tedge_topic || "";
-  document.getElementById("datalayer-mapping-topic").value = existingTopic;
-  // Warnung wenn MQTT Service aktiv ist und Topic noch das alte te/-Schema hat
-  if (isMqttServiceActive() && existingTopic.startsWith("te/")) {
+  let loadedTopic = existingTopic;
+  // Im MQTT-Service-Modus: Präfix sicherstellen
+  if (
+    isMqttServiceActive() &&
+    loadedTopic &&
+    !loadedTopic.startsWith("c8y/mqtt/out/")
+  ) {
     setTimeout(
       () => showNotification(t("notify.dl_topic_te_warning"), "warning"),
       200,
     );
   }
+  document.getElementById("datalayer-mapping-topic").value = loadedTopic;
   document.getElementById("datalayer-mapping-direction").value =
     mapping.direction || "dl_to_tedge";
 
@@ -2399,6 +2405,24 @@ async function saveNewMapping() {
     .value.trim();
   if (topicRaw.endsWith("/")) {
     topicRaw = topicRaw.replace(/\/+$/, "");
+  }
+
+  // Im MQTT-Service-Modus (9883) sicherstellen dass c8y/mqtt/out/ vorangestellt ist
+  if (isMqttServiceActive()) {
+    const prefix = "c8y/mqtt/out/";
+    if (!topicRaw.startsWith(prefix)) {
+      // Altes te/-Topic oder sonstiges: Präfix voranstellen
+      const bare = topicRaw.replace(
+        /^(te\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/|c8y\/[^/]*\/[^/]*\/)/,
+        "",
+      );
+      topicRaw = prefix + (bare || topicRaw.replace(/\//g, "_"));
+      document.getElementById("datalayer-mapping-topic").value = topicRaw;
+      showNotification(
+        `Topic auf "${topicRaw}" korrigiert (MQTT Service erfordert c8y/mqtt/out/ Präfix)`,
+        "warning",
+      );
+    }
   }
 
   const body = {

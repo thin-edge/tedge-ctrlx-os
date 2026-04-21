@@ -77,7 +77,8 @@ echo "Step 4: Generate Build Info"
 echo "=============================================="
 echo "[build-info.sh] Erzeuge build-info.txt ..."
 
-VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
+VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
 BUILD_NUMBER="$(date +%Y%m%d%H%M%S)"
 BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 BUILD_HOST="$(hostname)"
@@ -85,7 +86,7 @@ BUILD_USER="$(whoami)"
 BUILD_ARCH="$(uname -m)"
 BUILD_INFO_FILE="configs/build-info.txt"
 cat > "$BUILD_INFO_FILE" << EOF
-Version: ${VERSION}+${BUILD_NUMBER}
+Version: ${VERSION}-${BUILD_SUFFIX}
 Build Date: ${BUILD_DATE}
 Build Host: ${BUILD_HOST}
 Build User: ${BUILD_USER}
@@ -192,10 +193,13 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 BUILD_DATE="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
 BUILD_NUMBER="build.$(date -u +%Y%m%d.%H%M)"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
-VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
+BASE_VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+SNAP_VERSION="${BASE_VERSION}-${BUILD_SUFFIX}"
+VERSION="$SNAP_VERSION"
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # --- NEU: thin-edge.io HEAD Commit holen und snapcraft.yaml aktualisieren ---
@@ -207,6 +211,9 @@ if [ -z "$THIN_EDGE_IO_COMMIT" ]; then
 fi
 echo "[i] Setze source-commit in snapcraft.yaml auf $THIN_EDGE_IO_COMMIT"
 sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_IO_COMMIT/" snap/snapcraft.yaml
+# Snap-Version mit Build-Suffix setzen
+sed -i "s/^version:.*/version: ${SNAP_VERSION}/" snap/snapcraft.yaml
+echo "[i] Snap-Version gesetzt auf: ${SNAP_VERSION}"
 # --- ENDE NEU ---
 
 mkdir -p logs
@@ -217,7 +224,7 @@ echo "Version: ${VERSION}  Commit: ${GIT_COMMIT}  Upstream: ${THIN_EDGE_IO_COMMI
 echo "======================================"
 
 cat > "configs/build-info.txt" << EOF
-Version: ${VERSION}+${BUILD_NUMBER}
+Version: ${SNAP_VERSION}
 Build Date: ${BUILD_DATE}
 Build Host: ${BUILD_HOST}
 Build User: ${BUILD_USER}
@@ -227,6 +234,16 @@ Git Commit: ${GIT_COMMIT}
 Upstream Commit: ${THIN_EDGE_IO_COMMIT}
 EOF
 echo "[i] Build-Info aktualisiert."
+# Snap-Version in snapcraft.yaml nach dem Build zurücksetzen
+trap 'sed -i "s/^version:.*/version: ${BASE_VERSION}/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${BASE_VERSION}"' EXIT
+
+# Alte Snap-Dateien löschen
+OLD_SNAPS=$(ls -1 thin-edge-io_*.snap 2>/dev/null || true)
+if [ -n "$OLD_SNAPS" ]; then
+    echo "[i] Lösche alte Snap-Dateien..."
+    rm -f thin-edge-io_*.snap
+    echo "[✓] Alte Snaps gelöscht: $(echo "$OLD_SNAPS" | tr '\n' ' ')"
+fi
 
 AMD64_BUILD_LOG="logs/build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building amd64 snap (logging to $AMD64_BUILD_LOG)..."

@@ -44,18 +44,27 @@ get_system_serial() {
         fi
     fi
     
-    # Priority 4: Product UUID (VMs)
+    # Priority 4: Product UUID (VMs) — volle UUID als Fallback
     if [ -r /sys/class/dmi/id/product_uuid ] && [ -s /sys/class/dmi/id/product_uuid ]; then
         serial=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null | tr -d '\0\n' | xargs)
         if [ -n "$serial" ] && [ "$serial" != "0" ] && [ "$serial" != "None" ]; then
-            echo "ctrlx-${serial:0:12}"
+            echo "ctrlx-$serial"
             return 0
         fi
     fi
-    
-    # Fallback: hostname-based
-    local hostname=$(hostname 2>/dev/null || echo "device")
-    echo "ctrlx-$hostname"
+
+    # Priority 5: machine-id (immer vorhanden, eindeutig pro System)
+    if [ -r /etc/machine-id ] && [ -s /etc/machine-id ]; then
+        serial=$(cat /etc/machine-id 2>/dev/null | tr -d '\0\n' | xargs)
+        if [ -n "$serial" ] && [ "$serial" != "0" ]; then
+            echo "ctrlx-$serial"
+            return 0
+        fi
+    fi
+
+    # Letzter Ausweg: Fehler ausgeben statt hostname
+    echo "ERROR: Could not determine system serial number" >&2
+    exit 1
 }
 
 # Function to get current device ID from certificate
