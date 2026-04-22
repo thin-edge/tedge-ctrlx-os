@@ -138,8 +138,8 @@ cd /home/ubuntu/thin-edge-io-app
 ./build-snap-amd64.sh
 
 # Deploy auf ctrlX
-scp thin-edge-io_2.0.0_amd64.snap boschrexroth@<ctrlx-ip>:/tmp/
-ssh boschrexroth@<ctrlx-ip>
+scp thin-edge-io_2.0.0_amd64.snap rexroot@<ctrlx-ip>:/tmp/
+ssh rexroot@<ctrlx-ip>
 sudo snap install /tmp/thin-edge-io_2.0.0_amd64.snap --dangerous
 
 # Web UI aufrufen

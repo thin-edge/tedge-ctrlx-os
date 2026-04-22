@@ -64,8 +64,8 @@ Expected: App installed, all services in "inactive" state (normal before configu
 
 Connect via SSH:
 ```bash
-ssh boschrexroth@<device-ip>
-# Default password: boschrexroth
+ssh -p 8022 rexroot@<device-ip>
+# Default password: rexroot
 ```
 
 ### 3.2 Configure for Cumulocity IoT (Example)

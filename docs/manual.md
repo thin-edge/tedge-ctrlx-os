@@ -483,6 +483,29 @@ te/device/{device_id}///a/{alarm_type}
 te/device/{device_id}///config/{operation}
 ```
 
+#### ctrlX Data Layer → Cumulocity MQTT Service (Port 9883)
+
+When using Cumulocity MQTT Service (`c8y.mqtt.port=9883`), Data Layer bridge publishes to topics with the `c8y/mqtt/out/` prefix. Each measurement payload includes:
+
+| Field | Description |
+|-------|-------------|
+| `{field_name}` | The measured value (number, string, or boolean from Data Layer) |
+| `unit` | Unit of measurement (only if configured, e.g. `"MB"`, `"%"`) |
+| `time` | UTC timestamp in ISO-8601 format (`YYYY-MM-DDTHH:MM:SS.mmmZ`) |
+| `externalId` | Device external ID — equals the certificate CN registered in Cumulocity |
+
+Example payload:
+```json
+{
+  "memfree-mb": 6892.03,
+  "unit": "MB",
+  "time": "2026-04-21T09:30:00.123Z",
+  "externalId": "ctrlx-984c906200b9425eb91c96474c64c938"
+}
+```
+
+Multiple fields from different Data Layer paths can be mapped to the **same** MQTT topic. Each mapping is identified by its UUID, so mappings with identical topics are handled correctly and independently.
+
 ### 8.2 Web UI REST API
 
 The webserver exposes a REST API on port 8888 (proxied to `/thin-edge-io/api/` by ctrlX Caddyfile):

@@ -4,6 +4,10 @@
 
 set -eo pipefail
 
+# ── Snap health reporting ─────────────────────────────────────────────────────
+snapctl set-health waiting "Updating thin-edge.io..."
+trap 'snapctl set-health error "Post-refresh failed — check ${SNAP_COMMON}/tedge/log/snap-hooks.log"' ERR
+
 # ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
 # Guard: skip if already set up by a parent hook (e.g. install calls post-refresh)
 if [ -z "$_SNAP_HOOK_LOG_ACTIVE" ]; then
@@ -20,12 +24,7 @@ echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] snap=${SNAP_NAME} versio
 
 echo "=== thin-edge.io snap post-refresh hook starting ==="
 
-# Ensure tedge system user exists (may be missing after OS update or first install fallback)
-if ! id "tedge" &>/dev/null 2>&1; then
-    useradd --system --no-create-home --shell /usr/sbin/nologin tedge 2>/dev/null && \
-        echo "Created tedge system user" || \
-        echo "WARNING: Could not create tedge user (non-fatal)"
-fi
+# tedge system user wird von snapcraft via system-usernames automatisch angelegt
 
 # Ensure critical directories exist after update
 echo "Running centralized directory setup..." >&2
@@ -423,6 +422,25 @@ for cfg_key, url_field, svc in mappers:
 ENFORCEEOF
 # =========================================================================
 
+# ── Cloud reconnect nach Snap-Update ─────────────────────────────────────────
+# tedge reconnect c8y funktioniert NICHT im Hook-Kontext weil:
+#   1. tedge User per chown nicht gefunden wird (AppArmor strict mode)
+#   2. systemd service manager nicht verfügbar ist
+# Stattdessen: snapctl restart des Mappers — im built-in bridge Modus
+# baut tedge-mapper-c8y die Verbindung selbst auf wenn er startet.
+SNAP_INSTANCE="${SNAP_INSTANCE_NAME:-thin-edge-io}"
+TEDGE_BIN="$SNAP/bin/tedge"
+TEDGE_CFG="$SNAP_DATA/tedge"
+C8Y_URL=$("$TEDGE_BIN" --config-dir "$TEDGE_CFG" config get c8y.url 2>/dev/null || true)
+if [ -n "$C8Y_URL" ]; then
+    echo "c8y.url=$C8Y_URL — restarting tedge-mapper-c8y via snapctl..." >&2
+    snapctl restart "${SNAP_INSTANCE}.tedge-mapper-c8y" 2>&1 | \
+        sed 's/^/  [mapper-restart] /' >&2 || \
+        echo "WARNING: snapctl restart tedge-mapper-c8y failed (non-fatal)" >&2
+else
+    echo "c8y.url not configured — skipping mapper restart" >&2
+fi
+
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] completed successfully ==="
 
 # Clear retained health topics of removed services so they disappear from Cumulocity.
@@ -441,3 +459,5 @@ done
 snapctl connect :hardware-observe 2>/dev/null || true
 snapctl connect :log-observe 2>/dev/null || true
 snapctl connect :snapd-control 2>/dev/null || true
+
+snapctl set-health okay

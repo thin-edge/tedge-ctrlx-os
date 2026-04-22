@@ -182,7 +182,7 @@ Nach erfolgreichem Build befinden sich die Snap-Dateien im aktuellen Verzeichnis
 ### Schnellstart
 ```bash
 # Via SSH verbinden
-ssh boschrexroth@<device-ip>
+ssh -p 8022 rexroot@<device-ip>
 
 # Cumulocity konfigurieren
 thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com

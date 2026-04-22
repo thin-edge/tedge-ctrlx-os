@@ -162,7 +162,11 @@ impl TedgeDatalayerBridge {
             .finalize();
         cli.connect(conn_opts).await?;
 
-        let mut topics = vec!["tedge/health/+".to_string()];
+        let mut topics = vec![];
+        // tedge/health/+ nur abonnieren wenn MQTT Service (Port 9883) aktiv ist
+        if config.mqtt_service_enabled {
+            topics.push("tedge/health/+".to_string());
+        }
         for mapping in config
             .mappings
             .iter()

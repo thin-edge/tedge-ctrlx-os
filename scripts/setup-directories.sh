@@ -84,3 +84,24 @@ else
 fi
 
 echo "=== Setup completed successfully ==="
+
+# ── tedge system.toml: root als Eigentümer ────────────────────────────────────
+# ctrlX snapd unterstützt weder system-usernames noch erlaubt AppArmor
+# useradd im Snap-Kontext. tedge versucht beim connect/bridge-Schreiben
+# Verzeichnisse per chown auf den "tedge"-User zu setzen — schlägt fehl.
+# Lösung: system.toml mit user="root"/group="root" einrichten, bevor tedge
+# zum ersten Mal läuft. Dadurch chownt tedge alle Verzeichnisse auf root:root,
+# was im Snap-Kontext immer klappt.
+SYSTEM_TOML="$SNAP_DATA_PATH/tedge/system.toml"
+if [ ! -f "$SYSTEM_TOML" ]; then
+    cat > "$SYSTEM_TOML" << 'EOF'
+# ctrlX AUTOMATION: use root instead of tedge user
+# The tedge system user cannot be created in strict snap confinement.
+# Setting user/group to root ensures chown operations always succeed.
+user = "root"
+group = "root"
+EOF
+    echo "system.toml created with user=root/group=root"
+else
+    echo "system.toml already exists, not overwriting"
+fi

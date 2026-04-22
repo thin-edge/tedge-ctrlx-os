@@ -1,21 +1,19 @@
 {
-	"description": "Unix socket configuration for thin-edge.io",
-	"sockets": [
-		{
-			"path": "$SNAP_DATA/tedge/ipc/agent.sock",
-			"service": "tedge-agent",
-			"description": "IPC socket for agent communication",
-			"permissions": "0660"
-		},
-		{
-			"path": "$SNAP_DATA/tedge/ipc/mapper.sock",
-			"service": "tedge-mapper",
-			"description": "IPC socket for mapper communication",
-			"permissions": "0660"
-		}
-	],
-	"notes": [
-		"Unix sockets are used for inter-process communication between thin-edge.io components",
-		"All sockets are created in $SNAP_DATA directory with restricted permissions"
-	]
+  "sockets": [
+    {
+      "name": "thin-edge-io.web.sock",
+      "purpose": "Unix socket for ctrlX reverse proxy to reach the thin-edge.io web UI",
+      "accessibility": "external"
+    },
+    {
+      "name": "tedge-agent.sock",
+      "purpose": "Internal IPC socket for tedge-agent inter-process communication",
+      "accessibility": "internal"
+    },
+    {
+      "name": "tedge-mapper.sock",
+      "purpose": "Internal IPC socket for tedge-mapper inter-process communication",
+      "accessibility": "internal"
+    }
+  ]
 }

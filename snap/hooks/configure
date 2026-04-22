@@ -4,6 +4,10 @@
 
 set -eo pipefail
 
+# ── Snap health reporting ─────────────────────────────────────────────────────
+snapctl set-health waiting "Applying configuration..."
+trap 'snapctl set-health error "Configure failed — check ${SNAP_COMMON}/tedge/log/snap-hooks.log"' ERR
+
 # ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
 if [ -z "$_SNAP_HOOK_LOG_ACTIVE" ]; then
     _HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
@@ -34,3 +38,4 @@ fi
 ln -sf "$SNAP_COMMON/tedge/run/lock" "$SNAP_DATA/tedge/run/lock"
 
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [configure] completed successfully ==="
+snapctl set-health okay

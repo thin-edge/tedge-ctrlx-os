@@ -232,12 +232,28 @@ Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-
 
 | Field | Description |
 |-------|-------------|
-| Datalayer Path | Full path to the Data Layer node |
+| Datalayer Path | Full path to the Data Layer node (e.g. `/framework/metrics/system/memfree-mb`) |
 | Direction | `Datalayer ➔ tedge` (read) or `tedge ➔ Datalayer` (write) |
-| tedge MQTT Topic | Auto-suggested based on transform type; editable |
+| tedge MQTT Topic | Auto-suggested based on transform type; editable (e.g. `c8y/mqtt/out/myTopic`) |
 | Transform | `raw`, `measurement`, `event`, or `alarm` |
 | Field name | JSON field name in the payload (auto-derived from path if left empty) |
-| Unit | Optional unit string (e.g. `°C`, `bar`) appended to measurements |
+| Unit | Optional unit string (e.g. `°C`, `MB`, `%`) — published as top-level `"unit"` field |
+
+**Measurement Payload Format** (when using Cumulocity MQTT Service, port 9883):
+
+```json
+{
+  "memfree-mb": 6892.03,
+  "unit": "MB",
+  "time": "2026-04-21T09:30:00.123Z",
+  "externalId": "ctrlx-984c906200b9425eb91c96474c64c938"
+}
+```
+
+- `"time"`: UTC timestamp, added automatically on each poll cycle
+- `"unit"`: included only if configured in the mapping
+- `"externalId"`: automatically injected for topics starting with `c8y/mqtt/out/`; equals the device certificate CN (= the external ID registered in Cumulocity)
+- Multiple mappings can use the **same** MQTT topic — each is identified by its UUID and processed independently
 
 **Mappings Table** (bottom): lists all saved mappings with columns Path, Topic, Direction (arrow icon), Type · Field, Active toggle, and an edit button. Changes to individual rows are saved via `PUT /api/datalayer/mappings/{id}` or `DELETE /api/datalayer/mappings/{id}`.
 

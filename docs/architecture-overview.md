@@ -144,7 +144,32 @@ tedge-mapper (translates)
 Cloud Platform (TLS encrypted)
 ```
 
-### 4.2 Command Flow
+### 4.2 ctrlX Data Layer → Cloud (MQTT Service)
+
+```
+ctrlX Data Layer Node
+      │  (HTTP REST API, Bearer Token)
+      ▼
+tedge-datalayer-bridge (polls every 5s)
+      │
+      ▼  Builds JSON payload:
+      │  {
+      │    "memfree-mb": 6892.03,
+      │    "unit": "MB",
+      │    "time": "2026-04-21T09:30:00.123Z",
+      │    "externalId": "ctrlx-984c906..."
+      │  }
+      │
+      ▼
+MQTT Topic (c8y/mqtt/out/<name>)   ← Port 9883 (Cumulocity MQTT Service)
+      │
+      ▼
+Cumulocity IoT (Measurement)
+```
+
+**externalId**: Wird aus dem Gerätezertifikat (Cert-CN) gelesen und stellt sicher, dass Cumulocity den Datenpunkt dem registrierten Gerät zuordnet.
+
+### 4.3 Command Flow
 
 ```
 Cloud Platform
@@ -506,6 +531,13 @@ Key tests:
 ## 17. Version History
 
 - **v1.7.1** (Mar 2026): ctrlX AUTOMATION release with Web UI, ctrlX Auth, Data Layer bridge
+- **v2.0.0** (Apr 2026):
+  - ctrlX Data Layer bridge: externalId injection, UTC timestamp, unit field in MQTT payloads
+  - Device ID always from hardware UUID / machine-id (not hostname)
+  - Cert-CN verification in post-refresh hook (auto-recreate on mismatch)
+  - Build versioning with `DDMM.HHMM` suffix
+  - HTML accessibility fixes (all labels have `for=` attribute)
+  - Datalayer credentials in `SNAP_COMMON` (survive snap updates)
 
 ---
 

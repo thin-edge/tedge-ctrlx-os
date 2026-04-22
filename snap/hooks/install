@@ -13,6 +13,10 @@
 
 set -eo pipefail
 
+# ── Snap health reporting ─────────────────────────────────────────────────────
+snapctl set-health waiting "Installing thin-edge.io..."
+trap 'snapctl set-health error "Install failed — check ${SNAP_COMMON}/tedge/log/snap-hooks.log"' ERR
+
 # ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
 _HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
 mkdir -p "$(dirname "$_HOOK_LOG")" 2>/dev/null || true
@@ -22,14 +26,7 @@ echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [install] snap=${SNAP_NAME} version=${S
 
 echo "=== thin-edge.io snap install hook starting ==="
 
-# ── tedge System-User anlegen (wird vom tedge-Binary für chown erwartet) ─────
-if ! id "tedge" &>/dev/null 2>&1; then
-    useradd --system --no-create-home --shell /usr/sbin/nologin tedge 2>/dev/null && \
-        echo "Created tedge system user" || \
-        echo "WARNING: Could not create tedge user (non-fatal)"
-else
-    echo "tedge system user already exists"
-fi
+# tedge system user wird von snapcraft via system-usernames automatisch angelegt
 
 # ── Verzeichnisse über zentrales Setup-Skript ────────────────────────────────
 echo "Running centralized directory setup..." >&2
@@ -86,3 +83,4 @@ echo "Delegating shared state setup to post-refresh hook..." >&2
 bash "$SNAP/snap/hooks/post-refresh"
 
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [install] completed successfully ==="
+snapctl set-health okay

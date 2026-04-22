@@ -1,42 +1,51 @@
 {
-        "description": "Port configuration for thin-edge.io services",
-        "ports": [
-                {
-                        "port": 1883,
-                        "protocol": "tcp",
-                        "service": "mosquitto",
-                        "description": "Local MQTT broker — bound to 127.0.0.1 only, not externally accessible",
-                        "direction": "inbound",
-                        "security": "internal"
-                },
-                {
-                        "port": 8888,
-                        "protocol": "tcp",
-                        "service": "webserver",
-                        "description": "Configuration Web UI — bound to 127.0.0.1 only, proxied via ctrlX Caddyfile reverse proxy",
-                        "direction": "inbound",
-                        "security": "internal"
-                },
-                {
-                        "port": 8883,
-                        "protocol": "tcp",
-                        "service": "tedge-mapper-c8y",
-                        "description": "MQTT over TLS — outbound cloud connection to Cumulocity IoT (or 9883 for MQTT Service)",
-                        "direction": "outbound",
-                        "security": "tls"
-                },
-                {
-                        "port": 443,
-                        "protocol": "tcp",
-                        "service": "tedge-agent / tedge-mapper",
-                        "description": "HTTPS — outbound connections to cloud platform REST APIs",
-                        "direction": "outbound",
-                        "security": "tls"
-                }
-        ],
-        "notes": [
-                "No ports are exposed externally without authentication",
-                "Internal ports (1883, 8888) are bound to 127.0.0.1 only",
-                "Web UI access is exclusively via ctrlX reverse proxy with Bearer Token validation"
-        ]
+  "id": "thin-edge-io",
+  "ports": [
+    {
+      "number": 1883,
+      "application-protocol": "MQTT",
+      "service-name": "thin-edge-io",
+      "purpose": "Local MQTT broker bound to 127.0.0.1 only, not externally accessible",
+      "binding": "localhost",
+      "routing": "internal",
+      "default-state": "open"
+    },
+    {
+      "number": 8888,
+      "application-protocol": "HTTP",
+      "service-name": "thin-edge-io",
+      "purpose": "Configuration Web UI bound to 127.0.0.1, proxied via ctrlX reverse proxy",
+      "binding": "localhost",
+      "routing": "internal",
+      "default-state": "open"
+    },
+    {
+      "number": 8883,
+      "application-protocol": "MQTT/TLS",
+      "service-name": "thin-edge-io",
+      "purpose": "Outbound MQTT over TLS connection to Cumulocity IoT cloud platform",
+      "binding": "IP",
+      "routing": "external",
+      "default-state": "open"
+    },
+    {
+      "number": 9883,
+      "application-protocol": "MQTT/TLS",
+      "service-name": "thin-edge-io",
+      "purpose": "Outbound MQTT Service port to Cumulocity IoT cloud platform (optional)",
+      "binding": "IP",
+      "routing": "external",
+      "default-state": "closed"
+    },
+    {
+      "number": 443,
+      "application-protocol": "HTTPS",
+      "service-name": "thin-edge-io",
+      "purpose": "Outbound HTTPS connections to cloud platform REST APIs",
+      "binding": "IP",
+      "routing": "external",
+      "default-state": "open"
+    }
+  ]
+
 }

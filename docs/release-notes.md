@@ -3,76 +3,114 @@
 ## Version 2.0.0 - April 2026
 
 ### Build Versioning
-Ab Version 2.0.0 trägt jeder Snap-Build einen Build-Suffix im Format `2.0.0-DDMM.HHMM`, z.B. `2.0.0-2004.1149`.
+Ab Version 2.0.0 trägt jeder Snap-Build einen Build-Suffix im Format `2.0.0-DDMM.HHMM`, z.B. `2.0.0-2104.0930`.
 Die Version wird automatisch beim Build in `snapcraft.yaml` gesetzt und nach dem Build zurückgesetzt.
+Alte Snap-Dateien (`.snap`) werden vor jedem Build automatisch gelöscht.
 
 ---
 
 ## Änderungen seit Version 1.7.1
+
+### ctrlX Data Layer Bridge — MQTT Payload Format (NEU)
+
+#### externalId-Injection
+- Bei Mappings mit Topic-Präfix `c8y/mqtt/out/` (MQTT Service, Port 9883) wird in jeden Measurement-Payload automatisch das Feld `"externalId"` injiziert
+- Wert entspricht dem Cert-CN (`ctrlx-<UUID>`) — identisch mit der in Cumulocity registrierten Device-ID
+- Beispiel-Payload:
+  ```json
+  {"memfree-mb": 6892.03, "unit": "MB", "time": "2026-04-21T09:30:00.123Z", "externalId": "ctrlx-984c906200b9425eb91c96474c64c938"}
+  ```
+
+#### Unit-Feld
+- Das in der UI konfigurierte Unit-Feld wird als Top-Level-Feld `"unit"` in den Payload aufgenommen
+- Kein verschachteltes Format — einfaches flaches JSON
+- Bleibt weg wenn Unit leer
+
+#### UTC-Timestamp
+- Jeder Measurement-Payload enthält jetzt ein `"time"`-Feld im ISO-8601-UTC-Format (`YYYY-MM-DDTHH:MM:SS.mmmZ`)
+- Wird direkt in Rust aus `SystemTime::now()` ohne externe Crate berechnet
+
+#### Measurement immer publishen
+- Measurements werden bei jedem Poll-Zyklus gepublisht — unabhängig davon ob der Wert sich geändert hat
+- Events und Alarms bleiben dedupliziert (werden nur bei Wertänderung gepublisht)
+
+#### Mapping-Suche per ID
+- **Bugfix**: Loop sucht Mapping jetzt per `mapping.id` (UUID) statt per Topic-String
+- Mehrere Mappings auf demselben MQTT-Topic funktionieren jetzt korrekt (z.B. `memfree-mb` + `cpu-utilisation-percent` → beide auf `c8y/mqtt/out/test/mqtt`)
+
+#### Device Serial direkt aus sysfs
+- `device_external_id` wird beim Bridge-Start direkt in Rust aus `/sys/class/dmi/id/product_serial` → `board_serial` → `chassis_serial` → `product_uuid` → `/etc/machine-id` gelesen
+- Kein Shell-Subprozess mehr — zuverlässig im eingeschränkten Snap-Daemon-Kontext
+
+#### reload_config() — Runtime-Werte bleiben erhalten
+- **Bugfix**: `reload_config()` überschrieb bei jedem Poll-Zyklus `device_external_id` und `mqtt_service_enabled` mit leeren Defaults aus der JSON-Datei
+- Fix: Diese Werte werden jetzt vor dem Reload gesichert und danach wiederhergestellt
+
+#### externalId aus Cert-CN
+- `externalId` wird aus dem PEM-Zertifikat gelesen (DER-Parsing ohne externe Crate)
+- Fallback: `get_device_serial()` (sysfs/machine-id)
+- Garantiert: `externalId` im Payload ≡ CN im Gerätezertifikat ≡ Device-ID in Cumulocity
+
+### ctrlX Data Layer Bridge — post-refresh Hook
+
+#### Cert-CN-Verifikation
+- Neuer Schritt im `post-refresh`-Hook: Vergleicht Cert-CN mit `manage-device-id.sh get-serial`
+- Bei Abweichung (z.B. Erstinstallation mit Hostname `ctrlx-VirtualControl-1`) → Zertifikat automatisch neu erstellen
+- Verhindert `externalId`-Mismatch zwischen MQTT-Payloads und Cumulocity-Registrierung
+
+### Web UI — Data Layer Mappings
+
+#### Formular-Placeholder
+- **Datalayer Path**: Placeholder `z.B. /framework/metrics/system/memfree-mb`
+- **tedge MQTT Topic**: Placeholder `z.B. c8y/mqtt/out/myTopic`
+
+#### Topic-Präfix-Enforcement (Port 9883)
+- Bei aktivem MQTT Service (Port 9883): Topic wird automatisch auf `c8y/mqtt/out/<lastPart>` korrigiert
+- Warnung beim Bearbeiten eines Mappings mit falschem Präfix
+- Automatische Korrektur beim Speichern
+
+---
+
+## Änderungen seit erster 2.0.0-Version (April 21, 2026)
 
 ### Web UI
 
 #### Device Certificate
 - **Device ID** zeigt jetzt immer die Hardware-UUID (`system_serial`) statt des Cert-CN
 - **Device Name** bleibt der Cert-CN (wird als CN beim Erstellen des Zertifikats verwendet)
-- **Certificate Status** wird jetzt live aus der `tedge cert show`-API gelesen (`Status: VALID`) statt immer „Unknown" anzuzeigen
+- **Certificate Status** wird jetzt live aus der `tedge cert show`-API gelesen (`Status: VALID`)
 
 #### Device Configuration (Inventory)
 - **Auto-Load**: Sektion lädt automatisch beim Aufrufen (Section Observer), kein Load-Button mehr
-- **c8y_Firmware**: Felder Name / Version / URL (war: c8y_OS / family / version)
+- **c8y_Firmware**: Felder Name / Version / URL
 - **c8y_Position**: Neue Sektion mit Latitude / Longitude / Altitude
-- **Einheitliche Spaltenbreite**: Alle Formular-Grids auf `repeat(3, 1fr)` vereinheitlicht
-- Kein „Save"-Fallback-Default mehr – Felder werden exakt so gespeichert wie eingegeben
+- Kein „Save"-Fallback-Default mehr
 
 #### Logs & Diagnostics
-- Log-Dropdown: Einzelner Eintrag `tedge-mapper` statt der drei getrennten Mapper (c8y/aws/az)
-- Neuer Eintrag `snap-hooks` (liest direkt aus `$SNAP_COMMON/tedge/log/snap-hooks.log`)
+- Log-Dropdown: Einzelner Eintrag `tedge-mapper` statt der drei getrennten Mapper
+- Neuer Eintrag `snap-hooks`
 
 #### Snap Configuration Files
-- Neuer Eintrag: `snap-inventory.json`
-- Neuer Eintrag: `tedge-web-config.json`
+- Neu: `snap-inventory.json`, `tedge-web-config.json`
 - Entfernt: `mosquitto.conf`
-- Nicht vorhandene Dateien werden beim ersten Laden automatisch mit sinnvollen Defaults erstellt (JSON: `{}`, datalayer-mappings: `[]`)
+- Nicht vorhandene Dateien → automatisch mit Defaults erstellt (`{}` / `[]`)
 
 #### Accessibility
-- Alle `<label>`-Elemente haben jetzt ein `for`-Attribut (behebt 25 HTML-Accessibility-Warnungen)
+- Alle `<label>`-Elemente haben `for`-Attribut (behebt 25 HTML-Accessibility-Warnungen)
 
 ### Backend (Rust Webserver)
 
-#### Inventory-Pfad
-- Geändert von `SNAP_COMMON` → `SNAP_DATA` (`/var/snap/thin-edge-io/current`) für `inventory.json`
-- `update-inventory.sh` und beide Endpunkte (GET + POST) aktualisiert
-
 #### Datalayer-Credentials
-- `datalayer-credentials.json` liegt jetzt in `SNAP_COMMON` (`/var/snap/thin-edge-io/common`)
-- Überlebt Snap-Updates ohne Datenverlust (vorher: SNAP_DATA, wurde bei Updates gelöscht → 401-Fehler)
-
-#### Log-Endpunkt
-- `tedge-mapper`: Liest direkt aus `$SNAP_COMMON/tedge/log/tedge-mapper.log`
-- `snap-hooks`: Liest direkt aus `$SNAP_COMMON/tedge/log/snap-hooks.log`
-
-#### Config-Whitelist
-- `snap-inventory.json` → `$SNAP_DATA/snap-inventory.json`
-- `tedge-web-config.json` → `$SNAP_DATA/tedge-web-config.json`
-- `mosquitto.conf` entfernt
+- `datalayer-credentials.json` in `SNAP_COMMON` — überlebt Snap-Updates
 
 #### Build-Versionierung
-- `get_build_info()` erkennt jetzt beide Formate: `2.0.0-2004.1149` (Bindestrich) und `2.0.0+build....` (Plus, legacy)
-
-### update-inventory.sh
-
-- **Pfad**: jetzt `SNAP_DATA` für `INVENTORY_FILE`
-- **Serial Number**: immer aus `manage-device-id.sh get-serial` (Hardware-UUID), nie mehr aus Cert-CN
-- **`keep()`-Helper**: Bewahrt bestehende Benutzerwerte, füllt nur fehlende Felder auto-detect
-- **c8y_Firmware**: Felder `name` / `version` / `url`
-- **c8y_Position**: Felder `lat` / `lng` / `alt` mit `keep()`
+- `get_build_info()` erkennt Formate mit `-` und `+`
 
 ### Build-Skript (`setup-and-build-all.sh`)
 
-- Build-Suffix Format: `DDMM.HHMM` (UTC), z.B. `2004.1149`
-- Snap-Version wird vor dem Build auf `2.0.0-<suffix>` gesetzt
-- Nach dem Build: automatisches Zurücksetzen auf `2.0.0` via `trap EXIT`
-- `build-info.txt` verwendet das neue Format
+- Build-Suffix Format: `DDMM.HHMM` (UTC)
+- Snap-Version automatisch gesetzt und zurückgesetzt via `trap EXIT`
+- Alte Snap-Dateien werden vor dem Build gelöscht
 
 ---
 

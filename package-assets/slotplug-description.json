@@ -1,106 +1,54 @@
 {
-        "description": "Snap interface plugs and slots for thin-edge.io",
-        "plugs": [
-                {
-                        "name": "network",
-                        "description": "Required for outbound network access to cloud platforms (MQTT/TLS port 8883, HTTPS port 443)",
-                        "interface": "network",
-                        "used_by": [
-                                "tedge-agent",
-                                "tedge-mapper-c8y",
-                                "tedge-mapper-aws",
-                                "tedge-mapper-az",
-                                "tedge-watchdog",
-                                "tedge-datalayer-bridge",
-                                "tedge-log-upload-manager",
-                                "c8y-remote-access-plugin",
-                                "tedge-apt-plugin",
-                                "tedge-file-config-plugin",
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "network-bind",
-                        "description": "Required to bind network services (local MQTT broker on 127.0.0.1:1883, webserver on 127.0.0.1:8888)",
-                        "interface": "network-bind",
-                        "used_by": [
-                                "mosquitto",
-                                "tedge-agent",
-                                "tedge-mapper-c8y",
-                                "tedge-mapper-aws",
-                                "tedge-mapper-az",
-                                "tedge-watchdog",
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "system-observe",
-                        "description": "Required to monitor system health, resource usage and service status",
-                        "interface": "system-observe",
-                        "used_by": [
-                                "tedge-agent",
-                                "tedge-watchdog",
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "log-observe",
-                        "description": "Required to read service logs via journalctl/snapctl for log collection and upload",
-                        "interface": "log-observe",
-                        "used_by": [
-                                "tedge-agent",
-                                "tedge-log-upload-manager",
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "hardware-observe",
-                        "description": "Required to read device serial number via DMI for device identity management",
-                        "interface": "hardware-observe",
-                        "used_by": [
-                                "tedge",
-                                "manage-device-id",
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "mount-observe",
-                        "description": "Required to read mount point information for disk usage reporting in the web UI",
-                        "interface": "mount-observe",
-                        "used_by": [
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "removable-media",
-                        "description": "Optional: Access to external storage for configuration and log files",
-                        "interface": "removable-media",
-                        "used_by": [
-                                "tedge"
-                        ]
-                }
-        ],
-        "slots": [
-                {
-                        "name": "package-run",
-                        "description": "ctrlX slot for the webserver registration in the ctrlX reverse proxy",
-                        "interface": "content",
-                        "used_by": [
-                                "webserver"
-                        ]
-                },
-                {
-                        "name": "datalayer",
-                        "description": "ctrlX Data Layer slot for tedge-datalayer-bridge to read/write Data Layer nodes",
-                        "interface": "content",
-                        "used_by": [
-                                "tedge-datalayer-bridge"
-                        ]
-                }
-        ],
-        "notes": [
-                "All plugs follow the principle of least privilege",
-                "No global slots or plugs are used",
-                "No debug interfaces are exposed by default"
-        ]
+  "plugs": [
+    {
+      "name": "network",
+      "purpose": "Required for outbound network access to cloud platforms via MQTT/TLS and HTTPS"
+    },
+    {
+      "name": "network-bind",
+      "purpose": "Required to bind local network services: MQTT broker on 127.0.0.1:1883 and web UI on 127.0.0.1:8888"
+    },
+    {
+      "name": "system-observe",
+      "purpose": "Required to monitor system resource usage for health reporting and watchdog service"
+    },
+    {
+      "name": "log-observe",
+      "purpose": "Required to read service logs via journalctl for log collection and upload to cloud"
+    },
+    {
+      "name": "hardware-observe",
+      "purpose": "Required to read device serial number via DMI for unique device identity management"
+    },
+    {
+      "name": "mount-observe",
+      "purpose": "Required to read mount point information for disk usage reporting in the web UI"
+    },
+    {
+      "name": "removable-media",
+      "purpose": "Optional access to external storage for configuration and log file operations"
+    },
+    {
+      "name": "snapd-control",
+      "purpose": "Required for snap list command to report all installed snaps in software inventory"
+    }
+  ],
+  "slots": [
+    {
+      "name": "package-assets",
+      "purpose": "Provides app metadata and configuration files to the ctrlX Device Admin app"
+    },
+    {
+      "name": "package-certificates",
+      "purpose": "Provides access to device certificates and keys for TLS cloud connectivity"
+    },
+    {
+      "name": "package-run",
+      "purpose": "Provides Unix socket directory for ctrlX reverse proxy web UI integration"
+    },
+    {
+      "name": "datalayer",
+      "purpose": "Provides access to ctrlX Data Layer nodes for cloud telemetry forwarding"
+    }
+  ]
 }
