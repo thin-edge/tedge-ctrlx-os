@@ -10,7 +10,7 @@ echo ""
 if [ -z "$SNAP" ]; then
     TEDGE_CMD="tedge"
 else
-    TEDGE_CMD="thin-edge-io.tedge"
+    TEDGE_CMD="ctrlx-cumulocity-thin-edge-io.tedge"
 fi
 
 echo "Select cloud platform:"

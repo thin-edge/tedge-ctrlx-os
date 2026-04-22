@@ -19,7 +19,7 @@ set -uo pipefail
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SNAP_NAME="${SNAP_INSTANCE_NAME:-thin-edge-io}"
+SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
 TEDGE_CONFIG_DIR="${TEDGE_CONFIG_DIR:-$SNAP_DATA/tedge}"
 
 # How often to run a health-check round (seconds)

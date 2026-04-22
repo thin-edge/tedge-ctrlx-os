@@ -120,9 +120,9 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
 
     // mapper service name (used both as fallback and as proxy for bridge state)
     let mapper_svc = match cloud {
-        "c8y" => "thin-edge-io.tedge-mapper-c8y",
-        "aws" => "thin-edge-io.tedge-mapper-aws",
-        "az" => "thin-edge-io.tedge-mapper-az",
+        "c8y" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y",
+        "aws" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws",
+        "az" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az",
         _ => return "unknown",
     };
 
@@ -613,7 +613,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         // because "inactive" also contains the substring "active"!
         // snapctl output: "Service  Startup  Current  Notes" → col[2] must be exactly "active"
         let snapctl_active = |svc: &'static str| async move {
-            let full = format!("thin-edge-io.{}", svc);
+            let full = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
             match tokio::process::Command::new("snapctl")
                 .args(["services", &full])
                 .output()
@@ -995,7 +995,7 @@ async fn save_c8y_config(
             action, config.c8y.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "thin-edge-io.tedge-mapper-c8y"])
+            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1133,7 +1133,7 @@ async fn save_aws_config(
             action, config.aws.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "thin-edge-io.tedge-mapper-aws"])
+            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1271,7 +1271,7 @@ async fn save_az_config(
             action, config.az.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "thin-edge-io.tedge-mapper-az"])
+            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az"])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1383,7 +1383,7 @@ async fn restart_single_service(
         })));
     }
     info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
-    let full = format!("thin-edge-io.{}", svc);
+    let full = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
     match std::process::Command::new("snapctl")
         .args(["restart", &full])
         .output()
@@ -1442,7 +1442,7 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     for service in &services {
         info!("[RESTART]   - Restarting {}", service);
         match std::process::Command::new("snapctl")
-            .args(["restart", &format!("thin-edge-io.{}", service)])
+            .args(["restart", &format!("ctrlx-cumulocity-thin-edge-io.{}", service)])
             .output()
         {
             Ok(output) => {
@@ -2613,7 +2613,7 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
         };
     }
 
-    let snap_service = format!("thin-edge-io.{}", service);
+    let snap_service = format!("ctrlx-cumulocity-thin-edge-io.{}", service);
     let lines_str = lines.to_string();
 
     let result = web::block(move || {
@@ -2834,7 +2834,7 @@ async fn set_log_level(
     let is_snap = env::var("SNAP").is_ok();
     let svc = body.service.clone();
     if is_snap && svc != "webserver" {
-        let snap_svc = format!("thin-edge-io.{}", svc);
+        let snap_svc = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
         // Fire-and-forget via web::block so we don't block the async runtime
         actix_web::rt::spawn(async move {
             let _ = web::block(move || {

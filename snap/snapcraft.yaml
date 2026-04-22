@@ -2,7 +2,7 @@
 # Snapcraft configuration for packaging thin-edge.io as a ctrlX AUTOMATION app
 # See https://snapcraft.io/docs/getting-started
 
-name: thin-edge-io
+name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
 version: 2.0.0
 grade: stable
@@ -463,7 +463,7 @@ parts:
       # Listener and bridge settings come from $SNAP_DATA/tedge/mosquitto-conf/
       # via include_dir (added at runtime by mosquitto-wrapper.sh)
       persistence true
-      persistence_location /var/snap/thin-edge-io/common/mosquitto/
+      persistence_location /var/snap/ctrlx-cumulocity-thin-edge-io/common/mosquitto/
       user root
       EOF
       
@@ -484,7 +484,7 @@ parts:
       
       # Persistence settings
       persistence true
-      persistence_location /var/snap/thin-edge-io/common/mosquitto/
+      persistence_location /var/snap/ctrlx-cumulocity-thin-edge-io/common/mosquitto/
       
       # Logging
       log_dest syslog

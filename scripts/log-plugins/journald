@@ -13,7 +13,7 @@
 
 set -eu
 
-SNAP_NAME="${SNAP_INSTANCE_NAME:-thin-edge-io}"
+SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
 
 list() {
     # Report the snap services whose logs we can retrieve via journalctl

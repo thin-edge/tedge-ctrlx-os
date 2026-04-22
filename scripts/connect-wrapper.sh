@@ -26,7 +26,7 @@ if [[ -z "$CLOUD" ]] || [[ ! "$CLOUD" =~ ^(c8y|aws|az)$ ]]; then
     exit 1
 fi
 
-SNAP_NAME="${SNAP_INSTANCE_NAME:-thin-edge-io}"
+SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
 TEDGE_BIN="${SNAP}/bin/tedge"
 TEDGE_CONFIG_DIR="${TEDGE_CONFIG_DIR:-$SNAP_DATA/tedge}"
 
