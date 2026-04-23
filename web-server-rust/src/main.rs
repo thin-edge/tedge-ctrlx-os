@@ -3160,11 +3160,56 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
-/// GET /api/licenses — proxy ctrlX licensing-manager API server-side.
-/// The browser cannot call /licensing-manager/api/v1/licenses directly because
-/// it is only reachable on the ctrlX internal network (Unix socket → reverse proxy).
-/// We forward the Bearer token from the incoming request so the licensing-manager
-/// can authenticate the caller.
+/// HTTP GET über einen Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+async fn unix_socket_get(
+    socket_path: &str,
+    api_path: &str,
+) -> std::result::Result<(u16, String), String> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixStream;
+
+    let mut stream = UnixStream::connect(socket_path)
+        .await
+        .map_err(|e| format!("connect '{}': {}", socket_path, e))?;
+
+    let request = format!(
+        "GET {} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
+        api_path
+    );
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .map_err(|e| format!("write: {}", e))?;
+
+    let mut buf = Vec::new();
+    stream
+        .read_to_end(&mut buf)
+        .await
+        .map_err(|e| format!("read: {}", e))?;
+
+    let text = String::from_utf8_lossy(&buf).to_string();
+
+    // HTTP-Status aus erster Zeile parsen: "HTTP/1.1 200 OK"
+    let status: u16 = text
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+
+    // Body nach \r\n\r\n extrahieren
+    let body = if let Some(pos) = text.find("\r\n\r\n") {
+        text[pos + 4..].to_string()
+    } else if let Some(pos) = text.find("\n\n") {
+        text[pos + 2..].to_string()
+    } else {
+        text
+    };
+
+    Ok((status, body))
+}
+
+/// GET /api/licenses — proxy ctrlX licensing-manager API server-side via Unix socket (native Rust).
 async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
@@ -3181,45 +3226,28 @@ async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<Ht
         "/tmp/licensing-service.sock".to_string()
     };
 
-    let result = web::block(move || {
-        std::process::Command::new("curl")
-            .args([
-                "-sS",
-                "--no-buffer",
-                "-XGET",
-                "--unix-socket",
-                &socket_path,
-                "--header",
-                "Accept: application/json",
-                "http://localhost/license-manager/api/v1/capabilities",
-            ])
-            .output()
-    })
-    .await;
-
-    match result {
-        Ok(Ok(out)) => {
-            let raw = String::from_utf8_lossy(&out.stdout).to_string();
+    match unix_socket_get(&socket_path, "/license-manager/api/v1/capabilities").await {
+        Ok((status, body)) => {
             warn!(
-                "[LICENSES] curl exit={} raw={}",
-                out.status.code().unwrap_or(-1),
-                &raw[..raw.len().min(500)]
+                "[LICENSES] HTTP {} raw={}",
+                status,
+                &body[..body.len().min(500)]
             );
-            if out.status.success() {
-                let body: serde_json::Value = serde_json::from_str(&raw)
-                    .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &raw[..raw.len().min(200)])}));
-                Ok(HttpResponse::Ok().json(body))
+            if status == 200 {
+                let json: serde_json::Value = serde_json::from_str(&body).unwrap_or(
+                    serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &body[..body.len().min(200)])}),
+                );
+                Ok(HttpResponse::Ok().json(json))
             } else {
-                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                Ok(HttpResponse::ServiceUnavailable().json(
-                    serde_json::json!({"error": format!("licensing socket error: {}", stderr)}),
-                ))
+                Ok(HttpResponse::ServiceUnavailable()
+                    .json(serde_json::json!({"error": format!("licensing API returned HTTP {}: {}", status, &body[..body.len().min(200)])})))
             }
         }
-        Ok(Err(e)) => Ok(HttpResponse::ServiceUnavailable()
-            .json(serde_json::json!({"error": format!("curl not available: {}", e)}))),
-        Err(e) => Ok(HttpResponse::ServiceUnavailable()
-            .json(serde_json::json!({"error": format!("licensing query blocked: {}", e)}))),
+        Err(e) => {
+            warn!("[LICENSES] socket error: {}", e);
+            Ok(HttpResponse::ServiceUnavailable()
+                .json(serde_json::json!({"error": format!("licensing socket unavailable: {}", e)})))
+        }
     }
 }
 
