@@ -3165,70 +3165,59 @@ async fn save_datalayer_mappings(
 /// it is only reachable on the ctrlX internal network (Unix socket → reverse proxy).
 /// We forward the Bearer token from the incoming request so the licensing-manager
 /// can authenticate the caller.
-async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().finish());
     }
 
-    // Extract Bearer token forwarded by the ctrlX reverse proxy
-    let bearer_token = req
-        .headers()
-        .get("X-Auth-Token")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string())
-        .or_else(|| {
-            req.headers()
-                .get("Authorization")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| s.strip_prefix("Bearer "))
-                .map(|s| s.to_string())
-        });
-
-    let cfg = data.load_datalayer_config();
-    let base = if cfg.base_url.trim().is_empty() {
-        "https://localhost".to_string()
+    // The licensing manager API is available via Unix domain socket only.
+    // Socket path: $SNAP_DATA/licensing-service/licensing-service.sock
+    // API endpoint: GET /license-manager/api/v1/capabilities
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let socket_path = if !snap_data.is_empty() {
+        format!("{}/licensing-service/licensing-service.sock", snap_data)
     } else {
-        cfg.base_url.trim_end_matches('/').to_string()
+        "/tmp/licensing-service.sock".to_string()
     };
 
-    let url = format!("{}/licensing-manager/api/v1/licenses", base);
+    let result = web::block(move || {
+        std::process::Command::new("curl")
+            .args([
+                "-sS",
+                "--no-buffer",
+                "-XGET",
+                "--unix-socket",
+                &socket_path,
+                "--header",
+                "Accept: application/json",
+                "http://localhost/license-manager/api/v1/capabilities",
+            ])
+            .output()
+    })
+    .await;
 
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .timeout(std::time::Duration::from_secs(8))
-        .build()
-        .unwrap_or_default();
-
-    let mut req_builder = client.get(&url).header("Accept", "application/json");
-
-    if let Some(token) = bearer_token {
-        req_builder = req_builder.bearer_auth(token);
-    }
-
-    match req_builder.send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            let raw = resp.text().await.unwrap_or_default();
-            warn!(
-                "[LICENSES] status={} raw={}",
-                status,
-                &raw[..raw.len().min(500)]
-            );
-            let body: serde_json::Value = serde_json::from_str(&raw)
-                .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing-manager (status={}): {}", status, &raw[..raw.len().min(200)])}));
-            Ok(HttpResponse::build(
-                actix_web::http::StatusCode::from_u16(status.as_u16())
-                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
-            )
-            .json(body))
+    match result {
+        Ok(Ok(out)) => {
+            let raw = String::from_utf8_lossy(&out.stdout).to_string();
+            warn!("[LICENSES] curl exit={} raw={}", out.status.code().unwrap_or(-1), &raw[..raw.len().min(500)]);
+            if out.status.success() {
+                let body: serde_json::Value = serde_json::from_str(&raw)
+                    .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &raw[..raw.len().min(200)])}));
+                Ok(HttpResponse::Ok().json(body))
+            } else {
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                Ok(HttpResponse::ServiceUnavailable().json(
+                    serde_json::json!({"error": format!("licensing socket error: {}", stderr)}),
+                ))
+            }
         }
-        Err(e) => {
-            warn!("[LICENSES] Request to {} failed: {}", url, e);
-            Ok(HttpResponse::ServiceUnavailable().json(
-                serde_json::json!({"error": format!("licensing-manager unreachable: {}", e)}),
-            ))
-        }
+        Ok(Err(e)) => Ok(HttpResponse::ServiceUnavailable().json(
+            serde_json::json!({"error": format!("curl not available: {}", e)}),
+        )),
+        Err(e) => Ok(HttpResponse::ServiceUnavailable().json(
+            serde_json::json!({"error": format!("licensing query blocked: {}", e)}),
+        )),
     }
 }
 

@@ -278,6 +278,7 @@ apps:
       - system-observe  # Needed to read system resource usage (RAM, CPU) for the status API
       - hardware-observe  # Needed to read system serial number via DMI
       - log-observe       # Needed for snapctl logs
+      - licensing-service # Needed to query installed licenses via Unix socket
     slots:
       - package-run
     environment:
@@ -338,6 +339,10 @@ plugs:
     interface: content
     content: datalayer
     target: $SNAP_DATA/.datalayer
+  licensing-service:
+    interface: content
+    content: licensing-service
+    target: $SNAP_DATA/licensing-service
 
 
 # Build parts
