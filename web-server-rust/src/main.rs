@@ -2711,11 +2711,14 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
     }
 
     let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
     let snap_data = env::var("SNAP_DATA").unwrap_or_default();
 
     let result = web::block(move || {
+        let tedge_bin_owned;
         let tedge_bin = if is_snap {
-            "/snap/thin-edge-io/current/bin/tedge"
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
         } else {
             "tedge"
         };
@@ -3206,10 +3209,10 @@ async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<Htt
     match req_builder.send().await {
         Ok(resp) => {
             let status = resp.status();
-            let body: serde_json::Value = resp
-                .json()
-                .await
-                .unwrap_or(serde_json::json!({"error": "invalid response from licensing-manager"}));
+            let raw = resp.text().await.unwrap_or_default();
+            warn!("[LICENSES] status={} raw={}", status, &raw[..raw.len().min(500)]);
+            let body: serde_json::Value = serde_json::from_str(&raw)
+                .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing-manager (status={}): {}", status, &raw[..raw.len().min(200)])}));
             Ok(HttpResponse::build(
                 actix_web::http::StatusCode::from_u16(status.as_u16())
                     .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
