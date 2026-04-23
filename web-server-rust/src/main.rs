@@ -3210,7 +3210,11 @@ async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<Htt
         Ok(resp) => {
             let status = resp.status();
             let raw = resp.text().await.unwrap_or_default();
-            warn!("[LICENSES] status={} raw={}", status, &raw[..raw.len().min(500)]);
+            warn!(
+                "[LICENSES] status={} raw={}",
+                status,
+                &raw[..raw.len().min(500)]
+            );
             let body: serde_json::Value = serde_json::from_str(&raw)
                 .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing-manager (status={}): {}", status, &raw[..raw.len().min(200)])}));
             Ok(HttpResponse::build(

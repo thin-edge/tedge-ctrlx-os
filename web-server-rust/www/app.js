@@ -1528,17 +1528,34 @@ async function onMqttPortToggle(checked, save = true) {
 
 async function loadC8yMqttPort() {
   // Read c8y.mqtt_service.enabled from tedge config list
+  // Fallback: mqttServiceEnabled from datalayer config (if tedge binary not available)
   try {
     const r = await fetchWithAuth("api/tedge-config-list");
-    if (!r.ok) return;
-    const data = await r.json();
-    if (!data.output) return;
-    const match = data.output.match(/c8y\.mqtt_service\.enabled\s*=\s*(\S+)/);
-    const toggle = document.getElementById("c8y-mqtt-port-toggle");
-    if (toggle) {
-      const enabled = match ? match[1].trim() === "true" : false;
-      toggle.checked = enabled;
-      onMqttPortToggle(enabled, false); // nur UI, nicht speichern
+    if (r.ok) {
+      const data = await r.json();
+      if (data.output && !data.output.startsWith("[tedge nicht")) {
+        const match = data.output.match(/c8y\.mqtt_service\.enabled\s*=\s*(\S+)/);
+        const toggle = document.getElementById("c8y-mqtt-port-toggle");
+        if (toggle) {
+          const enabled = match ? match[1].trim() === "true" : false;
+          toggle.checked = enabled;
+          onMqttPortToggle(enabled, false);
+          return;
+        }
+      }
+    }
+  } catch (_) {}
+  // Fallback: read mqttServiceEnabled from datalayer config
+  try {
+    const r2 = await fetchWithAuth("api/datalayer/config");
+    if (r2.ok) {
+      const cfg = await r2.json();
+      const enabled = cfg.mqttServiceEnabled === true;
+      const toggle = document.getElementById("c8y-mqtt-port-toggle");
+      if (toggle) {
+        toggle.checked = enabled;
+        onMqttPortToggle(enabled, false);
+      }
     }
   } catch (_) {}
 }
@@ -2744,9 +2761,10 @@ async function loadLicenses() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
+    console.log("[licenses] raw response:", JSON.stringify(data));
     const licenses = Array.isArray(data)
       ? data
-      : data.licenses || data.items || [];
+      : data.licenses || data.items || data.value || data.data || [];
 
     if (loading) loading.style.display = "none";
 

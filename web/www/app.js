@@ -1534,7 +1534,9 @@ async function loadC8yMqttPort() {
     if (r.ok) {
       const data = await r.json();
       if (data.output && !data.output.startsWith("[tedge nicht")) {
-        const match = data.output.match(/c8y\.mqtt_service\.enabled\s*=\s*(\S+)/);
+        const match = data.output.match(
+          /c8y\.mqtt_service\.enabled\s*=\s*(\S+)/,
+        );
         const toggle = document.getElementById("c8y-mqtt-port-toggle");
         if (toggle) {
           const enabled = match ? match[1].trim() === "true" : false;
