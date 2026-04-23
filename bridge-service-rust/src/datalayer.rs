@@ -383,7 +383,12 @@ impl DatalayerEngine {
                 req = req.bearer_auth(&token);
             }
 
-            if let Ok(resp) = req.send().await {
+            match req.send().await {
+                Err(e) => {
+                    warn!("[DATALAYER] HTTP request failed for '{}': {}", mapping.path, e);
+                    continue;
+                }
+                Ok(resp) => {
                 if resp.status() == 401 {
                     // Token abgelaufen — Cache und Backoff zurücksetzen damit sofort neu geholt wird
                     self.cached_token = None;
@@ -413,16 +418,28 @@ impl DatalayerEngine {
                                 }
                             }
                         }
+                    } else {
+                        warn!("[DATALAYER] 401 for '{}' but no credentials configured", mapping.path);
                     }
                     continue;
                 }
-                if let Ok(node) = resp.json::<DatalayerNodeValue>().await {
+                let status = resp.status();
+                if !status.is_success() {
+                    warn!("[DATALAYER] HTTP {} for path '{}' url='{}'", status, mapping.path, url);
+                    continue;
+                }
+                match resp.json::<DatalayerNodeValue>().await {
+                    Err(e) => {
+                        warn!("[DATALAYER] JSON parse error for '{}': {}", mapping.path, e);
+                    }
+                    Ok(node) => {
                     let val = node.value.unwrap_or(Value::Null);
                     let should_publish = match mapping.transform {
                         MappingTransform::Measurement | MappingTransform::Raw => true,
                         _ => self.last_values.get(&mapping.id) != Some(&val),
                     };
                     if should_publish {
+                        info!("[DATALAYER] Publishing '{}' → topic '{}' val={}", mapping.path, mapping.topic, val);
                         self.last_values.insert(mapping.id.clone(), val.clone());
                         to_publish.push((
                             mapping.id.clone(),
@@ -430,6 +447,8 @@ impl DatalayerEngine {
                             val.to_string(),
                         ));
                     }
+                    }
+                }
                 }
             }
         }
