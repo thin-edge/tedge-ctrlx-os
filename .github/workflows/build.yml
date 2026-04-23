@@ -1,0 +1,106 @@
+name: Build Snap Packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install lessc
+        run: npm install -g less
+
+      - name: Install Rust 1.94
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94"
+          components: rustfmt, clippy
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Generate build info
+        run: |
+          VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+          BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          THIN_EDGE_COMMIT=$(git ls-remote https://github.com/thin-edge/thin-edge.io.git HEAD | awk '{print $1}')
+          sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_COMMIT/" snap/snapcraft.yaml
+          sed -i "s/^version:.*/version: ${VERSION}-${BUILD_SUFFIX}/" snap/snapcraft.yaml
+          mkdir -p configs
+          cat > configs/build-info.txt <<EOF
+          Version: ${VERSION}-${BUILD_SUFFIX}
+          Build Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Build Host: github-actions
+          Build User: ${{ github.actor }}
+          Base: core22
+          Architecture: amd64+arm64
+          Git Commit: ${GIT_COMMIT}
+          Upstream Commit: ${THIN_EDGE_COMMIT}
+          EOF
+          echo "SNAP_VERSION=${VERSION}-${BUILD_SUFFIX}" >> "$GITHUB_ENV"
+
+      - name: Compile LESS to CSS
+        run: lessc web/www/styles.less web/www/styles.css
+
+      - name: Rust format check
+        run: |
+          (cd bridge-service-rust && cargo fmt --check)
+          (cd web-server-rust && cargo fmt --check)
+
+      - name: Rust lint (Clippy)
+        run: |
+          (cd bridge-service-rust && cargo clippy --all-targets --all-features -- -D warnings)
+          (cd web-server-rust && cargo clippy --all-targets --all-features -- -D warnings)
+
+      - name: Build amd64 snap
+        run: |
+          snapcraft --destructive-mode --enable-manifest --target-arch=amd64
+
+      - name: Build arm64 snap
+        run: |
+          snapcraft --destructive-mode --enable-manifest --target-arch=arm64
+
+      - name: Reset snapcraft.yaml version
+        if: always()
+        run: |
+          BASE_VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+          sed -i "s/^version:.*/version: ${BASE_VERSION}/" snap/snapcraft.yaml
+
+      - name: Upload amd64 snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-amd64-${{ env.SNAP_VERSION }}
+          path: ctrlx-cumulocity-thin-edge-io_*_amd64.snap
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload arm64 snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-arm64-${{ env.SNAP_VERSION }}
+          path: ctrlx-cumulocity-thin-edge-io_*_arm64.snap
+          retention-days: 30
+          if-no-files-found: error
