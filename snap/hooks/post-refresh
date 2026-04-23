@@ -8,8 +8,6 @@ set -eo pipefail
 snapctl set-health waiting "Updating thin-edge.io..."
 trap 'snapctl set-health error "Post-refresh failed — check ${SNAP_COMMON}/tedge/log/snap-hooks.log"' ERR
 
-# ── Persistent hook log (SNAP_COMMON survives snap revisions, readable on device) ──
-# Guard: skip if already set up by a parent hook (e.g. install calls post-refresh)
 if [ -z "$_SNAP_HOOK_LOG_ACTIVE" ]; then
     _HOOK_LOG="${SNAP_COMMON}/tedge/log/snap-hooks.log"
     mkdir -p "$(dirname "$_HOOK_LOG")" 2>/dev/null || true
@@ -24,19 +22,11 @@ echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] snap=${SNAP_NAME} versio
 
 echo "=== thin-edge.io snap post-refresh hook starting ==="
 
-# tedge system user wird von snapcraft via system-usernames automatisch angelegt
-
-# Ensure critical directories exist after update
 echo "Running centralized directory setup..." >&2
 bash "$SNAP/scripts/setup-directories.sh"
 
-# Remove stale apt symlinks from older versions (snap plugin is recreated below).
 rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
 
-# Regenerate snap inventory JSON.
-# Priority: 1) snap list (requires snapd-control, works if connected)
-#           2) /snap/*/current/meta/snap.yaml scan (works in hook AppArmor profile)
-#           3) env vars only (always works, current snap only)
 echo "Regenerating snap inventory..." >&2
 
 snap_json=$(python3 - <<'INNER_EOF' 2>/dev/null
@@ -111,7 +101,6 @@ print(json.dumps(result))
 INNER_EOF
 )
 
-# Fallback if Python3 failed completely
 if [ -z "$snap_json" ] || [ "$snap_json" = "[]" ]; then
     snap_json=$(printf '[{"name":"%s","version":"%s","url":"rev:%s","softwareType":"snap"}]' \
         "$SNAP_NAME" "$SNAP_VERSION" "$SNAP_REVISION")
@@ -122,19 +111,12 @@ chmod 644 "$SNAP_DATA/snap-inventory.json"
 entry_count=$(echo "$snap_json" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?")
 echo "Snap inventory written: $entry_count entries" >&2
 
-# Immediately publish the new inventory to MQTT so C8y reflects changes without
-# waiting for the hourly log_upload_manager cycle.
-# mosquitto_pub is bundled in the snap — simpler and more reliable than tedge mqtt pub
-# during refresh (no connection retry, no signal risk). || true = never fail hook.
 "$SNAP/usr/bin/mosquitto_pub" \
     -h 127.0.0.1 -p 1883 -r \
     -t "te/device/main///twin/c8y_SoftwareList" \
     -m "$snap_json" 2>/dev/null || true
 echo "Published c8y_SoftwareList to MQTT ($entry_count entries)" >&2
 
-# Create snap sm-plugin so tedge-agent can answer software_list requests from C8y.
-# snap list is AppArmor-blocked in strict confinement — use env vars directly.
-# Layout: /usr/share/tedge/sm-plugins -> $SNAP_DATA/tedge/sm-plugins
 echo "Creating snap sm-plugin..." >&2
 cat > "$SNAP_DATA/tedge/sm-plugins/snap" << 'PLUGIN_EOF'
 #!/bin/bash
@@ -211,10 +193,6 @@ echo "Updating revision-specific tedge config paths..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set run.path "$SNAP_DATA/tedge/run" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set tmp.path "$SNAP_DATA/tedge/tmp" 2>/dev/null || true
 
-# Fix hardcoded revision paths in mosquitto bridge configs.
-# tedge connect writes absolute paths like /var/snap/thin-edge-io/x42/...
-# After a snap update the revision changes, making cert/key paths invalid.
-# Replace all revision-specific paths with the stable "current" symlink.
 echo "Fixing revision paths in mosquitto bridge configs..." >&2
 MOSQUITTO_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
 SNAP_BASE="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}"
@@ -228,11 +206,6 @@ if [ -d "$MOSQUITTO_CONF_DIR" ]; then
     done
 fi
 
-# =========================================================================
-# --- Migrate datalayer credentials to separate file (x2→x3 upgrade) ---
-# =========================================================================
-# In x3+ credentials (username/password/token) are stored in datalayer-credentials.json (0600).
-# Older versions stored them inside datalayer-mappings.json. Migrate if needed.
 CREDS_FILE="$SNAP_DATA/datalayer-credentials.json"
 MAPPINGS_FILE="$SNAP_DATA/datalayer-mappings.json"
 if [ ! -f "$CREDS_FILE" ] && [ -f "$MAPPINGS_FILE" ]; then
@@ -260,14 +233,10 @@ except Exception as e:
 MIGEOF
 fi
 
-# =========================================================================
-# --- CRITICAL FIX: Repariere Plugin-Konfigurationen nach Update ---
-# =========================================================================
 echo "Regenerating stable plugin configurations..." >&2
 STABLE_CURRENT="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current"
 STABLE_COMMON="/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/common"
 
-# Stelle sicher, dass inventory.json auch beim Update existiert, falls gelöscht
 if [ ! -f "$STABLE_COMMON/tedge/device/inventory.json" ]; then
 cat <<EOF > "$STABLE_COMMON/tedge/device/inventory.json"
 {
@@ -336,9 +305,6 @@ chmod 644 "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
 chmod 644 "$SNAP_DATA/tedge/plugins/tedge-log-plugin.toml"
 chmod 644 "$STABLE_COMMON/tedge/device/inventory.json"
 
-# =========================================================================
-# Korrigiere stale data.path und sudo.enable nach Update
-# =========================================================================
 echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set data.path "$SNAP_COMMON/tedge" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set logs.path "$SNAP_COMMON/tedge/log" 2>/dev/null || true
@@ -346,10 +312,6 @@ echo "Correcting stale tedge config values after update..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set mqtt.client.port 1883 2>/dev/null || true
 
 
-# =========================================================================
-# Sicherstellen dass Cert-CN mit System-Seriennummer übereinstimmt
-# (verhindert externalId-Mismatch in Cumulocity nach Erstinstallation mit Hostname)
-# =========================================================================
 CERT_FILE="$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem"
 echo "Verifying device certificate CN matches system serial..." >&2
 EXPECTED_SERIAL=$("$SNAP/scripts/manage-device-id.sh" get-serial 2>/dev/null || echo "")
@@ -369,19 +331,11 @@ elif [ -n "$EXPECTED_SERIAL" ] && [ ! -f "$CERT_FILE" ]; then
         echo "WARNING: Failed to create certificate (non-fatal)" >&2
 fi
 
-# =========================================================================
-# Inventory mit echten Systemdaten befüllen
-# =========================================================================
 if [ -f "$SNAP/scripts/update-inventory.sh" ]; then
     echo "Running inventory update script..." >&2
     "$SNAP/scripts/update-inventory.sh" 2>&1 || true
 fi
 
-# =========================================================================
-# Enforce mapper start/stop state from saved config.
-# snapd restarts ALL Startup=enabled services on every snap update.
-# We must re-apply the user's saved enabled/disabled preference here.
-# =========================================================================
 echo "Enforcing mapper states from saved config..." >&2
 python3 - <<'ENFORCEEOF' 2>&1 || true
 import json, subprocess, os, sys
@@ -422,12 +376,7 @@ for cfg_key, url_field, svc in mappers:
 ENFORCEEOF
 # =========================================================================
 
-# ── Cloud reconnect nach Snap-Update ─────────────────────────────────────────
-# tedge reconnect c8y funktioniert NICHT im Hook-Kontext weil:
-#   1. tedge User per chown nicht gefunden wird (AppArmor strict mode)
-#   2. systemd service manager nicht verfügbar ist
-# Stattdessen: snapctl restart des Mappers — im built-in bridge Modus
-# baut tedge-mapper-c8y die Verbindung selbst auf wenn er startet.
+
 SNAP_INSTANCE="${SNAP_INSTANCE_NAME:-thin-edge-io}"
 TEDGE_BIN="$SNAP/bin/tedge"
 TEDGE_CFG="$SNAP_DATA/tedge"
@@ -443,8 +392,6 @@ fi
 
 echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [post-refresh] completed successfully ==="
 
-# Clear retained health topics of removed services so they disappear from Cumulocity.
-# An empty retained payload deletes the retained message on the broker.
 MQTT_PUB="$SNAP/usr/bin/mosquitto_pub"
 MQTT_HOST="127.0.0.1"
 MQTT_PORT="1883"
