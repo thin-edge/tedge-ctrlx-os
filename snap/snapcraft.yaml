@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 2.0.0
+version: 2.0.0-2304.0639
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -418,12 +418,12 @@ parts:
       'unixsocket-description.json': meta/unixsocket-description.json
       'build-info.txt': meta/build-info.txt
       'i18n/*': meta/i18n/
-      'package-manifest.json': package-assets/${SNAPCRAFT_PROJECT_NAME}/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
-      'caddyfile': package-assets/${SNAPCRAFT_PROJECT_NAME}/caddyfile
+      'package-manifest.json': package-assets/thin-edge-io/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
+      'caddyfile': package-assets/thin-edge-io/caddyfile
     stage:
       - meta/*
-      - package-assets/${SNAPCRAFT_PROJECT_NAME}/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
-      - package-assets/${SNAPCRAFT_PROJECT_NAME}/caddyfile
+      - package-assets/thin-edge-io/${SNAPCRAFT_PROJECT_NAME}.package-manifest.json
+      - package-assets/thin-edge-io/caddyfile
       - meta/i18n/*
     override-prime: |
       craftctl default

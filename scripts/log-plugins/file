@@ -18,7 +18,7 @@ set -eu
 # so that the clap multicall mechanism dispatches via argv[0].
 if [ -n "${SNAP:-}" ] && [ -x "${SNAP}/bin/tedge-file-log-plugin" ]; then
     PLUGIN_BIN="${SNAP}/bin/tedge-file-log-plugin"
-    CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
+    CONFIG_DIR="${SNAP_DATA:-/var/snap/${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}/current}/tedge"
 else
     # Fallback: derive snap root from /proc/mounts bind-mount of this directory
     SNAP_ROOT=""
@@ -30,7 +30,7 @@ else
     fi
     if [ -n "$SNAP_ROOT" ] && [ -x "${SNAP_ROOT}/bin/tedge-file-log-plugin" ]; then
         PLUGIN_BIN="${SNAP_ROOT}/bin/tedge-file-log-plugin"
-        CONFIG_DIR="/var/snap/thin-edge-io/current/tedge"
+        CONFIG_DIR="/var/snap/${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}/current/tedge"
     else
         # Last resort: system installation
         PLUGIN_BIN=$(command -v tedge-file-log-plugin 2>/dev/null || echo "tedge-file-log-plugin")

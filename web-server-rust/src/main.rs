@@ -12,6 +12,19 @@ use std::time::Duration;
 pub mod datalayer;
 use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping};
 
+/// Returns the snap instance name at runtime.
+/// snapd always sets SNAP_INSTANCE_NAME inside the snap environment.
+/// The fallback is only used when the binary runs outside a snap (e.g. local dev).
+/// To rename the snap, update ONLY the fallback string here AND `name:` in snapcraft.yaml.
+fn snap_name() -> String {
+    env::var("SNAP_INSTANCE_NAME").unwrap_or_else(|_| "ctrlx-cumulocity-thin-edge-io".to_string())
+}
+
+/// Returns `"<snap_name>.<service>"`, e.g. `"ctrlx-cumulocity-thin-edge-io.mosquitto"`.
+fn snap_svc(service: &str) -> String {
+    format!("{}.{}", snap_name(), service)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DeviceConfig {
     id: String,
@@ -125,12 +138,13 @@ async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> 
     };
 
     // mapper service name (used both as fallback and as proxy for bridge state)
-    let mapper_svc = match cloud {
-        "c8y" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y",
-        "aws" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws",
-        "az" => "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az",
+    let mapper_svc_owned = match cloud {
+        "c8y" => snap_svc("tedge-mapper-c8y"),
+        "aws" => snap_svc("tedge-mapper-aws"),
+        "az" => snap_svc("tedge-mapper-az"),
         _ => return "unknown",
     };
+    let mapper_svc = mapper_svc_owned.as_str();
 
     // Step 2: if mosquitto_sub is available, query $SYS/broker/connection/<name>/state.
     // Note: $SYS topics are only published at sys_interval (default 10s) or on state change.
@@ -619,7 +633,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         // because "inactive" also contains the substring "active"!
         // snapctl output: "Service  Startup  Current  Notes" → col[2] must be exactly "active"
         let snapctl_active = |svc: &'static str| async move {
-            let full = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
+            let full = snap_svc(svc);
             match tokio::process::Command::new("snapctl")
                 .args(["services", &full])
                 .output()
@@ -1001,11 +1015,7 @@ async fn save_c8y_config(
             action, config.c8y.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([
-                action,
-                flag,
-                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y",
-            ])
+            .args([action, flag, &snap_svc("tedge-mapper-c8y")])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1143,11 +1153,7 @@ async fn save_aws_config(
             action, config.aws.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([
-                action,
-                flag,
-                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws",
-            ])
+            .args([action, flag, &snap_svc("tedge-mapper-aws")])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1285,11 +1291,7 @@ async fn save_az_config(
             action, config.az.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([
-                action,
-                flag,
-                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az",
-            ])
+            .args([action, flag, &snap_svc("tedge-mapper-az")])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1401,7 +1403,7 @@ async fn restart_single_service(
         })));
     }
     info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
-    let full = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
+    let full = snap_svc(&svc);
     match std::process::Command::new("snapctl")
         .args(["restart", &full])
         .output()
@@ -1460,10 +1462,7 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     for service in &services {
         info!("[RESTART]   - Restarting {}", service);
         match std::process::Command::new("snapctl")
-            .args([
-                "restart",
-                &format!("ctrlx-cumulocity-thin-edge-io.{}", service),
-            ])
+            .args(["restart", &format!("{}.{}", snap_name(), service)])
             .output()
         {
             Ok(output) => {
@@ -2855,12 +2854,12 @@ async fn set_log_level(
     let is_snap = env::var("SNAP").is_ok();
     let svc = body.service.clone();
     if is_snap && svc != "webserver" {
-        let snap_svc = format!("ctrlx-cumulocity-thin-edge-io.{}", svc);
+        let snap_service = snap_svc(&svc);
         // Fire-and-forget via web::block so we don't block the async runtime
         actix_web::rt::spawn(async move {
             let _ = web::block(move || {
                 Command::new("snapctl")
-                    .args(["restart", &snap_svc])
+                    .args(["restart", &snap_service])
                     .output()
             })
             .await;

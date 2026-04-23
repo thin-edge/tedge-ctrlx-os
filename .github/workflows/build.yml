@@ -54,6 +54,7 @@ jobs:
 
       - name: Generate build info
         run: |
+          SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
           VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
           BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
@@ -72,6 +73,7 @@ jobs:
           Upstream Commit: ${THIN_EDGE_COMMIT}
           EOF
           echo "SNAP_VERSION=${VERSION}-${BUILD_SUFFIX}" >> "$GITHUB_ENV"
+          echo "SNAP_NAME=${SNAP_NAME}" >> "$GITHUB_ENV"
 
       - name: Compile LESS to CSS
         run: lessc web/www/styles.less web/www/styles.css
@@ -104,7 +106,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: snap-amd64-${{ env.SNAP_VERSION }}
-          path: ctrlx-cumulocity-thin-edge-io_*_amd64.snap
+          path: ${{ env.SNAP_NAME }}_*_amd64.snap
           retention-days: 30
           if-no-files-found: error
 
@@ -112,6 +114,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: snap-arm64-${{ env.SNAP_VERSION }}
-          path: ctrlx-cumulocity-thin-edge-io_*_arm64.snap
+          path: ${{ env.SNAP_NAME }}_*_arm64.snap
           retention-days: 30
           if-no-files-found: error

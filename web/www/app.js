@@ -31,7 +31,15 @@ const I18N = {
     "connect.mapping_topic_hint":
       "Topic für Test-Nachrichten über MQTT Service (Port 9883)",
     "section.logs": "Logs & Diagnose",
+    "section.licensing": "ctrlX Lizenzierung",
     "section.sysinfo": "Systeminformationen",
+    "licensing.loading": "Lizenzinformationen werden geladen...",
+    "licensing.refresh": "Aktualisieren",
+    "licensing.manage": "Lizenzen verwalten",
+    "licensing.col.name": "Name",
+    "licensing.col.status": "Status",
+    "licensing.col.validUntil": "Gültig bis",
+    "licensing.col.quantity": "Anzahl",
     // Status
     "status.services": "Dienste",
     "status.mappers": "Mapper",
@@ -283,7 +291,15 @@ const I18N = {
     "connect.mapping_topic_hint":
       "Topic for test messages via MQTT Service (Port 9883)",
     "section.logs": "Logs & Diagnostics",
+    "section.licensing": "ctrlX Licensing",
     "section.sysinfo": "System Information",
+    "licensing.loading": "Loading license information...",
+    "licensing.refresh": "Refresh",
+    "licensing.manage": "Manage Licenses",
+    "licensing.col.name": "Name",
+    "licensing.col.status": "Status",
+    "licensing.col.validUntil": "Valid Until",
+    "licensing.col.quantity": "Qty",
     // Status
     "status.services": "Services",
     "status.mappers": "Mappers",
@@ -2707,4 +2723,70 @@ function renderNodeList(nodes) {
         `;
     })
     .join("");
+}
+
+// ── ctrlX Licensing ──────────────────────────────────────────────────────────
+
+async function loadLicenses() {
+  const loading = document.getElementById("licensing-loading");
+  const table = document.getElementById("licensing-table");
+  const tbody = document.getElementById("licensing-table-body");
+  const errDiv = document.getElementById("licensing-error");
+
+  if (loading) loading.style.display = "";
+  if (table) table.style.display = "none";
+  if (errDiv) errDiv.style.display = "none";
+
+  try {
+    const resp = await fetch("/licensing-manager/api/v1/licenses", {
+      headers: { Accept: "application/json" },
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const licenses = Array.isArray(data)
+      ? data
+      : data.licenses || data.items || [];
+
+    if (loading) loading.style.display = "none";
+
+    if (licenses.length === 0) {
+      if (errDiv) {
+        errDiv.textContent = "No licenses found.";
+        errDiv.style.display = "";
+      }
+      return;
+    }
+
+    tbody.innerHTML = licenses
+      .map((lic) => {
+        const name = lic.name || lic.appName || lic.title || "-";
+        const validUntil =
+          lic.validUntil || lic.expiry || lic.expirationDate || "-";
+        const qty = lic.quantity ?? lic.count ?? "-";
+        const active =
+          lic.status === "valid" ||
+          lic.active === true ||
+          lic.status === "active";
+        const statusColor = active
+          ? "var(--c8y-brand-success, #27ae60)"
+          : "var(--c8y-brand-danger, #e74c3c)";
+        const statusLabel = lic.status || (active ? "valid" : "invalid");
+        return `<tr style="border-bottom:1px solid var(--c8y-palette-gray-80,#333)">
+          <td style="padding:6px 8px">${name}</td>
+          <td style="padding:6px 8px"><span style="color:${statusColor}">${statusLabel}</span></td>
+          <td style="padding:6px 8px">${validUntil}</td>
+          <td style="padding:6px 8px">${qty}</td>
+        </tr>`;
+      })
+      .join("");
+
+    if (table) table.style.display = "";
+  } catch (e) {
+    if (loading) loading.style.display = "none";
+    if (errDiv) {
+      errDiv.textContent = `Could not load license information: ${e.message}`;
+      errDiv.style.display = "";
+    }
+  }
 }

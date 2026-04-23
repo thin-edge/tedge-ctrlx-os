@@ -90,8 +90,8 @@ fn make_status_payload(original: &serde_json::Value, status: &str, reason: Optio
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 fn get_config_path() -> PathBuf {
-    let snap_data =
-        env::var("SNAP_DATA").unwrap_or_else(|_| "/var/snap/thin-edge-io/current".to_string());
+    let snap_data = env::var("SNAP_DATA")
+        .unwrap_or_else(|_| "/var/snap/ctrlx-cumulocity-thin-edge-io/current".to_string());
     PathBuf::from(snap_data).join("tedge/plugins/tedge-log-plugin.toml")
 }
 
@@ -464,8 +464,8 @@ async fn main() -> Result<()> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(1883);
     let config_path = get_config_path();
-    let snap_data =
-        env::var("SNAP_DATA").unwrap_or_else(|_| "/var/snap/thin-edge-io/current".to_string());
+    let snap_data = env::var("SNAP_DATA")
+        .unwrap_or_else(|_| "/var/snap/ctrlx-cumulocity-thin-edge-io/current".to_string());
 
     log::info!(
         "tedge-log-upload-manager starting — broker={}:{}, config={}",

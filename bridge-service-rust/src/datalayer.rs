@@ -70,6 +70,7 @@ fn default_poll_interval() -> u32 {
 
 /// Formatiert Unix-Sekunden + Millisekunden als ISO-8601-UTC-String
 /// z.B. "2026-04-21T09:30:00.123Z"
+#[allow(dead_code)]
 fn format_iso8601(secs: u64, millis: u32) -> String {
     // Kalenderrechnung ohne externe Crate
     let mut days = secs / 86400;

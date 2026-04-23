@@ -7,7 +7,7 @@ set -eo pipefail
 echo "Gathering system information for inventory..." >&2
 
 # SNAP_DATA = /var/snap/<name>/current (revision-symlink) — survives updates
-STABLE_DIR="${SNAP_DATA:-/var/snap/${SNAP_INSTANCE_NAME:-thin-edge-io}/current}"
+STABLE_DIR="${SNAP_DATA:-/var/snap/${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}/current}"
 INVENTORY_FILE="${STABLE_DIR}/tedge/device/inventory.json"
 export INVENTORY_FILE
 
@@ -144,7 +144,7 @@ import json, sys, os
 
 model, serial, revision, os_name, iface, ip, mac, sw_json = sys.argv[1:9]
 
-inventory_path = os.environ.get('INVENTORY_FILE', '/var/snap/thin-edge-io/current/tedge/device/inventory.json')
+inventory_path = os.environ.get('INVENTORY_FILE', '/var/snap/ctrlx-cumulocity-thin-edge-io/current/tedge/device/inventory.json')
 
 # Read existing inventory to preserve user-edited values
 existing = {}
@@ -258,7 +258,8 @@ fi
 # ---------------------------------------------------------------------------
 # Check if snapd-control is connected (for complete snap list)
 # ---------------------------------------------------------------------------
-if snap connections thin-edge-io 2>/dev/null | grep -q "snapd-control.*-$"; then
+SNAP_INSTANCE="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
+if snap connections "${SNAP_INSTANCE}" 2>/dev/null | grep -q "snapd-control.*-$"; then
     echo "WARNING: snapd-control not connected — snap list shows only own snap." >&2
-    echo "         Run: sudo snap connect thin-edge-io:snapd-control" >&2
+    echo "         Run: sudo snap connect ${SNAP_INSTANCE}:snapd-control" >&2
 fi

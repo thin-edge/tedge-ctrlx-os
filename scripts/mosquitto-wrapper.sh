@@ -11,9 +11,12 @@ if [ -f "$SNAP/meta/build-info.txt" ]; then
 fi
 
 # Determine which common dir to use (same logic as official snap)
+# SNAP_COMMON is set by snapd and is always correct — use it directly when running
+# as a service. SNAP_USER_COMMON is only set for user sessions; the pattern match
+# guards against that edge case in a name-agnostic way.
 case "$SNAP_USER_COMMON" in
-    */root/snap/thin-edge-io/common*) COMMON=$SNAP_COMMON ;;
-    *)                                 COMMON=$SNAP_USER_COMMON ;;
+    */snap/*/common*) COMMON=$SNAP_COMMON ;;
+    *)               COMMON=$SNAP_USER_COMMON ;;
 esac
 
 CONFIG_FILE="$SNAP/etc/mosquitto/default_config.conf"
@@ -42,9 +45,11 @@ BRIDGE_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
 
 # Always start from scratch so stale include_dir entries don't remain
 {
-    # Base settings: filter out any existing include_dir lines to prevent duplicates
-    # (e.g. old $SNAP_COMMON/mosquitto.conf may already contain one)
-    grep -v "^include_dir" "$CONFIG_FILE"
+    # Base settings: filter out any existing include_dir / persistence_location lines.
+    # persistence_location is written dynamically below using $SNAP_COMMON so that
+    # the snap works correctly regardless of its instance name.
+    grep -v "^include_dir\|^persistence_location" "$CONFIG_FILE"
+    echo "persistence_location $SNAP_COMMON/mosquitto/"
     echo ""
     echo "# Settings and bridge configs written by tedge"
     if [ -d "$BRIDGE_CONF_DIR" ]; then

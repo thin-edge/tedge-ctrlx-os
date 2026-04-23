@@ -677,344 +677,6 @@
           </div>
         </section>
 
-        <!-- Device Configuration (Inventory) -->
-        <section id="sec-device-config" class="card">
-          <h2 data-i18n="section.device_config">Device Configuration</h2>
-
-          <div
-            style="
-              display: flex;
-              justify-content: flex-end;
-              align-items: center;
-              margin-bottom: 16px;
-              gap: 8px;
-            "
-          >
-            <span
-              id="inventory-status"
-              style="font-size: 12px; color: var(--c8y-palette-gray-40)"
-            ></span>
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="saveAndPublishInventory()"
-              data-i18n="device.save"
-            >
-              Speichern
-            </button>
-          </div>
-
-          <!-- c8y_Hardware -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Hardware
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-                flex-wrap: wrap;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-model" style="font-size: 12px">Model</label>
-                <input
-                  type="text"
-                  id="inv-hw-model"
-                  placeholder="Bosch ctrlX CORE"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-serial" style="font-size: 12px"
-                  >Serial Number</label
-                >
-                <input
-                  type="text"
-                  id="inv-hw-serial"
-                  placeholder="auto-detected"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-revision" style="font-size: 12px"
-                  >Revision</label
-                >
-                <input type="text" id="inv-hw-revision" placeholder="1.0" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Firmware -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Firmware
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-name" style="font-size: 12px">Name</label>
-                <input type="text" id="inv-fw-name" placeholder="Linux" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-version" style="font-size: 12px"
-                  >Version</label
-                >
-                <input
-                  type="text"
-                  id="inv-fw-version"
-                  placeholder="Ubuntu Core 22"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-url" style="font-size: 12px">URL</label>
-                <input type="text" id="inv-fw-url" placeholder="http://" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Position -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Position
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-lat" style="font-size: 12px"
-                  >Latitude</label
-                >
-                <input type="text" id="inv-pos-lat" placeholder="51.151977" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-lng" style="font-size: 12px"
-                  >Longitude</label
-                >
-                <input type="text" id="inv-pos-lng" placeholder="6.95173" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-alt" style="font-size: 12px"
-                  >Altitude</label
-                >
-                <input type="text" id="inv-pos-alt" placeholder="67" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Network -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Network
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-iface" style="font-size: 12px"
-                  >Interface</label
-                >
-                <input type="text" id="inv-net-iface" placeholder="eth0" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-ip" style="font-size: 12px"
-                  >IP Address</label
-                >
-                <input type="text" id="inv-net-ip" placeholder="192.168.1.1" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-mac" style="font-size: 12px"
-                  >MAC Address</label
-                >
-                <input
-                  type="text"
-                  id="inv-net-mac"
-                  placeholder="00:00:00:00:00:00"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- ctrlX_Info -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              ctrlX_Info
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-ctrlx-type" style="font-size: 12px"
-                  >Device Type</label
-                >
-                <input
-                  type="text"
-                  id="inv-ctrlx-type"
-                  placeholder="PLC / Edge Controller"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-ctrlx-mfr" style="font-size: 12px"
-                  >Manufacturer</label
-                >
-                <input
-                  type="text"
-                  id="inv-ctrlx-mfr"
-                  placeholder="Bosch Rexroth"
-                />
-              </div>
-              <div></div>
-            </div>
-          </div>
-
-          <!-- c8y_SoftwareList (read-only) -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 8px;
-                font-family: monospace;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-              "
-            >
-              c8y_SoftwareList
-              <span
-                style="
-                  font-size: 10px;
-                  font-weight: 400;
-                  text-transform: none;
-                  color: var(--c8y-palette-gray-50);
-                "
-                >(auto-populated from snap list)</span
-              >
-            </div>
-            <pre
-              id="inv-software-list"
-              style="
-                background: var(--c8y-palette-gray-100, #1a1a2e);
-                border: 1px solid var(--c8y-palette-gray-70);
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 11px;
-                font-family: monospace;
-                margin: 0;
-                max-height: 120px;
-                overflow-y: auto;
-                color: var(--c8y-palette-gray-40);
-                white-space: pre-wrap;
-              "
-            >
-—</pre
-            >
-          </div>
-        </section>
-
         <!-- Connect Device -->
         <section id="sec-actions" class="card">
           <h2 data-i18n="section.connect">Connect Device</h2>
@@ -1422,6 +1084,344 @@
           >
 Click "Load Logs" to load the latest entries.</pre
           >
+        </section>
+
+        <!-- Device Configuration (Inventory) -->
+        <section id="sec-device-config" class="card">
+          <h2 data-i18n="section.device_config">Device Configuration</h2>
+
+          <div
+            style="
+              display: flex;
+              justify-content: flex-end;
+              align-items: center;
+              margin-bottom: 16px;
+              gap: 8px;
+            "
+          >
+            <span
+              id="inventory-status"
+              style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+            ></span>
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="saveAndPublishInventory()"
+              data-i18n="device.save"
+            >
+              Speichern
+            </button>
+          </div>
+
+          <!-- c8y_Hardware -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Hardware
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                flex-wrap: wrap;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="inv-hw-model" style="font-size: 12px">Model</label>
+                <input
+                  type="text"
+                  id="inv-hw-model"
+                  placeholder="Bosch ctrlX CORE"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-hw-serial" style="font-size: 12px"
+                  >Serial Number</label
+                >
+                <input
+                  type="text"
+                  id="inv-hw-serial"
+                  placeholder="auto-detected"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-hw-revision" style="font-size: 12px"
+                  >Revision</label
+                >
+                <input type="text" id="inv-hw-revision" placeholder="1.0" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Firmware -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Firmware
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="inv-fw-name" style="font-size: 12px">Name</label>
+                <input type="text" id="inv-fw-name" placeholder="Linux" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-fw-version" style="font-size: 12px"
+                  >Version</label
+                >
+                <input
+                  type="text"
+                  id="inv-fw-version"
+                  placeholder="Ubuntu Core 22"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-fw-url" style="font-size: 12px">URL</label>
+                <input type="text" id="inv-fw-url" placeholder="http://" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Position -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Position
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="inv-pos-lat" style="font-size: 12px"
+                  >Latitude</label
+                >
+                <input type="text" id="inv-pos-lat" placeholder="51.151977" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-pos-lng" style="font-size: 12px"
+                  >Longitude</label
+                >
+                <input type="text" id="inv-pos-lng" placeholder="6.95173" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-pos-alt" style="font-size: 12px"
+                  >Altitude</label
+                >
+                <input type="text" id="inv-pos-alt" placeholder="67" />
+              </div>
+            </div>
+          </div>
+
+          <!-- c8y_Network -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              c8y_Network
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="inv-net-iface" style="font-size: 12px"
+                  >Interface</label
+                >
+                <input type="text" id="inv-net-iface" placeholder="eth0" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-net-ip" style="font-size: 12px"
+                  >IP Address</label
+                >
+                <input type="text" id="inv-net-ip" placeholder="192.168.1.1" />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-net-mac" style="font-size: 12px"
+                  >MAC Address</label
+                >
+                <input
+                  type="text"
+                  id="inv-net-mac"
+                  placeholder="00:00:00:00:00:00"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- ctrlX_Info -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+              margin-bottom: 12px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 10px;
+                font-family: monospace;
+              "
+            >
+              ctrlX_Info
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="inv-ctrlx-type" style="font-size: 12px"
+                  >Device Type</label
+                >
+                <input
+                  type="text"
+                  id="inv-ctrlx-type"
+                  placeholder="PLC / Edge Controller"
+                />
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="inv-ctrlx-mfr" style="font-size: 12px"
+                  >Manufacturer</label
+                >
+                <input
+                  type="text"
+                  id="inv-ctrlx-mfr"
+                  placeholder="Bosch Rexroth"
+                />
+              </div>
+              <div></div>
+            </div>
+          </div>
+
+          <!-- c8y_SoftwareList (read-only) -->
+          <div
+            style="
+              border: 1px solid var(--c8y-palette-gray-70);
+              border-radius: 6px;
+              padding: 14px;
+            "
+          >
+            <div
+              style="
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: var(--c8y-palette-gray-40);
+                margin-bottom: 8px;
+                font-family: monospace;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              "
+            >
+              c8y_SoftwareList
+              <span
+                style="
+                  font-size: 10px;
+                  font-weight: 400;
+                  text-transform: none;
+                  color: var(--c8y-palette-gray-50);
+                "
+                >(auto-populated from snap list)</span
+              >
+            </div>
+            <pre
+              id="inv-software-list"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 4px;
+                padding: 8px;
+                font-size: 11px;
+                font-family: monospace;
+                margin: 0;
+                max-height: 120px;
+                overflow-y: auto;
+                color: var(--c8y-palette-gray-40);
+                white-space: pre-wrap;
+              "
+            >
+—</pre
+            >
+          </div>
         </section>
 
         <!-- Tedge Configuration -->
@@ -2042,6 +2042,105 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                 margin-top: -2px;
               "
             ></div>
+          </div>
+        </section>
+
+        <!-- ctrlX Licensing -->
+        <section id="sec-licensing" class="card">
+          <h2 data-i18n="section.licensing">ctrlX Licensing</h2>
+          <div id="licensing-status-area" style="margin-bottom: 14px">
+            <div
+              id="licensing-loading"
+              style="color: var(--c8y-palette-gray-40, #999); font-size: 13px"
+            >
+              <span data-i18n="licensing.loading"
+                >Loading license information...</span
+              >
+            </div>
+            <table
+              id="licensing-table"
+              style="
+                display: none;
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+              "
+            >
+              <thead>
+                <tr
+                  style="
+                    border-bottom: 1px solid var(--c8y-palette-gray-70, #444);
+                  "
+                >
+                  <th
+                    style="
+                      text-align: left;
+                      padding: 6px 8px;
+                      color: var(--c8y-palette-gray-30, #aaa);
+                    "
+                    data-i18n="licensing.col.name"
+                  >
+                    Name
+                  </th>
+                  <th
+                    style="
+                      text-align: left;
+                      padding: 6px 8px;
+                      color: var(--c8y-palette-gray-30, #aaa);
+                    "
+                    data-i18n="licensing.col.status"
+                  >
+                    Status
+                  </th>
+                  <th
+                    style="
+                      text-align: left;
+                      padding: 6px 8px;
+                      color: var(--c8y-palette-gray-30, #aaa);
+                    "
+                    data-i18n="licensing.col.validUntil"
+                  >
+                    Valid Until
+                  </th>
+                  <th
+                    style="
+                      text-align: left;
+                      padding: 6px 8px;
+                      color: var(--c8y-palette-gray-30, #aaa);
+                    "
+                    data-i18n="licensing.col.quantity"
+                  >
+                    Qty
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="licensing-table-body"></tbody>
+            </table>
+            <div
+              id="licensing-error"
+              style="
+                display: none;
+                color: var(--c8y-brand-danger, #e74c3c);
+                font-size: 13px;
+              "
+            ></div>
+          </div>
+          <div class="action-buttons">
+            <button
+              class="btn btn-primary btn-sm"
+              onclick="loadLicenses()"
+              data-i18n="licensing.refresh"
+            >
+              Refresh
+            </button>
+            <a
+              href="/identity-manager/index.html#/licenses"
+              target="_blank"
+              class="btn btn-outline-secondary btn-sm"
+              data-i18n="licensing.manage"
+            >
+              Manage Licenses
+            </a>
           </div>
         </section>
 

@@ -4,12 +4,17 @@
 
 set -eo pipefail
 
-TEDGE_CONFIG_DIR="${SNAP_DATA:-/var/snap/thin-edge-io/current}/tedge"
-TEDGE_DATA_DIR="${SNAP_COMMON:-/var/snap/thin-edge-io/common}/tedge"
-TEDGE_BIN="${SNAP:-/snap/thin-edge-io/current}/bin/tedge"
+# Single source of truth for the snap name.
+# snapd always sets SNAP_INSTANCE_NAME in the snap environment;
+# the fallback is only used when the script runs outside a snap context.
+SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
+
+TEDGE_CONFIG_DIR="${SNAP_DATA:-/var/snap/${SNAP_NAME}/current}/tedge"
+TEDGE_DATA_DIR="${SNAP_COMMON:-/var/snap/${SNAP_NAME}/common}/tedge"
+TEDGE_BIN="${SNAP:-/snap/${SNAP_NAME}/current}/bin/tedge"
 
 # ctrlX Certificate Store paths (managed by ctrlX Certificate Manager)
-CERT_STORE_DIR="${SNAP_COMMON:-/var/snap/thin-edge-io/common}/package-certificates/thin-edge-io/tedge"
+CERT_STORE_DIR="${SNAP_COMMON:-/var/snap/${SNAP_NAME}/common}/package-certificates/thin-edge-io/tedge"
 CERT_FILE="$CERT_STORE_DIR/own/certs/tedge-certificate.pem"
 KEY_FILE="$CERT_STORE_DIR/own/private/tedge-private-key.pem"
 
@@ -127,8 +132,8 @@ create_certificate() {
         # Restart services
         if command -v snapctl >/dev/null 2>&1; then
             echo "Restarting thin-edge.io services..." >&2
-            snapctl restart thin-edge-io.tedge-mapper-c8y 2>/dev/null || true
-            snapctl restart thin-edge-io.tedge-agent 2>/dev/null || true
+            snapctl restart "${SNAP_NAME}.tedge-mapper-c8y" 2>/dev/null || true
+            snapctl restart "${SNAP_NAME}.tedge-agent" 2>/dev/null || true
         fi
         
         return 0

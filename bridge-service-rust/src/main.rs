@@ -195,7 +195,8 @@ async fn main() -> Result<()> {
     let is_snap = env::var("SNAP").is_ok();
     let config_path: PathBuf = if is_snap {
         PathBuf::from(
-            env::var("SNAP_DATA").unwrap_or_else(|_| "/var/snap/thin-edge-io/current".to_string()),
+            env::var("SNAP_DATA")
+                .unwrap_or_else(|_| "/var/snap/ctrlx-cumulocity-thin-edge-io/current".to_string()),
         )
         .join("datalayer-mappings.json")
     } else {
@@ -212,8 +213,8 @@ async fn main() -> Result<()> {
     // device_external_id aus dem Cert-CN lesen (= was Cumulocity als externalId kennt).
     // Fallback: get_device_serial() (sysfs/machine-id)
     let external_id = if is_snap {
-        let snap_common =
-            env::var("SNAP_COMMON").unwrap_or_else(|_| "/var/snap/thin-edge-io/common".to_string());
+        let snap_common = env::var("SNAP_COMMON")
+            .unwrap_or_else(|_| "/var/snap/ctrlx-cumulocity-thin-edge-io/common".to_string());
         let cert_path = PathBuf::from(&snap_common)
             .join("package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem");
         get_device_id_from_cert(&cert_path).unwrap_or_else(get_device_serial)

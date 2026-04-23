@@ -69,15 +69,15 @@ fi
 "$TEDGE_BIN" --config-dir "$TEDGE_CONFIG_DIR" "$ACTION" "$CLOUD" $CONNECT_FLAGS 2>&1 || true
 
 # Step 1c: Fix hardcoded revision paths in bridge configs.
-# tedge connect writes absolute paths like /var/snap/thin-edge-io/x42/...
+# tedge connect writes absolute paths like /var/snap/ctrlx-cumulocity-thin-edge-io/x42/...
 # After a snap update the revision changes, making cert paths invalid.
 # Replace all revision-specific paths with the stable "current" symlink.
 MOSQUITTO_CONF_DIR="$SNAP_DATA/tedge/mosquitto-conf"
 if [ -d "$MOSQUITTO_CONF_DIR" ]; then
-    SNAP_BASE="/var/snap/thin-edge-io"
+    SNAP_BASE="/var/snap/${SNAP_NAME}"
     for f in "$MOSQUITTO_CONF_DIR"/*.conf; do
         [ -f "$f" ] || continue
-        # Replace /var/snap/thin-edge-io/x<digits>/ with /var/snap/thin-edge-io/current/
+        # Replace /var/snap/<snap-name>/x<digits>/ with /var/snap/<snap-name>/current/
         if grep -qE "${SNAP_BASE}/x[0-9]+" "$f" 2>/dev/null; then
             sed -i -E "s|${SNAP_BASE}/x[0-9]+/|${SNAP_BASE}/current/|g" "$f"
             log "Fixed revision paths in: $(basename "$f")"

@@ -10,9 +10,12 @@ echo "SNAP_REVISION: $SNAP_REVISION"
 
 
 
-# Feste Pfade für Snap-Umgebung (funktioniert auch, wenn SNAP_DATA/SNAP_COMMON leer sind)
-SNAP_DATA_PATH="/var/snap/thin-edge-io/current"
-SNAP_COMMON_PATH="/var/snap/thin-edge-io/common"
+# Pfade aus den von snapd gesetzten Umgebungsvariablen ableiten.
+# Snapd setzt SNAP_DATA und SNAP_COMMON immer korrekt – unabhängig vom Snap-Namen.
+# Das Script funktioniert damit sowohl mit "thin-edge-io" als auch mit
+# "ctrlx-cumulocity-thin-edge-io" ohne Anpassung.
+SNAP_DATA_PATH="${SNAP_DATA}"
+SNAP_COMMON_PATH="${SNAP_COMMON}"
 
 # Log build information if available
 if [ -f "$SNAP/meta/build-info.txt" ]; then

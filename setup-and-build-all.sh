@@ -198,6 +198,7 @@ BUILD_NUMBER="build.$(date -u +%Y%m%d.%H%M)"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
 BASE_VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
 SNAP_VERSION="${BASE_VERSION}-${BUILD_SUFFIX}"
 VERSION="$SNAP_VERSION"
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -238,10 +239,10 @@ echo "[i] Build-Info aktualisiert."
 trap 'sed -i "s/^version:.*/version: ${BASE_VERSION}/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${BASE_VERSION}"' EXIT
 
 # Alte Snap-Dateien löschen
-OLD_SNAPS=$(ls -1 thin-edge-io_*.snap 2>/dev/null || true)
+OLD_SNAPS=$(ls -1 ${SNAP_NAME}_*.snap 2>/dev/null || true)
 if [ -n "$OLD_SNAPS" ]; then
     echo "[i] Lösche alte Snap-Dateien..."
-    rm -f thin-edge-io_*.snap
+    rm -f ${SNAP_NAME}_*.snap
     echo "[✓] Alte Snaps gelöscht: $(echo "$OLD_SNAPS" | tr '\n' ' ')"
 fi
 
@@ -249,7 +250,7 @@ AMD64_BUILD_LOG="logs/build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building amd64 snap (logging to $AMD64_BUILD_LOG)..."
 
 if snapcraft --destructive-mode --enable-manifest --target-arch=amd64 2>&1 | tee "$AMD64_BUILD_LOG"; then
-    AMD64_SNAP=$(ls -1 thin-edge-io_*_amd64.snap 2>/dev/null | head -1 || true)
+    AMD64_SNAP=$(ls -1 ${SNAP_NAME}_*_amd64.snap 2>/dev/null | head -1 || true)
     if [ -z "$AMD64_SNAP" ]; then
         echo -e "${RED}[✗] Snap-Build meldet Erfolg, aber keine .snap-Datei gefunden!${NC}"; exit 1
     else
@@ -270,7 +271,7 @@ ARM64_BUILD_LOG="logs/build-snap-arm64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building arm64 snap (logging to $ARM64_BUILD_LOG)..."
 
 if snapcraft --destructive-mode --enable-manifest --target-arch=arm64 2>&1 | tee "$ARM64_BUILD_LOG"; then
-    ARM64_SNAP=$(ls -1 thin-edge-io_*_arm64.snap 2>/dev/null | head -1 || true)
+    ARM64_SNAP=$(ls -1 ${SNAP_NAME}_*_arm64.snap 2>/dev/null | head -1 || true)
     if [ -z "$ARM64_SNAP" ]; then
         echo -e "${RED}[✗] Snap-Build meldet Erfolg, aber keine .snap-Datei gefunden!${NC}"; exit 1
     else
@@ -297,8 +298,8 @@ if [ -n "$SNAP_FILES" ]; then
     echo "[i] Installation instructions:"
     echo ""
     echo "  1. Download the appropriate snap file to your PC:"
-    AMD64_EXISTS=$(ls -1 thin-edge-io_*_amd64.snap 2>/dev/null)
-    ARM64_EXISTS=$(ls -1 thin-edge-io_*_arm64.snap 2>/dev/null)
+    AMD64_EXISTS=$(ls -1 ${SNAP_NAME}_*_amd64.snap 2>/dev/null)
+    ARM64_EXISTS=$(ls -1 ${SNAP_NAME}_*_arm64.snap 2>/dev/null)
     if [ -n "$AMD64_EXISTS" ]; then
         echo "     - For ctrlX COREvirtual: $AMD64_EXISTS"
     fi
