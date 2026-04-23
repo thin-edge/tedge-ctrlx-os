@@ -385,9 +385,9 @@ parts:
       
       # Determine output directory based on target
       if [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
-        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/aarch64-unknown-linux-gnu/release"
       else
-        OUTPUT_DIR="target/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/release"
       fi
       
       # Copy main binaries
@@ -518,11 +518,11 @@ parts:
         export CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc"
         export PKG_CONFIG_ALLOW_CROSS=1
         TARGET_FLAG="--target aarch64-unknown-linux-gnu"
-        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/aarch64-unknown-linux-gnu/release"
         STRIP_CMD="aarch64-linux-gnu-strip"
       else
         TARGET_FLAG=""
-        OUTPUT_DIR="target/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/release"
         STRIP_CMD="strip"
       fi
       
@@ -561,11 +561,11 @@ parts:
         export CC_aarch64_unknown_linux_gnu="aarch64-linux-gnu-gcc"
         export PKG_CONFIG_ALLOW_CROSS=1
         TARGET_FLAG="--target aarch64-unknown-linux-gnu"
-        OUTPUT_DIR="target/aarch64-unknown-linux-gnu/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/aarch64-unknown-linux-gnu/release"
         STRIP_CMD="aarch64-linux-gnu-strip"
       else
         TARGET_FLAG=""
-        OUTPUT_DIR="target/release"
+        OUTPUT_DIR="$CRAFT_PART_BUILD/target/release"
         STRIP_CMD="strip"
       fi
       
