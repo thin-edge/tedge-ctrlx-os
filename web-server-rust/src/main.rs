@@ -3143,6 +3143,75 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
+/// GET /api/licenses — proxy ctrlX licensing-manager API server-side.
+/// The browser cannot call /licensing-manager/api/v1/licenses directly because
+/// it is only reachable on the ctrlX internal network (Unix socket → reverse proxy).
+/// We forward the Bearer token from the incoming request so the licensing-manager
+/// can authenticate the caller.
+async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
+    // Extract Bearer token forwarded by the ctrlX reverse proxy
+    let bearer_token = req
+        .headers()
+        .get("X-Auth-Token")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            req.headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.strip_prefix("Bearer "))
+                .map(|s| s.to_string())
+        });
+
+    let cfg = data.load_datalayer_config();
+    let base = if cfg.base_url.trim().is_empty() {
+        "https://localhost".to_string()
+    } else {
+        cfg.base_url.trim_end_matches('/').to_string()
+    };
+
+    let url = format!("{}/licensing-manager/api/v1/licenses", base);
+
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .unwrap_or_default();
+
+    let mut req_builder = client
+        .get(&url)
+        .header("Accept", "application/json");
+
+    if let Some(token) = bearer_token {
+        req_builder = req_builder.bearer_auth(token);
+    }
+
+    match req_builder.send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            let body: serde_json::Value = resp
+                .json()
+                .await
+                .unwrap_or(serde_json::json!({"error": "invalid response from licensing-manager"}));
+            Ok(HttpResponse::build(
+                actix_web::http::StatusCode::from_u16(status.as_u16())
+                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
+            )
+            .json(body))
+        }
+        Err(e) => {
+            warn!("[LICENSES] Request to {} failed: {}", url, e);
+            Ok(HttpResponse::ServiceUnavailable()
+                .json(serde_json::json!({"error": format!("licensing-manager unreachable: {}", e)})))
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct BrowseQuery {
     #[serde(default)]
@@ -3731,6 +3800,7 @@ async fn main() -> io::Result<()> {
                             .route("/snapconfig", web::post().to(save_snap_config_file))
                             .route("/inventory", web::get().to(get_inventory))
                             .route("/inventory", web::post().to(save_and_publish_inventory))
+                            .route("/licenses", web::get().to(get_licenses))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")
