@@ -153,9 +153,10 @@ impl TedgeDatalayerBridge {
         let create_opts = mqtt::CreateOptionsBuilder::new()
             .server_uri(&broker)
             .client_id("tedge-datalayer-bridge")
+            .mqtt_version(mqtt::MQTT_VERSION_3_1_1)
             .finalize();
         let cli = mqtt::AsyncClient::new(create_opts)?;
-        let conn_opts = mqtt::ConnectOptionsBuilder::new()
+        let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
             .keep_alive_interval(Duration::from_secs(20))
             .clean_session(true)
             .automatic_reconnect(Duration::from_secs(1), Duration::from_secs(30))

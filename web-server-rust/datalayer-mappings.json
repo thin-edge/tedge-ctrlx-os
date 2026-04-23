@@ -11,8 +11,10 @@
       "transform": "raw",
       "field_name": "asd",
       "unit": "asd",
-      "enabled": false
+      "enabled": true
     }
   ],
-  "acceptInvalidCerts": true
+  "acceptInvalidCerts": true,
+  "mqttServiceEnabled": false,
+  "deviceExternalId": ""
 }
