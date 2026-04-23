@@ -2784,10 +2784,17 @@ async function loadLicenses() {
         // ctrlX capabilities API: finalExpirationDate or isPermanent
         const validUntil = lic.isPermanent
           ? "Permanent"
-          : lic.finalExpirationDate || lic.endDate || lic.validUntil || lic.expiry || lic.expirationDate || "-";
+          : lic.finalExpirationDate ||
+            lic.endDate ||
+            lic.validUntil ||
+            lic.expiry ||
+            lic.expirationDate ||
+            "-";
         const qty = lic.count ?? lic.quantity ?? "-";
         // ctrlX capabilities: no explicit status field — active if present in list
-        const active = lic.status ? (lic.status === "valid" || lic.status === "active") : true;
+        const active = lic.status
+          ? lic.status === "valid" || lic.status === "active"
+          : true;
         const statusColor = active
           ? "var(--c8y-brand-success, #27ae60)"
           : "var(--c8y-brand-danger, #e74c3c)";

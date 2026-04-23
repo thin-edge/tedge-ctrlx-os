@@ -459,5 +459,6 @@ done
 snapctl connect :hardware-observe 2>/dev/null || true
 snapctl connect :log-observe 2>/dev/null || true
 snapctl connect :snapd-control 2>/dev/null || true
+snapctl connect :licensing-service 2>/dev/null || true
 
 snapctl set-health okay

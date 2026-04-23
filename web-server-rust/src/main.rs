@@ -3200,7 +3200,11 @@ async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<Ht
     match result {
         Ok(Ok(out)) => {
             let raw = String::from_utf8_lossy(&out.stdout).to_string();
-            warn!("[LICENSES] curl exit={} raw={}", out.status.code().unwrap_or(-1), &raw[..raw.len().min(500)]);
+            warn!(
+                "[LICENSES] curl exit={} raw={}",
+                out.status.code().unwrap_or(-1),
+                &raw[..raw.len().min(500)]
+            );
             if out.status.success() {
                 let body: serde_json::Value = serde_json::from_str(&raw)
                     .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &raw[..raw.len().min(200)])}));
@@ -3212,12 +3216,10 @@ async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<Ht
                 ))
             }
         }
-        Ok(Err(e)) => Ok(HttpResponse::ServiceUnavailable().json(
-            serde_json::json!({"error": format!("curl not available: {}", e)}),
-        )),
-        Err(e) => Ok(HttpResponse::ServiceUnavailable().json(
-            serde_json::json!({"error": format!("licensing query blocked: {}", e)}),
-        )),
+        Ok(Err(e)) => Ok(HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error": format!("curl not available: {}", e)}))),
+        Err(e) => Ok(HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({"error": format!("licensing query blocked: {}", e)}))),
     }
 }
 
