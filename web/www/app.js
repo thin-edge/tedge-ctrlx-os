@@ -2744,9 +2744,10 @@ async function loadLicenses() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
+    console.log("[licenses] raw response:", JSON.stringify(data));
     const licenses = Array.isArray(data)
       ? data
-      : data.licenses || data.items || [];
+      : data.licenses || data.items || data.value || data.data || [];
 
     if (loading) loading.style.display = "none";
 
