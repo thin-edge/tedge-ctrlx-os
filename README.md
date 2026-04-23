@@ -1,4 +1,4 @@
-# thin-edge.io for ctrlX AUTOMATION
+# thin-edge.io for ctrlX AUTOMATION (WORK IN PROGRESS)
 
 [![Version](https://img.shields.io/badge/version-1.7.1-blue)](https://github.com/Cumulocity-IoT/thin-edge-io-app)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)

@@ -2738,7 +2738,7 @@ async function loadLicenses() {
   if (errDiv) errDiv.style.display = "none";
 
   try {
-    const resp = await fetch("/licensing-manager/api/v1/licenses", {
+    const resp = await fetch("/thin-edge-io/api/licenses", {
       headers: { Accept: "application/json" },
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

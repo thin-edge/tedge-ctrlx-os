@@ -1501,7 +1501,11 @@ struct SetMqttPortBody {
 
 /// POST /api/set-mqtt-port  — sets c8y.mqtt_service.enabled via tedge config set
 /// Port 9883 → enabled=true, Port 8883 → enabled=false
-async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Result<HttpResponse> {
+async fn set_mqtt_port(
+    req: HttpRequest,
+    body: web::Json<SetMqttPortBody>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_execute() {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
@@ -1616,6 +1620,16 @@ async fn set_mqtt_port(req: HttpRequest, body: web::Json<SetMqttPortBody>) -> Re
                 "[MQTT-PORT] c8y.mqtt_service.enabled={} + c8y.mqtt port={} set successfully",
                 enabled_str, port
             );
+            // Also sync mqttServiceEnabled in datalayer-mappings.json so the
+            // bridge service picks up the correct MQTT topic prefix immediately.
+            let mut dl_cfg = data.load_datalayer_config();
+            dl_cfg.mqtt_service_enabled = port == 9883;
+            if let Err(e) = data.save_datalayer_config(&dl_cfg) {
+                warn!(
+                    "[MQTT-PORT] Could not update datalayer-mappings.json: {}",
+                    e
+                );
+            }
             Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": port})))
         }
         Ok(Ok(out)) => {
@@ -3183,9 +3197,7 @@ async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<Htt
         .build()
         .unwrap_or_default();
 
-    let mut req_builder = client
-        .get(&url)
-        .header("Accept", "application/json");
+    let mut req_builder = client.get(&url).header("Accept", "application/json");
 
     if let Some(token) = bearer_token {
         req_builder = req_builder.bearer_auth(token);
@@ -3206,8 +3218,9 @@ async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<Htt
         }
         Err(e) => {
             warn!("[LICENSES] Request to {} failed: {}", url, e);
-            Ok(HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({"error": format!("licensing-manager unreachable: {}", e)})))
+            Ok(HttpResponse::ServiceUnavailable().json(
+                serde_json::json!({"error": format!("licensing-manager unreachable: {}", e)}),
+            ))
         }
     }
 }
