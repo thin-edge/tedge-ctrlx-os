@@ -203,10 +203,16 @@ async fn main() -> Result<()> {
     } else {
         PathBuf::from("/tmp/datalayer-mappings.json")
     };
-    let credentials_path = config_path
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new("."))
-        .join("datalayer-credentials.json");
+    // Credentials liegen in SNAP_COMMON (überleben Snap-Updates), genau wie der Webserver sie speichert
+    let credentials_path: PathBuf = if is_snap {
+        PathBuf::from(
+            env::var("SNAP_COMMON")
+                .unwrap_or_else(|_| "/var/snap/ctrlx-cumulocity-thin-edge-io/common".to_string()),
+        )
+        .join("datalayer-credentials.json")
+    } else {
+        PathBuf::from("/tmp/datalayer-credentials.json")
+    };
 
     let mut config = DatalayerEngine::load_config(&config_path);
     let credentials = DatalayerEngine::load_credentials(&credentials_path);
