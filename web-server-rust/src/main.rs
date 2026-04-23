@@ -105,9 +105,15 @@ struct ServiceStatus {
 /// Returns "running" (bridge up), "stopped" (bridge down), "inactive" (not configured),
 /// or "unknown" (configured but state undetermined, e.g. mosquitto just restarted).
 async fn check_bridge_state(sub_bin: String, snap_data: String, cloud: &str) -> &'static str {
-    // Step 1: check if bridge config exists at all
+    // Step 1: check if a connection has been configured at all.
+    // With the classic external bridge, tedge writes mosquitto-conf/<cloud>-bridge.conf.
+    // With the built-in bridge (our default), tedge writes mappers/<cloud>/mapper.toml
+    // instead — there is no mosquitto-conf bridge file.
+    // Accept either path so both bridge modes are handled correctly.
     let bridge_conf = format!("{}/tedge/mosquitto-conf/{}-bridge.conf", snap_data, cloud);
-    if !std::path::Path::new(&bridge_conf).exists() {
+    let mapper_toml = format!("{}/tedge/mappers/{}/mapper.toml", snap_data, cloud);
+    if !std::path::Path::new(&bridge_conf).exists() && !std::path::Path::new(&mapper_toml).exists()
+    {
         return "inactive";
     }
 
@@ -995,7 +1001,11 @@ async fn save_c8y_config(
             action, config.c8y.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y"])
+            .args([
+                action,
+                flag,
+                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y",
+            ])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1133,7 +1143,11 @@ async fn save_aws_config(
             action, config.aws.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws"])
+            .args([
+                action,
+                flag,
+                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws",
+            ])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1271,7 +1285,11 @@ async fn save_az_config(
             action, config.az.enabled
         );
         match std::process::Command::new("snapctl")
-            .args([action, flag, "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az"])
+            .args([
+                action,
+                flag,
+                "ctrlx-cumulocity-thin-edge-io.tedge-mapper-az",
+            ])
             .output()
         {
             Ok(out) if out.status.success() => {
@@ -1442,7 +1460,10 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     for service in &services {
         info!("[RESTART]   - Restarting {}", service);
         match std::process::Command::new("snapctl")
-            .args(["restart", &format!("ctrlx-cumulocity-thin-edge-io.{}", service)])
+            .args([
+                "restart",
+                &format!("ctrlx-cumulocity-thin-edge-io.{}", service),
+            ])
             .output()
         {
             Ok(output) => {
