@@ -570,19 +570,47 @@ pub async fn run_datalayer_loop(
                                 (mapping.topic.clone(), json_data)
                             }
                             MappingTransform::Event => {
-                                let json_data = serde_json::json!({
-                                    "text": format!("Event: {} ist {}", field_name, payload),
-                                    "type": "ctrlx_event"
-                                })
-                                .to_string();
+                                let parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
 
-                                // Bei Events nutzen wir das Standard-tedge-Topic, falls in der UI nichts Spezifisches steht
-                                let ev_topic = if mapping.topic.contains("events") {
-                                    mapping.topic.clone()
+                                if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                    // MQTT Service (9883): vollständiges C8y-Event-Format
+                                    let time = parsed_value
+                                        .get("timestamp")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let event_type = node_type
+                                        .as_deref()
+                                        .unwrap_or("ctrlx_Event")
+                                        .to_string();
+
+                                    let mut json_obj = serde_json::json!({
+                                        "Text": parsed_value,
+                                        "type": event_type,
+                                        "time": time
+                                    });
+                                    if !engine.config.device_external_id.is_empty() {
+                                        json_obj["externalId"] = serde_json::json!(
+                                            engine.config.device_external_id.clone()
+                                        );
+                                    }
+                                    (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    "tedge/events/ctrlx_event".to_string()
-                                };
-                                (ev_topic, json_data)
+                                    // Core MQTT (8883): thin-edge Format
+                                    let json_data = serde_json::json!({
+                                        "text": format!("Event: {} ist {}", field_name, payload),
+                                        "type": "ctrlx_event"
+                                    })
+                                    .to_string();
+                                    let ev_topic = if mapping.topic.contains("events") {
+                                        mapping.topic.clone()
+                                    } else {
+                                        "tedge/events/ctrlx_event".to_string()
+                                    };
+                                    (ev_topic, json_data)
+                                }
                             }
                             MappingTransform::Alarm => {
                                 let parsed_value: serde_json::Value =
