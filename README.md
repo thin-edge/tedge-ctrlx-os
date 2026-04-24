@@ -12,19 +12,17 @@ This is a **ctrlX AUTOMATION** snap app that packages [thin-edge.io](https://thi
 
 - **Multi-Cloud Connectivity** — Cumulocity IoT, AWS IoT Core, Azure IoT Hub
 - **Web-Based Configuration UI** — Browser-accessible dashboard served directly from the device
-- **Device Management** — Remote monitoring, software updates, configuration management
+- **Device Management** — Remote monitoring, configuration management
 - **Log Management** — Centralized log collection with live viewer in the web UI
-- **Tedge Configuration Viewer** — Live view of `tedge config list` output in the web UI
-- **Remote Access** — Secure remote access via Cumulocity
 - **MQTT Bridge** — Efficient local and cloud messaging via Mosquitto
-- **ctrlX Data Layer Bridge** — Optional bridge service for ctrlX Data Layer integration
+- **ctrlX Data Layer Bridge** — bridge service for ctrlX Data Layer integration
 - **Health Monitoring** — Integrated watchdog service with automatic service recovery
 - **Strict Snap Confinement** — Process isolation, no root privileges required
 
 ## Repository Structure
 
 ```
-thin-edge-io-app/
+tedge-ctrlx-os/
 ├── snap/
 │   ├── snapcraft.yaml          # Snap build definition
 │   └── hooks/                  # install, configure, post-refresh hooks

@@ -760,6 +760,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  checkLicenseStatus();
 
   // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
   ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
@@ -2748,6 +2749,35 @@ function renderNodeList(nodes) {
 }
 
 // ── ctrlX Licensing ──────────────────────────────────────────────────────────
+
+async function checkLicenseStatus() {
+  try {
+    const resp = await fetchWithAuth("api/license-status");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const banner = document.getElementById("license-warning-banner");
+    if (!banner) return;
+    if (!data.licensed) {
+      banner.innerHTML =
+        '⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. ' +
+        'Please obtain license <code>' + (data.required || '') + '</code> from the ' +
+        '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
+        '<a href="https://licensing.boschrexroth.com" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+      banner.style.display = "flex";
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) {
+    // silently ignore — banner stays hidden if endpoint not reachable
+  }
+}
+
+function scrollToLicensing() {
+  const sec = document.getElementById("sec-licensing");
+  if (!sec) return;
+  if (sec.classList.contains("collapsed")) sec.querySelector("h2")?.click();
+  sec.scrollIntoView({ behavior: "smooth" });
+}
 
 async function loadLicenses() {
   const loading = document.getElementById("licensing-loading");

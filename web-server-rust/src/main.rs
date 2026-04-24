@@ -3160,6 +3160,25 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
+/// GET /api/license-status — returns whether a valid license is currently held.
+/// Used by the UI to show/hide the license warning banner on page load.
+async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
+    let has_license = std::path::Path::new(LICENSE_ID_FILE).exists()
+        && std::fs::read_to_string(LICENSE_ID_FILE)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "licensed": has_license,
+        "required": LICENSE_NAMES[0],
+    })))
+}
+
 /// HTTP GET über einen Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
 async fn unix_socket_get(
     socket_path: &str,
@@ -3245,7 +3264,7 @@ async fn unix_socket_request(
 /// Lizenznamen die geprüft werden: app-spezifische Lizenz + ctrlX COREvirtual 4H-Demo
 const LICENSE_NAMES: &[&str] = &[
     "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Hauptlizenz (Data Layer Access NRT)
-    "SWL_XCR_ENGINEERING_4H",          // ctrlX COREvirtual 4h Engineering Demo
+    "SWL_XCR_ENGINEERING_4H",         // ctrlX COREvirtual 4h Engineering Demo
 ];
 /// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
 const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
@@ -3254,28 +3273,33 @@ const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
 /// Gibt die Lizenz-ID zurück wenn erfolgreich, sonst None.
 async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String> {
     let payload = format!(r#"{{"name":"{}","version":"1.0"}}"#, license_name);
-    match unix_socket_post(
-        socket_path,
-        "/license-manager/api/v1/license",
-        &payload,
-    )
-    .await
-    {
+    match unix_socket_post(socket_path, "/license-manager/api/v1/license", &payload).await {
         Ok((200, body)) => {
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
                 if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
                     return Some(id.to_string());
                 }
             }
-            warn!("[LICENSE] POST /license HTTP 200 but no id in response: {}", &body[..body.len().min(200)]);
+            warn!(
+                "[LICENSE] POST /license HTTP 200 but no id in response: {}",
+                &body[..body.len().min(200)]
+            );
             None
         }
         Ok((status, body)) => {
-            warn!("[LICENSE] POST /license '{}' HTTP {}: {}", license_name, status, &body[..body.len().min(200)]);
+            warn!(
+                "[LICENSE] POST /license '{}' HTTP {}: {}",
+                license_name,
+                status,
+                &body[..body.len().min(200)]
+            );
             None
         }
         Err(e) => {
-            warn!("[LICENSE] POST /license '{}' socket error: {}", license_name, e);
+            warn!(
+                "[LICENSE] POST /license '{}' socket error: {}",
+                license_name, e
+            );
             None
         }
     }
@@ -3286,7 +3310,11 @@ async fn release_license(socket_path: &str, license_id: &str) {
     let path = format!("/license-manager/api/v1/license/{}", license_id);
     match unix_socket_delete(socket_path, &path).await {
         Ok((204, _)) => info!("[LICENSE] Released license id={}", license_id),
-        Ok((status, body)) => warn!("[LICENSE] Release HTTP {}: {}", status, &body[..body.len().min(200)]),
+        Ok((status, body)) => warn!(
+            "[LICENSE] Release HTTP {}: {}",
+            status,
+            &body[..body.len().min(200)]
+        ),
         Err(e) => warn!("[LICENSE] Release socket error: {}", e),
     }
     let _ = std::fs::remove_file(LICENSE_ID_FILE);
@@ -3295,7 +3323,10 @@ async fn release_license(socket_path: &str, license_id: &str) {
 /// Hintergrund-Task: Lizenz acquiren, stündlich neu prüfen, bei Fehlen warnen.
 /// Läuft so lange bis der Prozess beendet wird (kein Shutdown-Signal nötig).
 async fn run_license_loop(socket_path: String) {
-    info!("[LICENSE] License enforcement loop started, socket={}", socket_path);
+    info!(
+        "[LICENSE] License enforcement loop started, socket={}",
+        socket_path
+    );
 
     let mut current_id: Option<String> = None;
 
@@ -3303,7 +3334,10 @@ async fn run_license_loop(socket_path: String) {
     if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
         let old_id = old_id.trim().to_string();
         if !old_id.is_empty() {
-            info!("[LICENSE] Releasing stale license id={} from previous run", old_id);
+            info!(
+                "[LICENSE] Releasing stale license id={} from previous run",
+                old_id
+            );
             release_license(&socket_path, &old_id).await;
         }
     }
@@ -3311,7 +3345,10 @@ async fn run_license_loop(socket_path: String) {
     loop {
         // Lizenz-Socket vorhanden?
         if !std::path::Path::new(&socket_path).exists() {
-            warn!("[LICENSE] licensing-service socket not found at '{}' — plug not connected?", socket_path);
+            warn!(
+                "[LICENSE] licensing-service socket not found at '{}' — plug not connected?",
+                socket_path
+            );
         } else {
             // Bestehende Lizenz freigeben (re-acquire Zyklus)
             if let Some(ref id) = current_id.take() {
@@ -3975,6 +4012,7 @@ async fn main() -> io::Result<()> {
                             .route("/inventory", web::get().to(get_inventory))
                             .route("/inventory", web::post().to(save_and_publish_inventory))
                             .route("/licenses", web::get().to(get_licenses))
+                            .route("/license-status", web::get().to(get_license_status))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")

@@ -195,19 +195,14 @@ async fn main() -> Result<()> {
 
     let is_snap = env::var("SNAP").is_ok();
     let config_path: PathBuf = if is_snap {
-        PathBuf::from(
-            env::var("SNAP_DATA").unwrap_or_default(),
-        )
-        .join("datalayer-mappings.json")
+        PathBuf::from(env::var("SNAP_DATA").unwrap_or_default()).join("datalayer-mappings.json")
     } else {
         PathBuf::from("/tmp/datalayer-mappings.json")
     };
     // Credentials liegen in SNAP_COMMON (überleben Snap-Updates), genau wie der Webserver sie speichert
     let credentials_path: PathBuf = if is_snap {
-        PathBuf::from(
-            env::var("SNAP_COMMON").unwrap_or_default(),
-        )
-        .join("datalayer-credentials.json")
+        PathBuf::from(env::var("SNAP_COMMON").unwrap_or_default())
+            .join("datalayer-credentials.json")
     } else {
         PathBuf::from("/tmp/datalayer-credentials.json")
     };
