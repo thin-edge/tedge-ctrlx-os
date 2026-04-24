@@ -432,7 +432,10 @@ parts:
       - meta/i18n/*
     override-prime: |
       craftctl default
-      # mime.types aus dem Paket an die richtige Stelle kopieren
+      # Snap-Namen im Caddyfile durch den tatsächlichen Projektnamen ersetzen,
+      # damit der Pfad korrekt ist wenn das Snap umbenannt wird.
+      sed -i "s|/var/snap/ctrlx-cumulocity-thin-edge-io/|/var/snap/${SNAPCRAFT_PROJECT_NAME}/|g" \
+        "$CRAFT_PRIME/package-assets/thin-edge-io/caddyfile"
 
   scripts:
     plugin: dump
