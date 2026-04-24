@@ -182,6 +182,8 @@ impl Default for DatalayerConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct DatalayerNodeValue {
+    #[serde(rename = "type")]
+    pub node_type: Option<String>,
     pub value: Option<Value>,
 }
 
@@ -357,8 +359,8 @@ impl DatalayerEngine {
         info!("[DATALAYER] Session ausgeloggt");
     }
 
-    pub async fn poll_mappings(&mut self) -> Vec<(String, String, String)> {
-        // Returns (mapping_id, topic, raw_value)
+    pub async fn poll_mappings(&mut self) -> Vec<(String, String, String, Option<String>)> {
+        // Returns (mapping_id, topic, raw_value, node_type)
         let mut to_publish = Vec::new();
 
         // Automatischer Token-Refresh bei Bedarf
@@ -419,6 +421,7 @@ impl DatalayerEngine {
                                             mapping.id.clone(),
                                             mapping.topic.clone(),
                                             val.to_string(),
+                                            node.node_type.clone(),
                                         ));
                                     }
                                 }
@@ -444,6 +447,7 @@ impl DatalayerEngine {
                             warn!("[DATALAYER] JSON parse error for '{}': {}", mapping.path, e);
                         }
                         Ok(node) => {
+                            let node_type = node.node_type.clone();
                             let val = node.value.unwrap_or(Value::Null);
                             let should_publish = match mapping.transform {
                                 MappingTransform::Measurement | MappingTransform::Raw => true,
@@ -459,6 +463,7 @@ impl DatalayerEngine {
                                     mapping.id.clone(),
                                     mapping.topic.clone(),
                                     val.to_string(),
+                                    node_type,
                                 ));
                             }
                         }
@@ -509,7 +514,7 @@ pub async fn run_datalayer_loop(
             let messages = engine.poll_mappings().await;
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
-                for (mapping_id, _topic, payload) in messages {
+                for (mapping_id, _topic, payload, node_type) in messages {
                     // 1. Das passende Mapping per ID finden (nicht per Topic, da mehrere Mappings dasselbe Topic nutzen können)
                     if let Some(mapping) =
                         engine.config.mappings.iter().find(|m| m.id == mapping_id)
@@ -580,17 +585,54 @@ pub async fn run_datalayer_loop(
                                 (ev_topic, json_data)
                             }
                             MappingTransform::Alarm => {
-                                let json_data = serde_json::json!({
-                                    "text": format!("Alarm an {}: Wert ist {}", field_name, payload),
-                                    "severity": "major"
-                                }).to_string();
+                                let parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
 
-                                let al_topic = if mapping.topic.contains("alarms") {
-                                    mapping.topic.clone()
+                                if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                    // MQTT Service (9883): vollständiges C8y-Alarm-Format
+                                    let severity = parsed_value
+                                        .get("severity")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("MAJOR")
+                                        .to_string();
+                                    let time = parsed_value
+                                        .get("timestamp")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let alarm_type = node_type
+                                        .as_deref()
+                                        .unwrap_or("ctrlx_Alarm")
+                                        .to_string();
+
+                                    let mut json_obj = serde_json::json!({
+                                        "Text": parsed_value,
+                                        "severity": severity,
+                                        "status": "ACTIVE",
+                                        "type": alarm_type,
+                                        "time": time
+                                    });
+                                    if !engine.config.device_external_id.is_empty() {
+                                        json_obj["externalId"] = serde_json::json!(
+                                            engine.config.device_external_id.clone()
+                                        );
+                                    }
+                                    (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    "tedge/alarms/major/ctrlx_alarm".to_string()
-                                };
-                                (al_topic, json_data)
+                                    // Core MQTT (8883): thin-edge Format
+                                    let json_data = serde_json::json!({
+                                        "text": format!("Alarm an {}: Wert ist {}", field_name, payload),
+                                        "severity": "major"
+                                    })
+                                    .to_string();
+                                    let al_topic = if mapping.topic.contains("alarms") {
+                                        mapping.topic.clone()
+                                    } else {
+                                        "tedge/alarms/major/ctrlx_alarm".to_string()
+                                    };
+                                    (al_topic, json_data)
+                                }
                             }
                             _ => (mapping.topic.clone(), payload),
                         };
