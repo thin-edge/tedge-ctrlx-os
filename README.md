@@ -365,26 +365,26 @@ Open `https://<device-ip>/thin-edge-io/` and configure cloud connection, device 
 SSH is only woking if your user is Member of the `ssh-users` group. You can add your user to this group via the ctrlX CORE web interface under **Settings → Users & Groups** and SSH is activated in **Settings → Apps → SSH**.
 ```bash
 # Configure Cumulocity IoT
-thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
+ctrlx-cumulocity-thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
 
 # Or configure for AWS IoT
-thin-edge-io.tedge config set aws.url your-endpoint.iot.region.amazonaws.com
+ctrlx-cumulocity-thin-edge-io.tedge config set aws.url your-endpoint.iot.region.amazonaws.com
 
 # Or configure for Azure IoT Hub
-thin-edge-io.tedge config set az.url your-hub.azure-devices.net
+ctrlx-cumulocity-thin-edge-io.tedge config set az.url your-hub.azure-devices.net
 ```
 
 ### Certificate Management
 
 ```bash
 # Create device certificate
-thin-edge-io.tedge cert create --device-id your-device-id
+ctrlx-cumulocity-thin-edge-io.tedge cert create --device-id your-device-id
 
 # Show certificate details
-thin-edge-io.tedge cert show
+ctrlx-cumulocity-thin-edge-io.tedge cert show
 
 # Connect to Cumulocity (registers device and uploads cert)
-thin-edge-io.tedge connect c8y
+ctrlx-cumulocity-thin-edge-io.tedge connect c8y
 ```
 
 ### Snap Configuration
@@ -555,13 +555,13 @@ cp web/www/app.js web/www/index.html web/www/styles.css web-server-rust/www/
 
 ```bash
 # Test cloud connectivity
-thin-edge-io.tedge connect c8y --test
+ctrlx-cumulocity-thin-edge-io.tedge connect c8y --test
 
 # Show current configuration
-thin-edge-io.tedge config list
+ctrlx-cumulocity-thin-edge-io.tedge config list
 
 # Check certificate
-thin-edge-io.tedge cert show
+ctrlx-cumulocity-thin-edge-io.tedge cert show
 ```
 
 ### Service Not Starting

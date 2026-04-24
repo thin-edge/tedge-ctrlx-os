@@ -2319,7 +2319,6 @@ function updateTopicPrefix() {
   ).value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
-  const topicHint = document.getElementById("datalayer-mapping-topic-hint");
 
   const lastPart = path.split("/").pop() || "value";
 
@@ -2330,13 +2329,16 @@ function updateTopicPrefix() {
     if (direction === "tedge_to_dl") {
       topic += "cmd/" + lastPart;
     } else {
-      topic += lastPart;
+      if (transform === "measurement") topic += "myMeasurement";
+      else if (transform === "event") topic += "myEvent";
+      else if (transform === "alarm") topic += "myAlarm";
+      else topic += lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_service");
-      topicHint.style.color = "var(--c8y-palette-status-warning, #e8760d)";
-    }
+    // Placeholder zeigt das passende Beispiel für 9883
+    if (transform === "event") topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
     // Core MQTT (8883): te/ Präfix
     let topic = "te/device/main///";
@@ -2349,10 +2351,10 @@ function updateTopicPrefix() {
       else topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_core");
-      topicHint.style.color = "var(--c8y-palette-gray-40)";
-    }
+    // Placeholder zeigt das passende Beispiel für 8883
+    if (transform === "event") topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm") topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
 }
 
