@@ -592,9 +592,10 @@ pub async fn run_datalayer_loop(
                                         "time": time
                                     });
                                     if !engine.config.device_external_id.is_empty() {
-                                        json_obj["externalId"] = serde_json::json!(
-                                            engine.config.device_external_id.clone()
-                                        );
+                                        json_obj["externalId"] = serde_json::json!(engine
+                                            .config
+                                            .device_external_id
+                                            .clone());
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
@@ -642,9 +643,10 @@ pub async fn run_datalayer_loop(
                                         "time": time
                                     });
                                     if !engine.config.device_external_id.is_empty() {
-                                        json_obj["externalId"] = serde_json::json!(
-                                            engine.config.device_external_id.clone()
-                                        );
+                                        json_obj["externalId"] = serde_json::json!(engine
+                                            .config
+                                            .device_external_id
+                                            .clone());
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
