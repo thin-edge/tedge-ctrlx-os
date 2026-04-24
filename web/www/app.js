@@ -1900,6 +1900,9 @@ function initCollapsibleSections() {
     "sec-sysinfo": () => {
       loadBuildInfo();
     },
+    "sec-licensing": () => {
+      loadLicenses();
+    },
   };
 
   document.querySelectorAll(".card").forEach((section, index) => {
