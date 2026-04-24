@@ -581,10 +581,10 @@ pub async fn run_datalayer_loop(
                                         .and_then(|v| v.as_str())
                                         .unwrap_or_default()
                                         .to_string();
-                                    let event_type = node_type
-                                        .as_deref()
-                                        .unwrap_or("ctrlx_Event")
-                                        .to_string();
+                                    let event_type = format!(
+                                        "c8y_{}",
+                                        node_type.as_deref().unwrap_or("ctrlx_Event")
+                                    );
 
                                     let mut json_obj = serde_json::json!({
                                         "Text": parsed_value,
@@ -629,10 +629,10 @@ pub async fn run_datalayer_loop(
                                         .and_then(|v| v.as_str())
                                         .unwrap_or_default()
                                         .to_string();
-                                    let alarm_type = node_type
-                                        .as_deref()
-                                        .unwrap_or("ctrlx_Alarm")
-                                        .to_string();
+                                    let alarm_type = format!(
+                                        "c8y_{}",
+                                        node_type.as_deref().unwrap_or("ctrlx_Alarm")
+                                    );
 
                                     let mut json_obj = serde_json::json!({
                                         "Text": parsed_value,
