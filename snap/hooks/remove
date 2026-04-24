@@ -1,0 +1,16 @@
+#!/bin/bash
+# Release ctrlX license when the snap is removed.
+# The license ID was written to /tmp by the webserver on acquire.
+LICENSE_ID_FILE="/tmp/ctrlx-cumulocity-thin-edge-io.license"
+SOCKET="$SNAP_DATA/licensing-service/licensing-service.sock"
+
+if [ -f "$LICENSE_ID_FILE" ] && [ -S "$SOCKET" ]; then
+    LICENSE_ID=$(cat "$LICENSE_ID_FILE")
+    if [ -n "$LICENSE_ID" ]; then
+        echo "Releasing license id=$LICENSE_ID" >&2
+        curl -sS --no-buffer -XDELETE \
+            --unix-socket "$SOCKET" \
+            "http://localhost/license-manager/api/v1/license/${LICENSE_ID}" || true
+        rm -f "$LICENSE_ID_FILE"
+    fi
+fi

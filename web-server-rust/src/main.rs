@@ -3165,6 +3165,31 @@ async fn unix_socket_get(
     socket_path: &str,
     api_path: &str,
 ) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "GET", api_path, None).await
+}
+
+async fn unix_socket_post(
+    socket_path: &str,
+    api_path: &str,
+    body: &str,
+) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "POST", api_path, Some(body)).await
+}
+
+async fn unix_socket_delete(
+    socket_path: &str,
+    api_path: &str,
+) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "DELETE", api_path, None).await
+}
+
+/// Generische HTTP-Anfrage über Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+async fn unix_socket_request(
+    socket_path: &str,
+    method: &str,
+    api_path: &str,
+    body: Option<&str>,
+) -> std::result::Result<(u16, String), String> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::UnixStream;
 
@@ -3172,10 +3197,18 @@ async fn unix_socket_get(
         .await
         .map_err(|e| format!("connect '{}': {}", socket_path, e))?;
 
-    let request = format!(
-        "GET {} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
-        api_path
-    );
+    let request = if let Some(payload) = body {
+        format!(
+            "{} {} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            method, api_path, payload.len(), payload
+        )
+    } else {
+        format!(
+            "{} {} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
+            method, api_path
+        )
+    };
+
     stream
         .write_all(request.as_bytes())
         .await
@@ -3207,6 +3240,108 @@ async fn unix_socket_get(
     };
 
     Ok((status, body))
+}
+
+/// Lizenznamen die geprüft werden: app-spezifische Lizenz + ctrlX COREvirtual 4H-Demo
+const LICENSE_NAMES: &[&str] = &[
+    "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Hauptlizenz (Data Layer Access NRT)
+    "SWL_XCR_ENGINEERING_4H",          // ctrlX COREvirtual 4h Engineering Demo
+];
+/// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
+const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
+
+/// Versucht eine Lizenz über den Unix-Socket zu acquiren.
+/// Gibt die Lizenz-ID zurück wenn erfolgreich, sonst None.
+async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String> {
+    let payload = format!(r#"{{"name":"{}","version":"1.0"}}"#, license_name);
+    match unix_socket_post(
+        socket_path,
+        "/license-manager/api/v1/license",
+        &payload,
+    )
+    .await
+    {
+        Ok((200, body)) => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                    return Some(id.to_string());
+                }
+            }
+            warn!("[LICENSE] POST /license HTTP 200 but no id in response: {}", &body[..body.len().min(200)]);
+            None
+        }
+        Ok((status, body)) => {
+            warn!("[LICENSE] POST /license '{}' HTTP {}: {}", license_name, status, &body[..body.len().min(200)]);
+            None
+        }
+        Err(e) => {
+            warn!("[LICENSE] POST /license '{}' socket error: {}", license_name, e);
+            None
+        }
+    }
+}
+
+/// Gibt eine gehaltene Lizenz frei.
+async fn release_license(socket_path: &str, license_id: &str) {
+    let path = format!("/license-manager/api/v1/license/{}", license_id);
+    match unix_socket_delete(socket_path, &path).await {
+        Ok((204, _)) => info!("[LICENSE] Released license id={}", license_id),
+        Ok((status, body)) => warn!("[LICENSE] Release HTTP {}: {}", status, &body[..body.len().min(200)]),
+        Err(e) => warn!("[LICENSE] Release socket error: {}", e),
+    }
+    let _ = std::fs::remove_file(LICENSE_ID_FILE);
+}
+
+/// Hintergrund-Task: Lizenz acquiren, stündlich neu prüfen, bei Fehlen warnen.
+/// Läuft so lange bis der Prozess beendet wird (kein Shutdown-Signal nötig).
+async fn run_license_loop(socket_path: String) {
+    info!("[LICENSE] License enforcement loop started, socket={}", socket_path);
+
+    let mut current_id: Option<String> = None;
+
+    // Beim Start: eventuell noch gehaltene ID aus /tmp laden und zuerst freigeben
+    if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
+        let old_id = old_id.trim().to_string();
+        if !old_id.is_empty() {
+            info!("[LICENSE] Releasing stale license id={} from previous run", old_id);
+            release_license(&socket_path, &old_id).await;
+        }
+    }
+
+    loop {
+        // Lizenz-Socket vorhanden?
+        if !std::path::Path::new(&socket_path).exists() {
+            warn!("[LICENSE] licensing-service socket not found at '{}' — plug not connected?", socket_path);
+        } else {
+            // Bestehende Lizenz freigeben (re-acquire Zyklus)
+            if let Some(ref id) = current_id.take() {
+                release_license(&socket_path, id).await;
+            }
+
+            // Nacheinander alle Lizenznamen probieren
+            let mut acquired = false;
+            for &license_name in LICENSE_NAMES {
+                if let Some(id) = acquire_license(&socket_path, license_name).await {
+                    info!("[LICENSE] Acquired license '{}' id={}", license_name, id);
+                    // ID in /tmp persistieren für Release bei Shutdown
+                    let _ = std::fs::write(LICENSE_ID_FILE, &id);
+                    current_id = Some(id);
+                    acquired = true;
+                    break;
+                }
+            }
+
+            if !acquired {
+                warn!(
+                    "[LICENSE] No license available! Required: {}. App continues but license is missing.",
+                    LICENSE_NAMES[0]
+                );
+            }
+        }
+
+        // Stündlich neu prüfen (SDK-Empfehlung: periodisch prüfen)
+        tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+    }
 }
 
 /// GET /api/licenses — proxy ctrlX licensing-manager API server-side via Unix socket (native Rust).
@@ -3868,6 +4003,12 @@ async fn main() -> io::Result<()> {
                     .service(Files::new("/", web_root.clone()).index_file("index.html")),
             )
     });
+
+    if is_snap {
+        let snap_data_lic = std::env::var("SNAP_DATA").unwrap_or_default();
+        let socket_path = format!("{}/licensing-service/licensing-service.sock", snap_data_lic);
+        tokio::spawn(run_license_loop(socket_path));
+    }
 
     if is_snap {
         let snap_data = std::env::var("SNAP_DATA")

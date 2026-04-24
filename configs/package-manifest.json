@@ -95,5 +95,14 @@
                 "thin-edge-io.rwx"
             ]
         }
+    ],
+    "licenses": [
+        {
+            "name": "SWL-XCx-RUN-DLACCESSNRTxx-NNNN",
+            "title": "ctrlX OS License - Data Layer Access (NRT)",
+            "description": "Required to run thin-edge.io IoT Edge Framework with ctrlX Data Layer access on ctrlX OS",
+            "required": true,
+            "supportsTrial": true
+        }
     ]
 }
