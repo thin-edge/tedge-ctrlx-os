@@ -278,6 +278,7 @@ apps:
       - system-observe  # Needed to read system resource usage (RAM, CPU) for the status API
       - hardware-observe  # Needed to read system serial number via DMI
       - log-observe       # Needed for snapctl logs
+      - licensing-service # Needed to query installed licenses via Unix socket
     slots:
       - package-run
     environment:
@@ -338,6 +339,10 @@ plugs:
     interface: content
     content: datalayer
     target: $SNAP_DATA/.datalayer
+  licensing-service:
+    interface: content
+    content: licensing-service
+    target: $SNAP_DATA/licensing-service
 
 
 # Build parts
@@ -427,7 +432,10 @@ parts:
       - meta/i18n/*
     override-prime: |
       craftctl default
-      # mime.types aus dem Paket an die richtige Stelle kopieren
+      # Snap-Namen im Caddyfile durch den tatsächlichen Projektnamen ersetzen,
+      # damit der Pfad korrekt ist wenn das Snap umbenannt wird.
+      sed -i "s|/var/snap/ctrlx-cumulocity-thin-edge-io/|/var/snap/${SNAPCRAFT_PROJECT_NAME}/|g" \
+        "$CRAFT_PRIME/package-assets/thin-edge-io/caddyfile"
 
   scripts:
     plugin: dump

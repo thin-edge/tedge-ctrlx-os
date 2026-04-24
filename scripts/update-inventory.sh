@@ -144,7 +144,9 @@ import json, sys, os
 
 model, serial, revision, os_name, iface, ip, mac, sw_json = sys.argv[1:9]
 
-inventory_path = os.environ.get('INVENTORY_FILE', '/var/snap/ctrlx-cumulocity-thin-edge-io/current/tedge/device/inventory.json')
+snap_instance = os.environ.get('SNAP_INSTANCE_NAME', 'ctrlx-cumulocity-thin-edge-io')
+default_path = f'/var/snap/{snap_instance}/current/tedge/device/inventory.json'
+inventory_path = os.environ.get('INVENTORY_FILE', default_path)
 
 # Read existing inventory to preserve user-edited values
 existing = {}

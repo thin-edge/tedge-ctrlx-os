@@ -1534,7 +1534,9 @@ async function loadC8yMqttPort() {
     if (r.ok) {
       const data = await r.json();
       if (data.output && !data.output.startsWith("[tedge nicht")) {
-        const match = data.output.match(/c8y\.mqtt_service\.enabled\s*=\s*(\S+)/);
+        const match = data.output.match(
+          /c8y\.mqtt_service\.enabled\s*=\s*(\S+)/,
+        );
         const toggle = document.getElementById("c8y-mqtt-port-toggle");
         if (toggle) {
           const enabled = match ? match[1].trim() === "true" : false;
@@ -1897,6 +1899,9 @@ function initCollapsibleSections() {
     },
     "sec-sysinfo": () => {
       loadBuildInfo();
+    },
+    "sec-licensing": () => {
+      loadLicenses();
     },
   };
 
@@ -2779,17 +2784,24 @@ async function loadLicenses() {
     tbody.innerHTML = licenses
       .map((lic) => {
         const name = lic.name || lic.appName || lic.title || "-";
-        const validUntil =
-          lic.validUntil || lic.expiry || lic.expirationDate || "-";
-        const qty = lic.quantity ?? lic.count ?? "-";
-        const active =
-          lic.status === "valid" ||
-          lic.active === true ||
-          lic.status === "active";
+        // ctrlX capabilities API: finalExpirationDate or isPermanent
+        const validUntil = lic.isPermanent
+          ? "Permanent"
+          : lic.finalExpirationDate ||
+            lic.endDate ||
+            lic.validUntil ||
+            lic.expiry ||
+            lic.expirationDate ||
+            "-";
+        const qty = lic.count ?? lic.quantity ?? "-";
+        // ctrlX capabilities: no explicit status field — active if present in list
+        const active = lic.status
+          ? lic.status === "valid" || lic.status === "active"
+          : true;
         const statusColor = active
           ? "var(--c8y-brand-success, #27ae60)"
           : "var(--c8y-brand-danger, #e74c3c)";
-        const statusLabel = lic.status || (active ? "valid" : "invalid");
+        const statusLabel = lic.status || (active ? "active" : "inactive");
         return `<tr style="border-bottom:1px solid var(--c8y-palette-gray-80,#333)">
           <td style="padding:6px 8px">${name}</td>
           <td style="padding:6px 8px"><span style="color:${statusColor}">${statusLabel}</span></td>

@@ -760,6 +760,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  checkLicenseStatus();
 
   // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
   ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
@@ -1900,6 +1901,9 @@ function initCollapsibleSections() {
     "sec-sysinfo": () => {
       loadBuildInfo();
     },
+    "sec-licensing": () => {
+      loadLicenses();
+    },
   };
 
   document.querySelectorAll(".card").forEach((section, index) => {
@@ -2315,7 +2319,6 @@ function updateTopicPrefix() {
   ).value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
-  const topicHint = document.getElementById("datalayer-mapping-topic-hint");
 
   const lastPart = path.split("/").pop() || "value";
 
@@ -2326,13 +2329,16 @@ function updateTopicPrefix() {
     if (direction === "tedge_to_dl") {
       topic += "cmd/" + lastPart;
     } else {
-      topic += lastPart;
+      if (transform === "measurement") topic += "myMeasurement";
+      else if (transform === "event") topic += "myEvent";
+      else if (transform === "alarm") topic += "myAlarm";
+      else topic += lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_service");
-      topicHint.style.color = "var(--c8y-palette-status-warning, #e8760d)";
-    }
+    // Placeholder zeigt das passende Beispiel für 9883
+    if (transform === "event") topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
     // Core MQTT (8883): te/ Präfix
     let topic = "te/device/main///";
@@ -2345,10 +2351,10 @@ function updateTopicPrefix() {
       else topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_core");
-      topicHint.style.color = "var(--c8y-palette-gray-40)";
-    }
+    // Placeholder zeigt das passende Beispiel für 8883
+    if (transform === "event") topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm") topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
 }
 
@@ -2746,6 +2752,35 @@ function renderNodeList(nodes) {
 
 // ── ctrlX Licensing ──────────────────────────────────────────────────────────
 
+async function checkLicenseStatus() {
+  try {
+    const resp = await fetchWithAuth("api/license-status");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const banner = document.getElementById("license-warning-banner");
+    if (!banner) return;
+    if (!data.licensed) {
+      banner.innerHTML =
+        '⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. ' +
+        'Please obtain license <code>' + (data.required || '') + '</code> from the ' +
+        '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
+        '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+      banner.style.display = "flex";
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) {
+    // silently ignore — banner stays hidden if endpoint not reachable
+  }
+}
+
+function scrollToLicensing() {
+  const sec = document.getElementById("sec-licensing");
+  if (!sec) return;
+  if (sec.classList.contains("collapsed")) sec.querySelector("h2")?.click();
+  sec.scrollIntoView({ behavior: "smooth" });
+}
+
 async function loadLicenses() {
   const loading = document.getElementById("licensing-loading");
   const table = document.getElementById("licensing-table");
@@ -2781,17 +2816,24 @@ async function loadLicenses() {
     tbody.innerHTML = licenses
       .map((lic) => {
         const name = lic.name || lic.appName || lic.title || "-";
-        const validUntil =
-          lic.validUntil || lic.expiry || lic.expirationDate || "-";
-        const qty = lic.quantity ?? lic.count ?? "-";
-        const active =
-          lic.status === "valid" ||
-          lic.active === true ||
-          lic.status === "active";
+        // ctrlX capabilities API: finalExpirationDate or isPermanent
+        const validUntil = lic.isPermanent
+          ? "Permanent"
+          : lic.finalExpirationDate ||
+            lic.endDate ||
+            lic.validUntil ||
+            lic.expiry ||
+            lic.expirationDate ||
+            "-";
+        const qty = lic.count ?? lic.quantity ?? "-";
+        // ctrlX capabilities: no explicit status field — active if present in list
+        const active = lic.status
+          ? lic.status === "valid" || lic.status === "active"
+          : true;
         const statusColor = active
           ? "var(--c8y-brand-success, #27ae60)"
           : "var(--c8y-brand-danger, #e74c3c)";
-        const statusLabel = lic.status || (active ? "valid" : "invalid");
+        const statusLabel = lic.status || (active ? "active" : "inactive");
         return `<tr style="border-bottom:1px solid var(--c8y-palette-gray-80,#333)">
           <td style="padding:6px 8px">${name}</td>
           <td style="padding:6px 8px"><span style="color:${statusColor}">${statusLabel}</span></td>

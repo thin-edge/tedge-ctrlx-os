@@ -7,10 +7,11 @@ echo "======================================"
 echo ""
 
 # Check if running inside snap
+SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
 if [ -z "$SNAP" ]; then
     TEDGE_CMD="tedge"
 else
-    TEDGE_CMD="ctrlx-cumulocity-thin-edge-io.tedge"
+    TEDGE_CMD="${SNAP_NAME}.tedge"
 fi
 
 echo "Select cloud platform:"

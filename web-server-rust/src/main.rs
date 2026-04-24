@@ -3160,74 +3160,265 @@ async fn save_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "count": cfg.mappings.len()})))
 }
 
-/// GET /api/licenses — proxy ctrlX licensing-manager API server-side.
-/// The browser cannot call /licensing-manager/api/v1/licenses directly because
-/// it is only reachable on the ctrlX internal network (Unix socket → reverse proxy).
-/// We forward the Bearer token from the incoming request so the licensing-manager
-/// can authenticate the caller.
-async fn get_licenses(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+/// GET /api/license-status — returns whether a valid license is currently held.
+/// Used by the UI to show/hide the license warning banner on page load.
+async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden().finish());
     }
 
-    // Extract Bearer token forwarded by the ctrlX reverse proxy
-    let bearer_token = req
-        .headers()
-        .get("X-Auth-Token")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string())
-        .or_else(|| {
-            req.headers()
-                .get("Authorization")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| s.strip_prefix("Bearer "))
-                .map(|s| s.to_string())
-        });
+    let has_license = std::path::Path::new(LICENSE_ID_FILE).exists()
+        && std::fs::read_to_string(LICENSE_ID_FILE)
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
 
-    let cfg = data.load_datalayer_config();
-    let base = if cfg.base_url.trim().is_empty() {
-        "https://localhost".to_string()
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "licensed": has_license,
+        "required": LICENSE_NAMES[0],
+    })))
+}
+
+/// HTTP GET über einen Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+async fn unix_socket_get(
+    socket_path: &str,
+    api_path: &str,
+) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "GET", api_path, None).await
+}
+
+async fn unix_socket_post(
+    socket_path: &str,
+    api_path: &str,
+    body: &str,
+) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "POST", api_path, Some(body)).await
+}
+
+async fn unix_socket_delete(
+    socket_path: &str,
+    api_path: &str,
+) -> std::result::Result<(u16, String), String> {
+    unix_socket_request(socket_path, "DELETE", api_path, None).await
+}
+
+/// Generische HTTP-Anfrage über Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+async fn unix_socket_request(
+    socket_path: &str,
+    method: &str,
+    api_path: &str,
+    body: Option<&str>,
+) -> std::result::Result<(u16, String), String> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixStream;
+
+    let mut stream = UnixStream::connect(socket_path)
+        .await
+        .map_err(|e| format!("connect '{}': {}", socket_path, e))?;
+
+    let request = if let Some(payload) = body {
+        format!(
+            "{} {} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            method, api_path, payload.len(), payload
+        )
     } else {
-        cfg.base_url.trim_end_matches('/').to_string()
+        format!(
+            "{} {} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
+            method, api_path
+        )
     };
 
-    let url = format!("{}/licensing-manager/api/v1/licenses", base);
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .map_err(|e| format!("write: {}", e))?;
 
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .timeout(std::time::Duration::from_secs(8))
-        .build()
-        .unwrap_or_default();
+    let mut buf = Vec::new();
+    stream
+        .read_to_end(&mut buf)
+        .await
+        .map_err(|e| format!("read: {}", e))?;
 
-    let mut req_builder = client.get(&url).header("Accept", "application/json");
+    let text = String::from_utf8_lossy(&buf).to_string();
 
-    if let Some(token) = bearer_token {
-        req_builder = req_builder.bearer_auth(token);
-    }
+    // HTTP-Status aus erster Zeile parsen: "HTTP/1.1 200 OK"
+    let status: u16 = text
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
-    match req_builder.send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            let raw = resp.text().await.unwrap_or_default();
+    // Body nach \r\n\r\n extrahieren
+    let body = if let Some(pos) = text.find("\r\n\r\n") {
+        text[pos + 4..].to_string()
+    } else if let Some(pos) = text.find("\n\n") {
+        text[pos + 2..].to_string()
+    } else {
+        text
+    };
+
+    Ok((status, body))
+}
+
+/// Lizenznamen die geprüft werden: app-spezifische Lizenz + ctrlX COREvirtual 4H-Demo
+const LICENSE_NAMES: &[&str] = &[
+    "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Hauptlizenz (Data Layer Access NRT)
+    "SWL_XCR_ENGINEERING_4H",         // ctrlX COREvirtual 4h Engineering Demo
+];
+/// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
+const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
+
+/// Versucht eine Lizenz über den Unix-Socket zu acquiren.
+/// Gibt die Lizenz-ID zurück wenn erfolgreich, sonst None.
+async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String> {
+    let payload = format!(r#"{{"name":"{}","version":"1.0"}}"#, license_name);
+    match unix_socket_post(socket_path, "/license-manager/api/v1/license", &payload).await {
+        Ok((200, body)) => {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+                if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                    return Some(id.to_string());
+                }
+            }
             warn!(
-                "[LICENSES] status={} raw={}",
-                status,
-                &raw[..raw.len().min(500)]
+                "[LICENSE] POST /license HTTP 200 but no id in response: {}",
+                &body[..body.len().min(200)]
             );
-            let body: serde_json::Value = serde_json::from_str(&raw)
-                .unwrap_or(serde_json::json!({"error": format!("non-JSON from licensing-manager (status={}): {}", status, &raw[..raw.len().min(200)])}));
-            Ok(HttpResponse::build(
-                actix_web::http::StatusCode::from_u16(status.as_u16())
-                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
-            )
-            .json(body))
+            None
+        }
+        Ok((status, body)) => {
+            warn!(
+                "[LICENSE] POST /license '{}' HTTP {}: {}",
+                license_name,
+                status,
+                &body[..body.len().min(200)]
+            );
+            None
         }
         Err(e) => {
-            warn!("[LICENSES] Request to {} failed: {}", url, e);
-            Ok(HttpResponse::ServiceUnavailable().json(
-                serde_json::json!({"error": format!("licensing-manager unreachable: {}", e)}),
-            ))
+            warn!(
+                "[LICENSE] POST /license '{}' socket error: {}",
+                license_name, e
+            );
+            None
+        }
+    }
+}
+
+/// Gibt eine gehaltene Lizenz frei.
+async fn release_license(socket_path: &str, license_id: &str) {
+    let path = format!("/license-manager/api/v1/license/{}", license_id);
+    match unix_socket_delete(socket_path, &path).await {
+        Ok((204, _)) => info!("[LICENSE] Released license id={}", license_id),
+        Ok((status, body)) => warn!(
+            "[LICENSE] Release HTTP {}: {}",
+            status,
+            &body[..body.len().min(200)]
+        ),
+        Err(e) => warn!("[LICENSE] Release socket error: {}", e),
+    }
+    let _ = std::fs::remove_file(LICENSE_ID_FILE);
+}
+
+/// Hintergrund-Task: Lizenz acquiren, stündlich neu prüfen, bei Fehlen warnen.
+/// Läuft so lange bis der Prozess beendet wird (kein Shutdown-Signal nötig).
+async fn run_license_loop(socket_path: String) {
+    info!(
+        "[LICENSE] License enforcement loop started, socket={}",
+        socket_path
+    );
+
+    let mut current_id: Option<String> = None;
+
+    // Beim Start: eventuell noch gehaltene ID aus /tmp laden und zuerst freigeben
+    if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
+        let old_id = old_id.trim().to_string();
+        if !old_id.is_empty() {
+            info!(
+                "[LICENSE] Releasing stale license id={} from previous run",
+                old_id
+            );
+            release_license(&socket_path, &old_id).await;
+        }
+    }
+
+    loop {
+        // Lizenz-Socket vorhanden?
+        if !std::path::Path::new(&socket_path).exists() {
+            warn!(
+                "[LICENSE] licensing-service socket not found at '{}' — plug not connected?",
+                socket_path
+            );
+        } else {
+            // Bestehende Lizenz freigeben (re-acquire Zyklus)
+            if let Some(ref id) = current_id.take() {
+                release_license(&socket_path, id).await;
+            }
+
+            // Nacheinander alle Lizenznamen probieren
+            let mut acquired = false;
+            for &license_name in LICENSE_NAMES {
+                if let Some(id) = acquire_license(&socket_path, license_name).await {
+                    info!("[LICENSE] Acquired license '{}' id={}", license_name, id);
+                    // ID in /tmp persistieren für Release bei Shutdown
+                    let _ = std::fs::write(LICENSE_ID_FILE, &id);
+                    current_id = Some(id);
+                    acquired = true;
+                    break;
+                }
+            }
+
+            if !acquired {
+                warn!(
+                    "[LICENSE] No license available! Required: {}. App continues but license is missing.",
+                    LICENSE_NAMES[0]
+                );
+            }
+        }
+
+        // Stündlich neu prüfen (SDK-Empfehlung: periodisch prüfen)
+        tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+    }
+}
+
+/// GET /api/licenses — proxy ctrlX licensing-manager API server-side via Unix socket (native Rust).
+async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().finish());
+    }
+
+    // The licensing manager API is available via Unix domain socket only.
+    // Socket path: $SNAP_DATA/licensing-service/licensing-service.sock
+    // API endpoint: GET /license-manager/api/v1/capabilities
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let socket_path = if !snap_data.is_empty() {
+        format!("{}/licensing-service/licensing-service.sock", snap_data)
+    } else {
+        "/tmp/licensing-service.sock".to_string()
+    };
+
+    match unix_socket_get(&socket_path, "/license-manager/api/v1/capabilities").await {
+        Ok((status, body)) => {
+            warn!(
+                "[LICENSES] HTTP {} raw={}",
+                status,
+                &body[..body.len().min(500)]
+            );
+            if status == 200 {
+                let json: serde_json::Value = serde_json::from_str(&body).unwrap_or(
+                    serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &body[..body.len().min(200)])}),
+                );
+                Ok(HttpResponse::Ok().json(json))
+            } else {
+                Ok(HttpResponse::ServiceUnavailable()
+                    .json(serde_json::json!({"error": format!("licensing API returned HTTP {}: {}", status, &body[..body.len().min(200)])})))
+            }
+        }
+        Err(e) => {
+            warn!("[LICENSES] socket error: {}", e);
+            Ok(HttpResponse::ServiceUnavailable()
+                .json(serde_json::json!({"error": format!("licensing socket unavailable: {}", e)})))
         }
     }
 }
@@ -3821,6 +4012,7 @@ async fn main() -> io::Result<()> {
                             .route("/inventory", web::get().to(get_inventory))
                             .route("/inventory", web::post().to(save_and_publish_inventory))
                             .route("/licenses", web::get().to(get_licenses))
+                            .route("/license-status", web::get().to(get_license_status))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")
@@ -3849,6 +4041,12 @@ async fn main() -> io::Result<()> {
                     .service(Files::new("/", web_root.clone()).index_file("index.html")),
             )
     });
+
+    if is_snap {
+        let snap_data_lic = std::env::var("SNAP_DATA").unwrap_or_default();
+        let socket_path = format!("{}/licensing-service/licensing-service.sock", snap_data_lic);
+        tokio::spawn(run_license_loop(socket_path));
+    }
 
     if is_snap {
         let snap_data = std::env::var("SNAP_DATA")

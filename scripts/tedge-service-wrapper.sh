@@ -41,6 +41,18 @@ fi
 BINARY_NAME="$1"
 shift
 
+# Wait for mosquitto to be ready on port 1883 (max 30s)
+# This prevents repeated "Connection refused" log spam on startup.
+_MQTT_WAIT=0
+while ! nc -z 127.0.0.1 1883 2>/dev/null; do
+    if [ $_MQTT_WAIT -ge 30 ]; then
+        echo "[WARN] mosquitto not ready after 30s, continuing anyway" >&2
+        break
+    fi
+    sleep 1
+    _MQTT_WAIT=$((_MQTT_WAIT + 1))
+done
+
 # Load per-service log level from $SNAP_DATA/log-levels/<service>
 # This is written by the web UI and read here at service start.
 LOG_LEVEL_FILE="$SNAP_DATA/log-levels/$BINARY_NAME"

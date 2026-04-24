@@ -182,6 +182,8 @@ impl Default for DatalayerConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct DatalayerNodeValue {
+    #[serde(rename = "type")]
+    pub node_type: Option<String>,
     pub value: Option<Value>,
 }
 
@@ -357,8 +359,8 @@ impl DatalayerEngine {
         info!("[DATALAYER] Session ausgeloggt");
     }
 
-    pub async fn poll_mappings(&mut self) -> Vec<(String, String, String)> {
-        // Returns (mapping_id, topic, raw_value)
+    pub async fn poll_mappings(&mut self) -> Vec<(String, String, String, Option<String>)> {
+        // Returns (mapping_id, topic, raw_value, node_type)
         let mut to_publish = Vec::new();
 
         // Automatischer Token-Refresh bei Bedarf
@@ -383,52 +385,88 @@ impl DatalayerEngine {
                 req = req.bearer_auth(&token);
             }
 
-            if let Ok(resp) = req.send().await {
-                if resp.status() == 401 {
-                    // Token abgelaufen — Cache und Backoff zurücksetzen damit sofort neu geholt wird
-                    self.cached_token = None;
-                    self.token_fail_until = None;
-                    // Sofort neuen Token holen und nochmal versuchen
-                    if self.credentials.username.is_some() {
-                        self.fetch_token().await;
-                        let new_token = self.effective_token();
-                        let mut retry_req = self.http_client.get(&url);
-                        if !new_token.is_empty() {
-                            retry_req = retry_req.bearer_auth(&new_token);
-                        }
-                        if let Ok(retry_resp) = retry_req.send().await {
-                            if let Ok(node) = retry_resp.json::<DatalayerNodeValue>().await {
-                                let val = node.value.unwrap_or(Value::Null);
-                                let should_publish = match mapping.transform {
-                                    MappingTransform::Measurement | MappingTransform::Raw => true,
-                                    _ => self.last_values.get(&mapping.id) != Some(&val),
-                                };
-                                if should_publish {
-                                    self.last_values.insert(mapping.id.clone(), val.clone());
-                                    to_publish.push((
-                                        mapping.id.clone(),
-                                        mapping.topic.clone(),
-                                        val.to_string(),
-                                    ));
-                                }
-                            }
-                        }
-                    }
+            match req.send().await {
+                Err(e) => {
+                    warn!(
+                        "[DATALAYER] HTTP request failed for '{}': {}",
+                        mapping.path, e
+                    );
                     continue;
                 }
-                if let Ok(node) = resp.json::<DatalayerNodeValue>().await {
-                    let val = node.value.unwrap_or(Value::Null);
-                    let should_publish = match mapping.transform {
-                        MappingTransform::Measurement | MappingTransform::Raw => true,
-                        _ => self.last_values.get(&mapping.id) != Some(&val),
-                    };
-                    if should_publish {
-                        self.last_values.insert(mapping.id.clone(), val.clone());
-                        to_publish.push((
-                            mapping.id.clone(),
-                            mapping.topic.clone(),
-                            val.to_string(),
-                        ));
+                Ok(resp) => {
+                    if resp.status() == 401 {
+                        // Token abgelaufen — Cache und Backoff zurücksetzen damit sofort neu geholt wird
+                        self.cached_token = None;
+                        self.token_fail_until = None;
+                        // Sofort neuen Token holen und nochmal versuchen
+                        if self.credentials.username.is_some() {
+                            self.fetch_token().await;
+                            let new_token = self.effective_token();
+                            let mut retry_req = self.http_client.get(&url);
+                            if !new_token.is_empty() {
+                                retry_req = retry_req.bearer_auth(&new_token);
+                            }
+                            if let Ok(retry_resp) = retry_req.send().await {
+                                if let Ok(node) = retry_resp.json::<DatalayerNodeValue>().await {
+                                    let val = node.value.unwrap_or(Value::Null);
+                                    let should_publish = match mapping.transform {
+                                        MappingTransform::Measurement | MappingTransform::Raw => {
+                                            true
+                                        }
+                                        _ => self.last_values.get(&mapping.id) != Some(&val),
+                                    };
+                                    if should_publish {
+                                        self.last_values.insert(mapping.id.clone(), val.clone());
+                                        to_publish.push((
+                                            mapping.id.clone(),
+                                            mapping.topic.clone(),
+                                            val.to_string(),
+                                            node.node_type.clone(),
+                                        ));
+                                    }
+                                }
+                            }
+                        } else {
+                            warn!(
+                                "[DATALAYER] 401 for '{}' but no credentials configured",
+                                mapping.path
+                            );
+                        }
+                        continue;
+                    }
+                    let status = resp.status();
+                    if !status.is_success() {
+                        warn!(
+                            "[DATALAYER] HTTP {} for path '{}' url='{}'",
+                            status, mapping.path, url
+                        );
+                        continue;
+                    }
+                    match resp.json::<DatalayerNodeValue>().await {
+                        Err(e) => {
+                            warn!("[DATALAYER] JSON parse error for '{}': {}", mapping.path, e);
+                        }
+                        Ok(node) => {
+                            let node_type = node.node_type.clone();
+                            let val = node.value.unwrap_or(Value::Null);
+                            let should_publish = match mapping.transform {
+                                MappingTransform::Measurement | MappingTransform::Raw => true,
+                                _ => self.last_values.get(&mapping.id) != Some(&val),
+                            };
+                            if should_publish {
+                                info!(
+                                    "[DATALAYER] Publishing '{}' → topic '{}' val={}",
+                                    mapping.path, mapping.topic, val
+                                );
+                                self.last_values.insert(mapping.id.clone(), val.clone());
+                                to_publish.push((
+                                    mapping.id.clone(),
+                                    mapping.topic.clone(),
+                                    val.to_string(),
+                                    node_type,
+                                ));
+                            }
+                        }
                     }
                 }
             }
@@ -476,7 +514,7 @@ pub async fn run_datalayer_loop(
             let messages = engine.poll_mappings().await;
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
-                for (mapping_id, _topic, payload) in messages {
+                for (mapping_id, _topic, payload, node_type) in messages {
                     // 1. Das passende Mapping per ID finden (nicht per Topic, da mehrere Mappings dasselbe Topic nutzen können)
                     if let Some(mapping) =
                         engine.config.mappings.iter().find(|m| m.id == mapping_id)
@@ -532,32 +570,97 @@ pub async fn run_datalayer_loop(
                                 (mapping.topic.clone(), json_data)
                             }
                             MappingTransform::Event => {
-                                let json_data = serde_json::json!({
-                                    "text": format!("Event: {} ist {}", field_name, payload),
-                                    "type": "ctrlx_event"
-                                })
-                                .to_string();
+                                let parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
 
-                                // Bei Events nutzen wir das Standard-tedge-Topic, falls in der UI nichts Spezifisches steht
-                                let ev_topic = if mapping.topic.contains("events") {
-                                    mapping.topic.clone()
+                                if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                    // MQTT Service (9883): vollständiges C8y-Event-Format
+                                    let time = parsed_value
+                                        .get("timestamp")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let event_type = format!(
+                                        "c8y_{}",
+                                        node_type.as_deref().unwrap_or("ctrlx_Event")
+                                    );
+
+                                    let mut json_obj = serde_json::json!({
+                                        "Text": parsed_value,
+                                        "type": event_type,
+                                        "time": time
+                                    });
+                                    if !engine.config.device_external_id.is_empty() {
+                                        json_obj["externalId"] = serde_json::json!(
+                                            engine.config.device_external_id.clone()
+                                        );
+                                    }
+                                    (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    "tedge/events/ctrlx_event".to_string()
-                                };
-                                (ev_topic, json_data)
+                                    // Core MQTT (8883): thin-edge Format
+                                    let json_data = serde_json::json!({
+                                        "text": format!("Event: {} ist {}", field_name, payload),
+                                        "type": "ctrlx_event"
+                                    })
+                                    .to_string();
+                                    let ev_topic = if mapping.topic.contains("events") {
+                                        mapping.topic.clone()
+                                    } else {
+                                        "tedge/events/ctrlx_event".to_string()
+                                    };
+                                    (ev_topic, json_data)
+                                }
                             }
                             MappingTransform::Alarm => {
-                                let json_data = serde_json::json!({
-                                    "text": format!("Alarm an {}: Wert ist {}", field_name, payload),
-                                    "severity": "major"
-                                }).to_string();
+                                let parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
 
-                                let al_topic = if mapping.topic.contains("alarms") {
-                                    mapping.topic.clone()
+                                if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                    // MQTT Service (9883): vollständiges C8y-Alarm-Format
+                                    let severity = parsed_value
+                                        .get("severity")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("MAJOR")
+                                        .to_string();
+                                    let time = parsed_value
+                                        .get("timestamp")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let alarm_type = format!(
+                                        "c8y_{}",
+                                        node_type.as_deref().unwrap_or("ctrlx_Alarm")
+                                    );
+
+                                    let mut json_obj = serde_json::json!({
+                                        "Text": parsed_value,
+                                        "severity": severity,
+                                        "status": "ACTIVE",
+                                        "type": alarm_type,
+                                        "time": time
+                                    });
+                                    if !engine.config.device_external_id.is_empty() {
+                                        json_obj["externalId"] = serde_json::json!(
+                                            engine.config.device_external_id.clone()
+                                        );
+                                    }
+                                    (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    "tedge/alarms/major/ctrlx_alarm".to_string()
-                                };
-                                (al_topic, json_data)
+                                    // Core MQTT (8883): thin-edge Format
+                                    let json_data = serde_json::json!({
+                                        "text": format!("Alarm an {}: Wert ist {}", field_name, payload),
+                                        "severity": "major"
+                                    })
+                                    .to_string();
+                                    let al_topic = if mapping.topic.contains("alarms") {
+                                        mapping.topic.clone()
+                                    } else {
+                                        "tedge/alarms/major/ctrlx_alarm".to_string()
+                                    };
+                                    (al_topic, json_data)
+                                }
                             }
                             _ => (mapping.topic.clone(), payload),
                         };
