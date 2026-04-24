@@ -2762,7 +2762,7 @@ async function checkLicenseStatus() {
         '⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. ' +
         'Please obtain license <code>' + (data.required || '') + '</code> from the ' +
         '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
-        '<a href="https://licensing.boschrexroth.com" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+        '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
       banner.style.display = "flex";
     } else {
       banner.style.display = "none";

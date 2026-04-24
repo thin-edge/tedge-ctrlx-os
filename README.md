@@ -1,8 +1,8 @@
 # thin-edge.io for ctrlX AUTOMATION (WORK IN PROGRESS)
 
-[![Version](https://img.shields.io/badge/version-1.7.1-blue)](https://github.com/Cumulocity-IoT/thin-edge-io-app)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/thin-edge/tedge-ctrlx-os)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
-[![Architecture](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey)](https://github.com/Cumulocity-IoT/thin-edge-io-app)
+[![Architecture](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey)](https://github.com/thin-edge/tedge-ctrlx-os)
 
 ## Overview
 
@@ -15,7 +15,8 @@ This is a **ctrlX AUTOMATION** snap app that packages [thin-edge.io](https://thi
 - **Device Management** — Remote monitoring, configuration management
 - **Log Management** — Centralized log collection with live viewer in the web UI
 - **MQTT Bridge** — Efficient local and cloud messaging via Mosquitto
-- **ctrlX Data Layer Bridge** — bridge service for ctrlX Data Layer integration
+- **ctrlX Data Layer Bridge** — Bridge service reads ctrlX Data Layer nodes and publishes them to MQTT/cloud
+- **ctrlX License Enforcement** — Acquires and periodically re-checks ctrlX OS license via Unix socket; shows warning banner when license is missing
 - **Health Monitoring** — Integrated watchdog service with automatic service recovery
 - **Strict Snap Confinement** — Process isolation, no root privileges required
 
@@ -25,14 +26,13 @@ This is a **ctrlX AUTOMATION** snap app that packages [thin-edge.io](https://thi
 tedge-ctrlx-os/
 ├── snap/
 │   ├── snapcraft.yaml          # Snap build definition
-│   └── hooks/                  # install, configure, post-refresh hooks
+│   └── hooks/                  # install, configure, post-refresh, remove hooks
 ├── web-server-rust/            # Actix-web backend (Rust)
-│   ├── src/main.rs             # REST API server
-│   └── www/                    # Frontend (HTML, JS, CSS)
+│   └── src/main.rs             # REST API server + license enforcement loop
 ├── bridge-service-rust/        # ctrlX Data Layer bridge (Rust)
-├── web/www/                    # Frontend source (includes styles.less)
+├── web/www/                    # Frontend source (HTML, JS, CSS, styles.less)
 ├── scripts/                    # Build and runtime helper scripts
-├── configs/                    # App metadata (caddyfile, package-manifest)
+├── configs/                    # App metadata (caddyfile, package-manifest.json)
 ├── package-assets/             # ctrlX Store assets (icons, i18n, proxy config)
 └── docs/                       # Documentation
 ```
@@ -59,8 +59,8 @@ tedge-ctrlx-os/
 ### Custom Services
 | Service | Description |
 |---------|-------------|
-| `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar); service status auto-refreshes every 30 s |
-| `tedge-datalayer-bridge` | ctrlX Data Layer ↔ thin-edge.io bridge |
+| `webserver` | Rust/Actix-web configuration UI (accessible via ctrlX sidebar); acquires ctrlX license on startup, shows warning banner if missing |
+| `tedge-datalayer-bridge` | ctrlX Data Layer ↔ thin-edge.io bridge; polls Data Layer nodes and publishes measurements/events/alarms to MQTT |
 | `tedge-log-upload-manager` | Coordinates log file uploads to cloud platforms (replaces standard `tedge-file-log-plugin`) |
 
 ## Web UI
@@ -257,6 +257,20 @@ Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-
 
 ---
 
+#### CTRLX LICENSING
+
+Shows the ctrlX OS licenses currently active on the device. Loaded automatically when the section is opened.
+
+| Element | Description |
+|---------|-------------|
+| License table | Lists all capabilities returned by the ctrlX License Manager API (`/license-manager/api/v1/capabilities`) — name, permanent flag, expiry date, count |
+| **Refresh** button | Re-fetches `GET /api/licenses` |
+| **Manage Licenses** button | Opens `/license-manager` (ctrlX License Manager UI) in a new tab |
+
+If no valid license is held, a **red warning banner** is shown at the top of the page with a link to the Licensing section and the Bosch Rexroth Licensing Center.
+
+---
+
 #### SYSTEM INFORMATION
 
 Displays read-only device and build metadata:
@@ -313,6 +327,8 @@ The web server exposes the following API endpoints under `/api/`:
 | DELETE | `/datalayer/mappings/{id}` | Delete a mapping by ID |
 | GET | `/datalayer/browse` | Browse Data Layer nodes |
 | GET | `/datalayer/node` | Read a single Data Layer node value |
+| GET | `/licenses` | List all ctrlX OS license capabilities (via Unix socket) |
+| GET | `/license-status` | Returns `{"licensed": true/false}` — whether a valid license is currently held |
 
 ## Installation
 
@@ -324,8 +340,8 @@ The web server exposes the following API endpoints under `/api/`:
 ### Install Steps
 
 1. Build the snap (see [Building from Source](#building-from-source)) or download a release:
-   - `thin-edge-io_1.7.1_amd64.snap` — ctrlX COREvirtual
-   - `thin-edge-io_1.7.1_arm64.snap` — ctrlX CORE hardware
+   - `ctrlx-cumulocity-thin-edge-io_2.0.0_amd64.snap` — ctrlX COREvirtual
+   - `ctrlx-cumulocity-thin-edge-io_2.0.0_arm64.snap` — ctrlX CORE hardware
 
 2. Open the ctrlX CORE web interface
 
@@ -375,58 +391,58 @@ thin-edge-io.tedge connect c8y
 
 ```bash
 # Show status of all services
-snap services thin-edge-io
+snap services ctrlx-cumulocity-thin-edge-io
 
-Service                                Startup  Current   Notes
-thin-edge-io.mosquitto                 enabled  active    -
-thin-edge-io.setup-directories         enabled  inactive  -
-thin-edge-io.tedge-agent               enabled  active    -
-thin-edge-io.tedge-datalayer-bridge    enabled  active    -
-thin-edge-io.tedge-log-upload-manager  enabled  active    -
-thin-edge-io.tedge-mapper-aws          enabled  inactive  -
-thin-edge-io.tedge-mapper-az           enabled  inactive  -
-thin-edge-io.tedge-mapper-c8y          enabled  active    -
-thin-edge-io.tedge-watchdog            enabled  active    -
-thin-edge-io.webserver                 enabled  active    -
+Service                                                  Startup  Current   Notes
+ctrlx-cumulocity-thin-edge-io.mosquitto                 enabled  active    -
+ctrlx-cumulocity-thin-edge-io.setup-directories         enabled  inactive  -
+ctrlx-cumulocity-thin-edge-io.tedge-agent               enabled  active    -
+ctrlx-cumulocity-thin-edge-io.tedge-datalayer-bridge    enabled  active    -
+ctrlx-cumulocity-thin-edge-io.tedge-log-upload-manager  enabled  active    -
+ctrlx-cumulocity-thin-edge-io.tedge-mapper-aws          enabled  inactive  -
+ctrlx-cumulocity-thin-edge-io.tedge-mapper-az           enabled  inactive  -
+ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y          enabled  active    -
+ctrlx-cumulocity-thin-edge-io.tedge-watchdog            enabled  active    -
+ctrlx-cumulocity-thin-edge-io.webserver                 enabled  active    -
 
 # Restart all services
-snap restart thin-edge-io
+snap restart ctrlx-cumulocity-thin-edge-io
 
 # Restart a single service
-snap restart thin-edge-io.tedge-agent
+snap restart ctrlx-cumulocity-thin-edge-io.tedge-agent
 
 # View live logs of a service
-snap logs thin-edge-io.webserver -f
-snap logs thin-edge-io.tedge-agent -f
+snap logs ctrlx-cumulocity-thin-edge-io.webserver -f
+snap logs ctrlx-cumulocity-thin-edge-io.tedge-agent -f
 
 # Show snap version and revision
-snap info thin-edge-io
+snap info ctrlx-cumulocity-thin-edge-io
 
 # Disable / enable snap
-snap disable thin-edge-io
-snap enable thin-edge-io
+snap disable ctrlx-cumulocity-thin-edge-io
+snap enable ctrlx-cumulocity-thin-edge-io
 
 # View snap configuration (tedge.toml)
-snap get thin-edge-io -d
+snap get ctrlx-cumulocity-thin-edge-io -d
 
 # Remove snap (configuration remains in $SNAP_DATA)
-snap remove thin-edge-io
+snap remove ctrlx-cumulocity-thin-edge-io
 
 # Completely remove snap including all data
-snap remove --purge thin-edge-io
+snap remove --purge ctrlx-cumulocity-thin-edge-io
 
 # Revert to previous snap revision after update
-snap revert thin-edge-io
+snap revert ctrlx-cumulocity-thin-edge-io
 ```
 
 ### Snap CLI Commands
 
 Das Snap stellt folgende CLI-Befehle bereit (erreichbar per SSH oder Terminal):
 
-#### `thin-edge-io.manage-device-id` — Device-ID Verwaltung
+#### `ctrlx-cumulocity-thin-edge-io.manage-device-id` — Device-ID Verwaltung
 
 ```bash
-thin-edge-io.manage-device-id <command> [device-id]
+ctrlx-cumulocity-thin-edge-io.manage-device-id <command> [device-id]
 ```
 
 | Command | Beschreibung |
@@ -441,49 +457,52 @@ thin-edge-io.manage-device-id <command> [device-id]
 **Beispiele:**
 ```bash
 # Status anzeigen
-sudo thin-edge-io.manage-device-id status
+sudo ctrlx-cumulocity-thin-edge-io.manage-device-id status
 
 # Zertifikat mit automatisch erkannter Seriennummer erstellen
-sudo thin-edge-io.manage-device-id create
+sudo ctrlx-cumulocity-thin-edge-io.manage-device-id create
 
 # Explizite Device-ID setzen
-sudo thin-edge-io.manage-device-id set my-device-001
+sudo ctrlx-cumulocity-thin-edge-io.manage-device-id set my-device-001
 ```
 
-#### `thin-edge-io.tedge-connect` — Cloud-Verbindung
+#### `ctrlx-cumulocity-thin-edge-io.tedge-connect` — Cloud-Verbindung
 
 ```bash
 # Mit Cumulocity IoT verbinden (registriert Gerät, lädt Zertifikat hoch)
-thin-edge-io.tedge-connect c8y
+ctrlx-cumulocity-thin-edge-io.tedge-connect c8y
 
 # Verbindung trennen
-thin-edge-io.tedge-connect c8y --disconnect
+ctrlx-cumulocity-thin-edge-io.tedge-connect c8y --disconnect
 ```
 
-#### `thin-edge-io.build-info` — Build-Informationen
+#### `ctrlx-cumulocity-thin-edge-io.build-info` — Build-Informationen
 
 ```bash
 # Zeigt Versionsinformationen des installierten Snaps
-thin-edge-io.build-info
+ctrlx-cumulocity-thin-edge-io.build-info
 ```
 
 **Important Paths:**
 
 | Path | Contents |
 |------|----------|
-| `/var/snap/thin-edge-io/common/tedge/log/` | Service logs |
-| `/var/snap/thin-edge-io/common/package-certificates/thin-edge-io/tedge/` | Device certificate & private key (ctrlX Certificate Store) |
-| `/var/snap/thin-edge-io/current/package-run/thin-edge-io/` | Runtime status (ctrlX) |
-| `/var/snap/thin-edge-io/current/log-levels/` | Log level files per service |
-| `/var/snap/thin-edge-io/current/tedge/` | tedge configuration (`tedge.toml`) |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/common/tedge/log/` | Service logs |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/common/package-certificates/thin-edge-io/tedge/` | Device certificate & private key (ctrlX Certificate Store) |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/common/datalayer-credentials.json` | ctrlX Data Layer credentials (survives snap updates) |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/current/package-run/thin-edge-io/` | Runtime status (ctrlX) |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/current/datalayer-mappings.json` | Data Layer ↔ MQTT bridge mappings |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/current/log-levels/` | Log level files per service |
+| `/var/snap/ctrlx-cumulocity-thin-edge-io/current/tedge/` | tedge configuration (`tedge.toml`) |
+| `/tmp/ctrlx-cumulocity-thin-edge-io.license` | Held ctrlX license ID (cleared on reboot / snap remove) |
 
 ## Building from Source
 
 ### Automated Build (Recommended)
 
 ```bash
-git clone https://github.com/Cumulocity-IoT/thin-edge-io-app.git
-cd thin-edge-io-app
+git clone https://github.com/thin-edge/tedge-ctrlx-os.git
+cd tedge-ctrlx-os
 ./setup-and-build-all.sh --fix
 ```
 
@@ -607,12 +626,12 @@ All included open-source components are documented in [`package-assets/fossinfo.
 
 - **thin-edge.io Docs**: https://thin-edge.github.io/thin-edge.io/
 - **thin-edge.io GitHub**: https://github.com/thin-edge/thin-edge.io
-- **This App Repository**: https://github.com/Cumulocity-IoT/thin-edge-io-app
+- **This App Repository**: https://github.com/thin-edge/tedge-ctrlx-os
 - **Discord Community**: https://discord.com/invite/sVX3B8nj5d
 
 ## Roadmap
 
-- ctrlX License Management integration
+- ✅ ctrlX License Management integration (acquire/release/periodic re-check + warning banner)
 - Enhanced ctrlX Diagnostics/Logbook integration
 
 ## Contributing
@@ -743,8 +762,11 @@ The following endpoints manage ctrlX Data Layer ↔ MQTT bridge mappings:
 | PUT | `/api/datalayer/mappings/{id}` | Update a mapping by ID |
 | DELETE | `/api/datalayer/mappings/{id}` | Delete a mapping by ID |
 
-## How to connect to Cumulocity IoT and other cloud platforms and run the thin-edge.io snap on ctrlX CORE 
+## How to connect to Cumulocity IoT and other cloud platforms and run the thin-edge.io snap on ctrlX CORE
 
-### Additional Operations/Scripts
-
-# tedge-ctrlx-os
+See the [docs/](docs/) folder for detailed guides:
+- [Architecture Overview](docs/architecture-overview.md)
+- [Auth Integration](docs/auth-integration.md)
+- [Manual](docs/manual.md)
+- [Release Notes](docs/release-notes.md)
+- [Test Setup](docs/test-setup-description.md)
