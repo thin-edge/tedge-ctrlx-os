@@ -410,4 +410,5 @@ See **[docs/configuration-reference.md](docs/configuration-reference.md)** for t
 | [docs/architecture-overview.md](docs/architecture-overview.md) | System architecture and component overview |
 | [docs/auth-integration.md](docs/auth-integration.md) | ctrlX authentication and role-based access control |
 | [docs/release-notes.md](docs/release-notes.md) | Version history and changelog |
+| [docs/roadmap.md](docs/roadmap.md) | Not yet implemented features and known limitations |
 | [docs/test-setup-description.md](docs/test-setup-description.md) | Test environment setup |
