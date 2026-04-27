@@ -3269,37 +3269,44 @@ const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
 /// Versucht eine Lizenz über den Unix-Socket zu acquiren.
 /// Gibt die Lizenz-ID zurück wenn erfolgreich, sonst None.
 async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String> {
-    let payload = format!(r#"{{"name":"{}","version":"1.0"}}"#, license_name);
-    match unix_socket_post(socket_path, "/license-manager/api/v1/license", &payload).await {
-        Ok((200, body)) => {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
-                if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
-                    return Some(id.to_string());
+    // Try with version "1.0" first, then without version (for engineering/demo licenses)
+    let payloads = [
+        format!(r#"{{"name":"{}","version":"1.0"}}"#, license_name),
+        format!(r#"{{"name":"{}"}}"#, license_name),
+    ];
+    for payload in &payloads {
+        match unix_socket_post(socket_path, "/license-manager/api/v1/license", payload).await {
+            Ok((200, body)) => {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+                    if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+                        return Some(id.to_string());
+                    }
                 }
+                warn!(
+                    "[LICENSE] POST /license HTTP 200 but no id in response: {}",
+                    &body[..body.len().min(200)]
+                );
+                // Try next payload variant
             }
-            warn!(
-                "[LICENSE] POST /license HTTP 200 but no id in response: {}",
-                &body[..body.len().min(200)]
-            );
-            None
-        }
-        Ok((status, body)) => {
-            warn!(
-                "[LICENSE] POST /license '{}' HTTP {}: {}",
-                license_name,
-                status,
-                &body[..body.len().min(200)]
-            );
-            None
-        }
-        Err(e) => {
-            warn!(
-                "[LICENSE] POST /license '{}' socket error: {}",
-                license_name, e
-            );
-            None
+            Ok((status, body)) => {
+                warn!(
+                    "[LICENSE] POST /license '{}' HTTP {}: {}",
+                    license_name,
+                    status,
+                    &body[..body.len().min(200)]
+                );
+                // Try next payload variant
+            }
+            Err(e) => {
+                warn!(
+                    "[LICENSE] POST /license '{}' socket error: {}",
+                    license_name, e
+                );
+                // Try next payload variant
+            }
         }
     }
+    None
 }
 
 /// Gibt eine gehaltene Lizenz frei.

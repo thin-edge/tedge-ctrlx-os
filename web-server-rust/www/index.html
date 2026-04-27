@@ -141,7 +141,7 @@
 
     <main>
       <!-- License warning banner — shown when no valid license is found -->
-      <div id="license-warning-banner" style="display: none" role="alert"></div>
+      <div id="license-warning-banner" style="display: none; background: #fff3cd; border-left: 4px solid #f0ad4e; padding: 10px 16px; margin-bottom: 12px; font-size: 13px; color: #333;" role="alert"></div>
       <div class="container">
         <!-- Status Section -->
         <section id="sec-status" class="card">
@@ -1835,7 +1835,10 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                     id="datalayer-mapping-path"
                     class="form-control"
                     placeholder="z.B. /framework/metrics/system/memfree-mb"
-                    oninput="updateTopicPrefix(); showMappingPayloadPreview();"
+                    oninput="
+                      updateTopicPrefix();
+                      showMappingPayloadPreview();
+                    "
                   />
                 </div>
                 <!-- Direction hidden, always dl_to_tedge -->
@@ -1844,7 +1847,9 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   style="display: none"
                   aria-hidden="true"
                 >
-                  <option value="dl_to_tedge" selected>Datalayer ➔ tedge (Read)</option>
+                  <option value="dl_to_tedge" selected>
+                    Datalayer ➔ tedge (Read)
+                  </option>
                   <option value="tedge_to_dl">tedge ➔ Datalayer (Write)</option>
                 </select>
                 <div class="form-group">
@@ -1858,11 +1863,13 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                     id="datalayer-mapping-field"
                     class="form-control"
                     data-i18n-placeholder="datalayer.auto_hint"
-                    oninput="showMappingPayloadPreview();"
+                    oninput="showMappingPayloadPreview()"
                   />
                 </div>
                 <div class="form-group">
-                  <label data-i18n="datalayer.payload_preview">Cloud Payload Preview</label>
+                  <label data-i18n="datalayer.payload_preview"
+                    >Cloud Payload Preview</label
+                  >
                   <pre
                     id="datalayer-payload-preview"
                     style="
@@ -1903,7 +1910,10 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   <select
                     id="datalayer-mapping-transform"
                     class="form-control"
-                    onchange="updateTopicPrefix(); showMappingPayloadPreview();"
+                    onchange="
+                      updateTopicPrefix();
+                      showMappingPayloadPreview();
+                    "
                   >
                     <option value="raw">Raw</option>
                     <option value="measurement">Measurement</option>
@@ -1920,7 +1930,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                     id="datalayer-mapping-unit"
                     class="form-control"
                     placeholder="°C, bar, ..."
-                    oninput="showMappingPayloadPreview();"
+                    oninput="showMappingPayloadPreview()"
                   />
                 </div>
                 <div
