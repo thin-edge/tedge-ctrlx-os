@@ -406,11 +406,9 @@ Manage the license required to run this snap.
 **Required license**: `SWL-XCx-RUN-DLACCESSNRTxx-NNNN`  
 **Trial license**: `SWL_XCR_ENGINEERING_4H` (4-hour engineering license, no purchase required)
 
-If no valid license is held, a **red warning banner** appears at the top of the page:
+If no valid license is held, a **red warning banner** appears at the top of the page.
 
-> **Screenshot**: Red license warning banner
->
-> ![screenshot](pictures/10b-license-warning.png)
+
 
 ---
 
@@ -442,24 +440,8 @@ Save screenshots to: `docs/pictures/`
 
 | File | Section | What to show |
 |---|---|---|
-| `00-overview.png` | Full page | Sidebar + first section visible |
-| `01-connection-status.png` | Connection Status | All service indicators |
-| `02-cloud-configuration.png` | Cloud Configuration | All three tabs (C8y / AWS / Azure) |
-| `02b-c8y-config.png` | C8y tab | URL + MQTT port filled in |
-| `03-device-certificate.png` | Device Certificate | Device ID + upload status |
-| `04-connect-device.png` | Connect Device | Connect/Disconnect buttons |
-| `05-logs-diagnostics.png` | Logs & Diagnostics | Service dropdown + log output |
-| `06-device-configuration.png` | Device Configuration | Fields filled in |
-| `07-tedge-configuration.png` | Tedge Configuration | `tedge config list` output |
-| `08-configuration-files.png` | Configuration Files | File list |
-| `08b-file-editor.png` | Configuration Files | Editor open with a file |
-| `09-datalayer-overview.png` | Datalayer section | Full section |
-| `09a-connection-settings.png` | Connection Settings | Accordion open, fields filled |
-| `09b-node-browser.png` | Node Browser | Tree expanded with nodes |
-| `09c-mapping-form-measurement.png` | Mapping Form | Measurement transform |
-| `09d-mapping-form-event.png` | Mapping Form | Event transform |
-| `09e-mapping-form-alarm.png` | Mapping Form | Alarm transform |
-| `09f-mapping-table.png` | Mapping Table | Several rows visible |
-| `10-licensing.png` | Licensing | License list |
-| `10b-license-warning.png` | License Warning | Red banner at top of page |
-| `11-system-information.png` | System Information | All fields |
+| `09c-mapping-form-measurement.png` | Mapping Form | no |
+| `09d-mapping-form-event.png` | Mapping Form | no |
+| `09e-mapping-form-alarm.png` | Mapping Form | no |
+| `09f-mapping-table.png` | Mapping Table | no |
+
