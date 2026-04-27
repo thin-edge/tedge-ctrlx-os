@@ -1927,14 +1927,11 @@ function initCollapsibleSections() {
     // Collapse all except first
     if (index > 0) section.classList.add("collapsed");
 
-    let loaded = index === 0; // first section already loaded via DOMContentLoaded
-
-    // Toggle on h2 click + lazy load
+    // Toggle on h2 click — reload data every time the section is expanded
     h2.addEventListener("click", () => {
       const wasCollapsed = section.classList.contains("collapsed");
       section.classList.toggle("collapsed");
-      if (wasCollapsed && !loaded) {
-        loaded = true;
+      if (wasCollapsed) {
         const loader = lazyLoaders[section.id];
         if (loader) loader();
       }
