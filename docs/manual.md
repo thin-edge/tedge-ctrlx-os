@@ -1,603 +1,465 @@
-# thin-edge.io CTRLX App - User Manual
+# ctrlX Cumulocity thin-edge.io — User Manual
 
-**Version**: 2.0.0  
-**Date**: March 2026  
-**App ID**: thin-edge-io  
+**App**: `ctrlx-cumulocity-thin-edge-io`  
+**UI URL**: `https://<ctrlx-ip>/thin-edge-io/`
+
+> **Screenshots**: Take one screenshot per section listed in the [checklist](#screenshots-checklist) at the end of this document. Save them to `docs/pictures/` and replace each `![screenshot](pictures/XX-name.png)` placeholder.
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [System Requirements](#2-system-requirements)
-3. [Installation](#3-installation)
-4. [Configuration](#4-configuration)
-5. [Operation](#5-operation)
-6. [Monitoring](#6-monitoring)
-7. [Troubleshooting](#7-troubleshooting)
-8. [API Reference](#8-api-reference)
-9. [Security](#9-security)
-10. [Support](#10-support)
+1. [Overview](#1-overview)
+2. [Connection Status](#2-connection-status)
+3. [Cloud Configuration](#3-cloud-configuration)
+4. [Device Certificate](#4-device-certificate)
+5. [Connect Device](#5-connect-device)
+6. [Logs & Diagnostics](#6-logs--diagnostics)
+7. [Device Configuration](#7-device-configuration)
+8. [Tedge Configuration](#8-tedge-configuration)
+9. [Configuration Files](#9-configuration-files)
+10. [ctrlX Datalayer Mapping](#10-ctrlx-datalayer-mapping)
+    - [Connection Settings](#101-connection-settings)
+    - [Node Browser](#102-node-browser)
+    - [Mapping Form](#103-mapping-form)
+    - [Mapping Table](#104-mapping-table)
+11. [ctrlX Licensing](#11-ctrlx-licensing)
+12. [System Information](#12-system-information)
+13. [Screenshots Checklist](#screenshots-checklist)
 
 ---
 
-## 1. Introduction
+## 1. Overview
 
-### 1.1 Purpose
+The **ctrlX Cumulocity thin-edge.io** app connects a ctrlX AUTOMATION controller to the Cumulocity IoT platform. It forwards telemetry data, manages device certificates, and provides a web-based configuration UI.
 
-This manual describes the installation, configuration, and operation of the thin-edge.io app for ctrlX AUTOMATION. The app enables ctrlX CORE devices to connect to cloud IoT platforms and provides comprehensive device management capabilities.
+**Access**: Open the ctrlX app bar and click **thin-edge.io**, or navigate directly to `https://<ctrlx-ip>/thin-edge-io/`.
 
-### 1.2 Scope
 
-This app is designed for:
-- Industrial IoT applications requiring cloud connectivity
-- Device monitoring and management scenarios
-- Multi-cloud deployment strategies
-- Edge data processing and forwarding
-
-### 1.3 Key Features
-
-- **Web-Based Configuration UI**: Browser-accessible dashboard served directly from the device
-- **Cloud Connectivity**: Connect to Cumulocity IoT, AWS IoT, or Azure IoT Hub
-- **Device Management**: Remote monitoring, configuration, and software updates
-- **Data Management**: Telemetry collection, processing, and forwarding
-- **ctrlX Data Layer Bridge**: Optional bridge service for ctrlX Data Layer integration
-- **Security**: TLS encryption, certificate-based authentication, ctrlX RBAC
-- **Monitoring**: Health checks, service watchdog, log management
+The left navigation bar provides quick access to all configuration sections. The language (DE/EN) can be switched in the top-right corner.
 
 ---
 
-## 2. System Requirements
+## 2. Connection Status
 
-### 2.1 Hardware
+**Section**: "Connection Status"
 
-**Minimum Requirements:**
-- ctrlX CORE or ctrlX COREvirtual
-- 512 MB RAM
-- 200 MB available storage
-- Network interface with internet access
+Shows the runtime state of all internal services and cloud bridge connections.
 
-**Recommended:**
-- 1 GB RAM
-- 500 MB available storage
-- Gigabit Ethernet connection
+> **Screenshot**: Complete "Connection Status" section
+>
+> ![screenshot](pictures/01-connection-status.png)
 
-### 2.2 Software
+| Indicator | Meaning |
+|---|---|
+| 🟢 running | Service is active |
+| 🔴 stopped | Service has stopped |
+| ⚫ inactive | Not configured / disabled |
+| 🟡 unknown | State could not be determined |
 
-- ctrlX OS version 1.20 or higher
-- Active network connection
-- Cloud platform account (Cumulocity/AWS/Azure)
+**Services monitored:**
 
-### 2.3 Network
-
-**Required Outbound Access:**
-- HTTPS (port 443) to cloud platform
-- MQTT over TLS (port 8883) to cloud platform
-
-**Internal (not externally accessible):**
-- MQTT (port 1883) — local Mosquitto broker, bound to 127.0.0.1
-- HTTP (port 8888) — Web UI, proxied via ctrlX Caddyfile to `/thin-edge-io/`
-
----
-
-## 3. Installation
-
-### 3.1 Download
-
-Download the appropriate snap package:
-- **ctrlX COREvirtual**: `thin-edge-io_2.0.0_amd64.snap`
-- **ctrlX CORE Hardware**: `thin-edge-io_2.0.0_arm64.snap`
-
-### 3.2 Install via Web Interface
-
-1. Open ctrlX CORE web interface
-2. Navigate to **Settings → Apps**
-3. Enable **Service Mode**
-4. Click **Install from file**
-5. Select the snap file
-6. Wait for installation to complete
-7. Return to **Operation Mode**
-
-### 3.3 Verify Installation
-
-Check that all services are running:
-```bash
-snap services thin-edge-io
-```
-
-Expected output shows all services as "active".
+| Service | Description |
+|---|---|
+| `mosquitto` | Local MQTT broker |
+| `tedge-agent` | thin-edge device agent |
+| `tedge-datalayer-bridge` | ctrlX Datalayer → MQTT bridge |
+| `tedge-watchdog` | Service health watchdog |
+| `webserver` | This configuration UI |
+| `tedge-log-upload-manager` | Log upload to Cumulocity |
+| `tedge-mapper-c8y` | Cumulocity cloud mapper |
+| `tedge-mapper-aws` | AWS IoT mapper |
+| `tedge-mapper-az` | Azure IoT Hub mapper |
+| `c8y / aws / az` | Cloud bridge connection state |
 
 ---
 
-## 4. Configuration
+## 3. Cloud Configuration
 
-### 4.0 Web UI (Recommended)
+**Section**: "Cloud Configuration"
 
-After installation, open the configuration UI directly in the ctrlX sidebar or navigate to:
+Configure the target cloud endpoints.
 
-```
-https://<device-ip>/thin-edge-io/
-```
+### Cumulocity IoT (C8y)
 
-The Web UI allows you to:
-- Select and configure cloud platform (Cumulocity, AWS, Azure)
-- Manage device identity and certificates
-- Connect, disconnect, and reconnect to cloud platforms
-- View live service logs and status
-- Read the full `tedge config list` output
-- Manage ctrlX Data Layer mappings
+> **Screenshot**: Cumulocity tab with URL and MQTT port filled in
+>
+> ![screenshot](pictures/02b-c8y-config.png)
 
-> **Note**: The Web UI enforces ctrlX role-based access control. Users need the `thin-edge-io.r` scope (Viewer) for read-only access, `thin-edge-io.rw` (Editor) for configuration changes, or `thin-edge-io.rwx` (Admin) for full access including service restarts.
+| Field | Description | Example |
+|---|---|---|
+| **C8y URL** | Tenant hostname | `psfactory.eu-latest.cumulocity.com` |
+| **Tenant** | Tenant ID (auto-detected) | `t10452223` |
+| **MQTT Port** | `8883` = Core MQTT (default) · `9883` = MQTT Service | `9883` |
+| **Enable** | Toggle to activate/deactivate | ✓ |
 
-### 4.1 Cloud Platform Selection
+> **Note on MQTT Port 9883 (MQTT Service)**:  
+> Switching to port **9883** activates the Cumulocity MQTT Service. The toggle disables all existing datalayer mappings that use `te/` topics, since these must be reconfigured to use `c8y/mqtt/out/` prefixes. Switching back to **8883** re-enables them.
 
-Choose your target cloud platform and configure accordingly.
-
-#### 4.1.1 Cumulocity IoT
-
-```bash
-# Set Cumulocity tenant URL
-thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
-
-# Set device ID
-thin-edge-io.tedge config set device.id your-device-id
-
-# Set connection type (optional)
-thin-edge-io.tedge config set c8y.mqtt.client_id your-client-id
-```
-
-#### 4.1.2 AWS IoT Core
-
-```bash
-# Set AWS IoT endpoint
-thin-edge-io.tedge config set aws.url xxxx.iot.region.amazonaws.com
-
-# Set device ID
-thin-edge-io.tedge config set device.id your-device-id
-```
-
-#### 4.1.3 Azure IoT Hub
-
-```bash
-# Set Azure IoT Hub hostname
-thin-edge-io.tedge config set az.url your-hub.azure-devices.net
-
-# Set device ID
-thin-edge-io.tedge config set device.id your-device-id
-```
-
-### 4.2 Certificate Management
-
-#### 4.2.1 Create Device Certificate
-
-```bash
-# Generate new device certificate
-thin-edge-io.tedge cert create --device-id your-device-id
-
-# Display certificate
-thin-edge-io.tedge cert show
-
-# Show certificate thumbprint (for cloud registration)
-thin-edge-io.tedge cert show --thumbprint
-```
-
-#### 4.2.2 Upload Certificate to Cloud
-
-**Cumulocity IoT:**
-1. Log into Cumulocity web interface
-2. Navigate to Device Management → Device Registration
-3. Register device with certificate thumbprint
-
-**AWS IoT:**
-1. Log into AWS Console
-2. Navigate to IoT Core → Security → Certificates
-3. Register certificate and attach policy
-
-**Azure IoT Hub:**
-1. Log into Azure Portal
-2. Navigate to IoT Hub → Device Management
-3. Add device with X.509 authentication
-
-### 4.3 Connect to Cloud
-
-```bash
-# Connect to Cumulocity
-thin-edge-io.tedge connect c8y
-
-# Connect to AWS
-thin-edge-io.tedge connect aws
-
-# Connect to Azure
-thin-edge-io.tedge connect az
-```
-
-### 4.4 Advanced Configuration
-
-#### 4.4.1 MQTT Settings
-
-```bash
-# Configure MQTT QoS
-thin-edge-io.tedge config set mqtt.qos 1
-
-# Configure keep-alive interval
-thin-edge-io.tedge config set mqtt.keepalive 60
-```
-
-#### 4.4.2 HTTP Settings
-
-```bash
-# Configure HTTP timeout
-thin-edge-io.tedge config set http.timeout 30
-```
-
-#### 4.4.3 Log Settings
-
-```bash
-# Set log level
-thin-edge-io.tedge config set log.level info
-
-# Available levels: error, warn, info, debug, trace
-```
-
----
-
-## 5. Operation
-
-### 5.1 Starting Services
-
-Services start automatically after installation. To manually control:
-
-```bash
-# Start all services
-snap start thin-edge-io
-
-# Start specific service
-snap start thin-edge-io.tedge-agent
-
-# Enable autostart
-snap enable thin-edge-io
-```
-
-### 5.2 Stopping Services
-
-```bash
-# Stop all services
-snap stop thin-edge-io
-
-# Stop specific service
-snap stop thin-edge-io.tedge-mapper-c8y
-```
-
-### 5.3 Restarting Services
-
-```bash
-# Restart all services
-snap restart thin-edge-io
-
-# Restart specific service
-snap restart thin-edge-io.tedge-agent
-```
-
-### 5.4 Sending Data
-
-#### 5.4.1 Send Measurements
-
-```bash
-# Send temperature measurement
-thin-edge-io.tedge mqtt pub te/device/main///m/ '{
-  "temperature": 23.5,
-  "humidity": 45.2,
-  "pressure": 1013.25
-}'
-```
-
-#### 5.4.2 Send Events
-
-```bash
-# Send alarm event
-thin-edge-io.tedge mqtt pub te/device/main///e/alarm '{
-  "text": "High temperature detected",
-  "severity": "major"
-}'
-```
-
-#### 5.4.3 Update Configuration
-
-```bash
-# Request configuration update
-thin-edge-io.tedge mqtt pub te/device/main///config/update '{
-  "config_type": "system",
-  "url": "https://example.com/config.json"
-}'
-```
-
----
-
-## 6. Monitoring
-
-### 6.1 Service Status
-
-```bash
-# Check service status
-snap services thin-edge-io
-
-# Check specific service
-snap service thin-edge-io.tedge-agent
-```
-
-### 6.2 View Logs
-
-```bash
-# View all logs
-snap logs thin-edge-io
-
-# View specific service logs
-snap logs thin-edge-io.tedge-agent
-
-# Follow logs in real-time
-snap logs thin-edge-io.tedge-agent -f
-
-# View last 100 lines
-snap logs thin-edge-io.tedge-agent -n 100
-```
-
-### 6.3 Connection Status
-
-```bash
-# Test cloud connection
-thin-edge-io.tedge connect c8y --test
-
-# Check configuration
-thin-edge-io.tedge config list
-```
-
-### 6.4 Web UI
-
-The Web UI at `https://<device-ip>/thin-edge-io/` provides:
-- **Status tab**: Live status of all snap services
-- **Logs tab**: Live log viewer with service and level selection
-- **Tedge Configuration tab**: Full `tedge config list` output
-- **System Information**: Build info, snap version, architecture, device serial
-
-### 6.5 Resource Usage
-
-```bash
-# Check snap resource usage
-snap info thin-edge-io
-
-# Check process details
-ps aux | grep tedge
-
-# Monitor memory usage
-top -p $(pgrep tedge | tr '\n' ',' | sed 's/,$//')
-```
-
----
-
-## 7. Troubleshooting
-
-### 7.1 Connection Issues
-
-**Problem**: Cannot connect to cloud platform
-
-**Solutions**:
-1. Verify network connectivity:
-   ```bash
-   ping your-tenant.cumulocity.com
-   ```
-
-2. Check certificate:
-   ```bash
-   thin-edge-io.tedge cert show
-   ```
-
-3. Verify configuration:
-   ```bash
-   thin-edge-io.tedge config list
-   ```
-
-4. Check mapper logs:
-   ```bash
-   snap logs thin-edge-io.tedge-mapper-c8y
-   ```
-
-### 7.2 Service Not Starting
-
-**Problem**: Service fails to start
-
-**Solutions**:
-1. Check service status:
-   ```bash
-   snap services thin-edge-io
-   ```
-
-2. View error logs:
-   ```bash
-   snap logs thin-edge-io.tedge-agent
-   ```
-
-3. Restart service:
-   ```bash
-   snap restart thin-edge-io.tedge-agent
-   ```
-
-### 7.3 Certificate Errors
-
-**Problem**: Certificate validation fails
-
-**Solutions**:
-1. Regenerate certificate:
-   ```bash
-   thin-edge-io.tedge cert remove
-   thin-edge-io.tedge cert create --device-id your-device-id
-   ```
-
-2. Re-upload to cloud platform
-
-3. Reconnect:
-   ```bash
-   thin-edge-io.tedge disconnect c8y
-   thin-edge-io.tedge connect c8y
-   ```
-
-### 7.4 High Resource Usage
-
-**Problem**: Excessive CPU or memory usage
-
-**Solutions**:
-1. Check log level (reduce if set to debug/trace):
-   ```bash
-   thin-edge-io.tedge config set log.level info
-   ```
-
-2. Reduce MQTT message frequency
-
-3. Restart services:
-   ```bash
-   snap restart thin-edge-io
-   ```
-
----
-
-## 8. API Reference
-
-### 8.1 MQTT Topics
-
-#### Device Measurements
-```
-te/device/{device_id}///m/
-```
-
-#### Device Events
-```
-te/device/{device_id}///e/{event_type}
-```
-
-#### Device Alarms
-```
-te/device/{device_id}///a/{alarm_type}
-```
-
-#### Configuration
-```
-te/device/{device_id}///config/{operation}
-```
-
-#### ctrlX Data Layer → Cumulocity MQTT Service (Port 9883)
-
-When using Cumulocity MQTT Service (`c8y.mqtt.port=9883`), Data Layer bridge publishes to topics with the `c8y/mqtt/out/` prefix. Each measurement payload includes:
+### AWS IoT
 
 | Field | Description |
-|-------|-------------|
-| `{field_name}` | The measured value (number, string, or boolean from Data Layer) |
-| `unit` | Unit of measurement (only if configured, e.g. `"MB"`, `"%"`) |
-| `time` | UTC timestamp in ISO-8601 format (`YYYY-MM-DDTHH:MM:SS.mmmZ`) |
-| `externalId` | Device external ID — equals the certificate CN registered in Cumulocity |
+|---|---|
+| **AWS URL** | IoT endpoint, e.g. `xxxxxxx.iot.eu-west-1.amazonaws.com` |
+| **Enable** | Toggle to activate/deactivate |
 
-Example payload:
+### Azure IoT Hub
+
+| Field | Description |
+|---|---|
+| **Azure URL** | IoT Hub hostname |
+| **Enable** | Toggle to activate/deactivate |
+
+Click **Save** to persist the configuration.
+
+---
+
+## 4. Device Certificate
+
+**Section**: "Device Certificate"
+
+Manage the TLS client certificate used to identify this device with Cumulocity.
+
+> **Screenshot**: "Device Certificate" section — Device ID + upload status visible
+>
+> ![screenshot](pictures/03-device-certificate.png)
+
+| Element | Description |
+|---|---|
+| **Device ID** | The CN in the certificate, e.g. `ctrlx-48FC8D56-6F25-43B1-8DF6-380342AA3478` |
+| **Create / Renew Certificate** | Generates a new self-signed certificate |
+| **Upload Certificate to C8y** | Registers the certificate with the Cumulocity tenant |
+| **Upload Status** | Shows whether the certificate has been uploaded |
+
+> **Note**: The Device ID is derived automatically from the hardware:  
+> DMI product serial → board serial → chassis serial → product UUID → `/etc/machine-id`  
+> It is always prefixed with `ctrlx-`.
+
+**Steps to set up a new device:**
+1. Set the **Device ID** (auto-detected or manually entered)
+2. Click **Create Certificate**
+3. Click **Upload Certificate to C8y**
+4. Proceed to [Connect Device](#5-connect-device)
+
+---
+
+## 5. Connect Device
+
+**Section**: "Connect Device"
+
+Establish or disconnect the cloud bridge connection.
+
+> **Screenshot**: "Connect Device" section — all buttons visible
+>
+> ![screenshot](pictures/04-connect-device.png)
+
+| Button | Description |
+|---|---|
+| **Connect C8y** | Runs `tedge connect c8y`, writes bridge config, restarts mosquitto |
+| **Disconnect C8y** | Runs `tedge disconnect c8y` |
+| **Reconnect C8y** | Disconnect + connect in one step |
+| **Connect / Disconnect AWS / Azure** | Same actions for the respective cloud |
+
+After connecting, the [Connection Status](#2-connection-status) section will show the `c8y` bridge as 🟢 running.
+
+---
+
+## 6. Logs & Diagnostics
+
+**Section**: "Logs & Diagnostics"
+
+View live log output from all services.
+
+> **Screenshot**: "Logs & Diagnostics" section — service dropdown open + log output visible
+>
+> ![screenshot](pictures/05-logs-diagnostics.png)
+
+| Control | Description |
+|---|---|
+| **Service dropdown** | Select service: `tedge-mapper-c8y`, `webserver`, `tedge-datalayer-bridge`, etc. |
+| **Log level** | Set verbosity (trace / debug / info / warn / error) — takes effect on next restart |
+| **Refresh** | Fetch the latest log lines |
+| **Download** | Save the full log file |
+
+---
+
+## 7. Device Configuration
+
+**Section**: "Device Configuration"
+
+Edit the thin-edge device and cloud settings directly.
+
+> **Screenshot**: "Device Configuration" section — fields filled in
+>
+> ![screenshot](pictures/06-device-configuration.png)
+
+Shows the current configuration values and allows direct editing of:
+- Device ID / name
+- Cloud URLs and connection state
+- Certificate upload status
+
+Click **Save Configuration** to apply changes.
+
+---
+
+## 8. Tedge Configuration
+
+**Section**: "Tedge Configuration"
+
+View and edit the raw `tedge config` key-value pairs.
+
+> **Screenshot**: "Tedge Configuration" section — config list visible
+>
+> ![screenshot](pictures/07-tedge-configuration.png)
+
+Displays the full output of `tedge config list`. Individual values can be updated directly. This is useful for advanced settings not covered by the standard UI (e.g. custom MQTT host, keepalive intervals).
+
+---
+
+## 9. Configuration Files
+
+**Section**: "Configuration Files"
+
+Browse and edit snap configuration files directly in the browser.
+
+> **Screenshot**: "Configuration Files" section — file list
+>
+> ![screenshot](pictures/08-configuration-files.png)
+
+Files are stored under `$SNAP_DATA` and `$SNAP_COMMON`. Edits are saved directly to disk.
+
+---
+
+## 10. ctrlX Datalayer Mapping
+
+**Section**: "ctrlX Datenpunkte (Datalayer)"
+
+Bridge ctrlX Datalayer nodes to Cumulocity via MQTT. Publish PLC data as measurements, events, or alarms to the cloud.
+
+> **Screenshot**: Full "ctrlX Datalayer" section overview
+>
+> ![screenshot](pictures/09-datalayer-overview.png)
+
+---
+
+### 10.1 Connection Settings
+
+Configure the ctrlX Datalayer REST API connection.
+
+> **Screenshot**: "Connection Settings" accordion expanded
+>
+> ![screenshot](pictures/09a-connection-settings.png)
+
+| Field | Description | Default |
+|---|---|---|
+| **Enable** | Activate/deactivate the datalayer bridge | off |
+| **Base URL** | ctrlX Datalayer API URL | `https://localhost` |
+| **Username** | ctrlX login username | — |
+| **Password** | ctrlX login password | — |
+| **Accept Invalid Certs** | Skip TLS verification (required for `https://localhost`) | on |
+| **Poll Interval (ms)** | How often to read datalayer node values | `5000` |
+
+Click **Save** to apply. The bridge reads the configuration on every poll cycle, so no restart is required.
+
+---
+
+### 10.2 Node Browser
+
+Browse available ctrlX Datalayer nodes.
+
+> **Screenshot**: "Node Browser" accordion expanded — tree with nodes visible
+>
+> ![screenshot](pictures/09b-node-browser.png)
+
+- Click a **folder node** to expand it
+- Click a **leaf node** to pre-fill the [mapping form](#103-mapping-form) with its path
+- Click **Refresh** to reload the node tree from the Datalayer API
+
+---
+
+### 10.3 Mapping Form
+
+Add or edit a single Datalayer → MQTT mapping.
+
+> **Screenshot**: Mapping form — Measurement transform, all fields filled in
+>
+> ![screenshot](pictures/09c-mapping-form-measurement.png)
+
+| Field | Description |
+|---|---|
+| **Datalayer Path** | Path to the node in the ctrlX Datalayer, e.g. `motion/axs/Axis1/state/values/actualposition` |
+| **Direction** | `Datalayer → tedge` (read from PLC) or `tedge → Datalayer` (write to PLC) |
+| **Field Name** | Label used in the outgoing JSON payload, e.g. `temperature` |
+| **MQTT Topic** | Target MQTT topic — auto-filled based on transform type and port (editable) |
+| **Transform** | How to convert the value (see below) |
+| **Unit** | Optional unit label, e.g. `°C`, `bar`, `rpm` |
+| **Enabled** | Toggle to activate/deactivate without deleting |
+
+**Transform types and generated payloads:**
+
+#### Measurement (port 8883)
+Topic: `te/device/main///m/<fieldName>`
 ```json
 {
-  "memfree-mb": 6892.03,
-  "unit": "MB",
-  "time": "2026-04-21T09:30:00.123Z",
-  "externalId": "ctrlx-984c906200b9425eb91c96474c64c938"
+  "temperature": 23.5,
+  "unit": "°C",
+  "time": "2026-04-24T08:00:05.450Z"
 }
 ```
 
-Multiple fields from different Data Layer paths can be mapped to the **same** MQTT topic. Each mapping is identified by its UUID, so mappings with identical topics are handled correctly and independently.
+#### Measurement (port 9883 — MQTT Service)
+Topic: `c8y/mqtt/out/<path>`
+```json
+{
+  "externalId": "ctrlx-48FC8D56-6F25-43B1-8DF6-380342AA3478",
+  "temperature": 23.5,
+  "unit": "°C",
+  "time": "2026-04-24T08:00:05.450Z"
+}
+```
 
-### 8.2 Web UI REST API
+#### Event (port 9883)
+Topic: `c8y/mqtt/out/<path>`
+```json
+{
+  "externalId": "ctrlx-48FC8D56-6F25-43B1-8DF6-380342AA3478",
+  "Text": {
+    "mainDiagnosisCode": "0x00010001",
+    "text": "System start completed",
+    "timestamp": "2026-04-24T08:00:05.450Z",
+    "severity": "Informational",
+    "origin": "System"
+  },
+  "type": "c8y_object",
+  "time": "2026-04-24T08:00:05.450Z"
+}
+```
 
-The webserver exposes a REST API on port 8888 (proxied to `/thin-edge-io/api/` by ctrlX Caddyfile):
+#### Alarm (port 9883)
+Topic: `c8y/mqtt/out/<path>`
+```json
+{
+  "externalId": "ctrlx-48FC8D56-6F25-43B1-8DF6-380342AA3478",
+  "Text": {
+    "mainDiagnosisCode": "0x08010101",
+    "text": "Axis 1: Error in drive power stage",
+    "timestamp": "2026-04-24T10:15:30.123Z",
+    "severity": "ERROR",
+    "origin": "Motion/Axis1"
+  },
+  "severity": "ERROR",
+  "status": "ACTIVE",
+  "type": "c8y_object",
+  "time": "2026-04-24T10:15:30.123Z"
+}
+```
 
-| Method | Endpoint | Roles | Description |
-|--------|----------|-------|-------------|
-| GET | `/api/status` | All | Service status |
-| GET | `/api/config` | All | Current tedge configuration |
-| POST | `/api/config/c8y` | Editor+ | Save Cumulocity configuration |
-| POST | `/api/config/aws` | Editor+ | Save AWS configuration |
-| POST | `/api/config/az` | Editor+ | Save Azure configuration |
-| POST | `/api/config/device` | Editor+ | Save device configuration |
-| GET | `/api/device-id` | All | Get device ID |
-| POST | `/api/device-id` | Editor+ | Set device ID |
-| POST | `/api/device-id/recreate` | Admin | Recreate certificate |
-| POST | `/api/device-id/create-auto` | Admin | Auto-create certificate |
-| GET | `/api/device-id/cert-info` | All | Certificate details |
-| POST | `/api/connect/{cloud}` | Admin | Connect to cloud |
-| POST | `/api/disconnect/{cloud}` | Admin | Disconnect from cloud |
-| POST | `/api/reconnect/{cloud}` | Admin | Reconnect to cloud |
-| POST | `/api/cert/upload/c8y` | Admin | Upload cert to Cumulocity |
-| POST | `/api/test-message` | Editor+ | Publish test MQTT message |
-| GET | `/api/logs` | All | Fetch service logs |
-| GET | `/api/tedge-config-list` | All | Full `tedge config list` output |
-| GET | `/api/build-info` | All | Build and version information |
-| GET | `/api/me` | All | Current user and role |
-| POST | `/api/restart` | Admin | Restart all services |
-| POST | `/api/restart-service` | Admin | Restart single service |
-| POST | `/api/set-mqtt-port` | Admin | Set `c8y.mqtt.port` (8883/9883) |
-| GET | `/api/datalayer/status` | All | Data Layer bridge status |
-| GET | `/api/datalayer/config` | All | Data Layer bridge configuration |
-| POST | `/api/datalayer/config` | Editor+ | Save Data Layer configuration |
-| GET | `/api/datalayer/mappings` | All | List MQTT ↔ Data Layer mappings |
-| POST | `/api/datalayer/mappings` | Editor+ | Save all mappings |
-| POST | `/api/datalayer/mappings/add` | Editor+ | Add a mapping |
-| DELETE | `/api/datalayer/mappings/{id}` | Admin | Delete a mapping |
-| GET | `/api/datalayer/browse` | All | Browse Data Layer nodes |
-| GET | `/api/datalayer/node` | All | Read a Data Layer node value |
+> **Note on `type` field**: The value is built from the Datalayer node's `type` field with a `c8y_` prefix. If the node reports `"type": "object"`, the outgoing field will be `"type": "c8y_object"`.
 
----
+> **Screenshot**: Mapping form — Event transform selected
+>
+> ![screenshot](pictures/09d-mapping-form-event.png)
 
-## 9. Security
+> **Screenshot**: Mapping form — Alarm transform selected
+>
+> ![screenshot](pictures/09e-mapping-form-alarm.png)
 
-### 9.1 Authentication
-
-- Certificate-based device authentication
-- TLS encryption for all cloud connections
-- No plaintext credentials stored
-
-### 9.2 Network Security
-
-- All cloud connections use TLS 1.2+
-- MQTT cloud connections use port 8883 (encrypted)
-- Local MQTT broker (port 1883) bound to 127.0.0.1 only
-- Web UI (port 8888) accessible only via ctrlX Caddyfile proxy — not directly exposed
-- ctrlX Bearer Token authentication enforced for all Web UI access
-- Role-based access control: Viewer / Editor / Admin scopes
-
-### 9.3 Snap Confinement
-
-- Strict snap confinement enabled
-- Minimal required permissions
-- Process isolation
-- No root privileges required
-
-### 9.4 Best Practices
-
-1. Use unique device IDs
-2. Rotate certificates regularly
-3. Monitor connection logs
-4. Keep app updated
-5. Use strong passwords for cloud platforms
+Click **Add Mapping** (new) or **Save** (edit). Changes take effect immediately — no restart required.
 
 ---
 
-## 10. Support
+### 10.4 Mapping Table
 
-### 10.1 Documentation
+Overview of all configured mappings.
 
-- Online Docs: https://thin-edge.github.io/thin-edge.io/
-- GitHub: https://github.com/thin-edge/thin-edge.io
+> **Screenshot**: Mapping table with several entries visible
+>
+> ![screenshot](pictures/09f-mapping-table.png)
 
-### 10.2 Community Support
-
-- Discord: https://discord.com/invite/sVX3B8nj5d
-- GitHub Issues: https://github.com/thin-edge/thin-edge.io/issues
-
-### 10.3 Contact
-
-- Email: info@thin-edge.io
-- Website: https://thin-edge.io
+| Column | Description |
+|---|---|
+| **Path** | ctrlX Datalayer path |
+| **Topic** | MQTT topic |
+| **Transform** | measurement / event / alarm / raw |
+| **Direction** | dl→tedge or tedge→dl |
+| **Enabled** | Active state toggle |
+| **Actions** | Edit ✎ or Delete 🗑 |
 
 ---
 
-**End of Manual**
+## 11. ctrlX Licensing
+
+**Section**: "ctrlX Licensing"
+
+Manage the license required to run this snap.
+
+> **Screenshot**: "ctrlX Licensing" section — license list visible
+>
+> ![screenshot](pictures/10-licensing.png)
+
+| Element | Description |
+|---|---|
+| **License Status** | Active / not licensed |
+| **Manage Licenses** | Opens `/license-manager` in the ctrlX web interface |
+| **License List** | Shows capabilities assigned to this snap |
+
+**Required license**: `SWL-XCx-RUN-DLACCESSNRTxx-NNNN`  
+**Trial license**: `SWL_XCR_ENGINEERING_4H` (4-hour engineering license, no purchase required)
+
+If no valid license is held, a **red warning banner** appears at the top of the page:
+
+> **Screenshot**: Red license warning banner
+>
+> ![screenshot](pictures/10b-license-warning.png)
+
+---
+
+## 12. System Information
+
+**Section**: "System Information"
+
+Shows hardware, OS, network, and installed snap package information.
+
+> **Screenshot**: "System Information" section — all fields visible
+>
+> ![screenshot](pictures/11-system-information.png)
+
+Data shown includes:
+- Hardware serial number / product UUID
+- OS version and architecture
+- Network interfaces and IP addresses
+- Installed snap packages with versions
+- Build information of this snap
+
+This information is also published to Cumulocity as the device inventory (twin topics).
+
+---
+
+## Screenshots Checklist
+
+The UI is at: `https://<ctrlx-ip>/thin-edge-io/`  
+Save screenshots to: `docs/pictures/`
+
+| File | Section | What to show |
+|---|---|---|
+| `00-overview.png` | Full page | Sidebar + first section visible |
+| `01-connection-status.png` | Connection Status | All service indicators |
+| `02-cloud-configuration.png` | Cloud Configuration | All three tabs (C8y / AWS / Azure) |
+| `02b-c8y-config.png` | C8y tab | URL + MQTT port filled in |
+| `03-device-certificate.png` | Device Certificate | Device ID + upload status |
+| `04-connect-device.png` | Connect Device | Connect/Disconnect buttons |
+| `05-logs-diagnostics.png` | Logs & Diagnostics | Service dropdown + log output |
+| `06-device-configuration.png` | Device Configuration | Fields filled in |
+| `07-tedge-configuration.png` | Tedge Configuration | `tedge config list` output |
+| `08-configuration-files.png` | Configuration Files | File list |
+| `08b-file-editor.png` | Configuration Files | Editor open with a file |
+| `09-datalayer-overview.png` | Datalayer section | Full section |
+| `09a-connection-settings.png` | Connection Settings | Accordion open, fields filled |
+| `09b-node-browser.png` | Node Browser | Tree expanded with nodes |
+| `09c-mapping-form-measurement.png` | Mapping Form | Measurement transform |
+| `09d-mapping-form-event.png` | Mapping Form | Event transform |
+| `09e-mapping-form-alarm.png` | Mapping Form | Alarm transform |
+| `09f-mapping-table.png` | Mapping Table | Several rows visible |
+| `10-licensing.png` | Licensing | License list |
+| `10b-license-warning.png` | License Warning | Red banner at top of page |
+| `11-system-information.png` | System Information | All fields |

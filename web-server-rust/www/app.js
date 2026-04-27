@@ -529,12 +529,12 @@ const I18N = {
     "datalayer.topic_hint_service": "e.g. c8y/mqtt/out/myTopic",
   },
 };
-// 1. Token beim Start aus der URL extrahieren
+// 1. Extract token from URL on startup
 const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get("token");
 if (tokenFromUrl) {
   sessionStorage.setItem("ctrlx_token", tokenFromUrl);
-  // Token aus der URL entfernen für saubere Optik
+  // Remove token from URL for a clean address bar appearance
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
@@ -543,7 +543,7 @@ if (tokenFromUrl) {
  * includes the JWT token stored in sessionStorage.
  */
 async function fetchWithAuth(url, options = {}) {
-  // 1. Token aus sessionStorage holen (wird beim Login/Seitenladen dort gespeichert)
+  // 1. Retrieve token from sessionStorage (stored there on login/page load)
   const token = sessionStorage.getItem("ctrlx_token");
 
   const headers = {
@@ -552,7 +552,7 @@ async function fetchWithAuth(url, options = {}) {
   };
 
   if (token) {
-    // Wir setzen beide Header, um sicherzugehen
+    // Set both headers to be safe
     headers["Authorization"] = `Bearer ${token}`;
     headers["X-Auth-Token"] = `Bearer ${token}`;
   }
@@ -747,19 +747,20 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 // Load status on page load
 window.addEventListener("DOMContentLoaded", () => {
-  // Token aus der URL extrahieren (ctrlX übergibt dies oft als ?token=...)
+  // Extract token from URL (ctrlX often passes it as ?token=...)
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("token");
 
   if (token) {
     sessionStorage.setItem("ctrlx_token", token);
-    // Optional: Token aus der URL entfernen für eine sauberere Adressleiste
+    // Optional: remove token from URL for a cleaner address bar
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  checkLicenseStatus();
 
   // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
   ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
@@ -803,7 +804,7 @@ async function loadStatus() {
     updateStatusBadge("mapper-c8y-status", data.mapper_c8y || "unknown");
     updateStatusBadge("mapper-aws-status", data.mapper_aws || "unknown");
     updateStatusBadge("mapper-az-status", data.mapper_az || "unknown");
-    // Mapper-Status ergänzen
+    // Supplement mapper status
     updateStatusBadge("c8y-mapper-status", data.c8y || "unknown");
     updateStatusBadge("aws-mapper-status", data.aws || "unknown");
     updateStatusBadge("az-mapper-status", data.az || "unknown");
@@ -895,8 +896,8 @@ async function loadConfiguration() {
       document.getElementById("az-url").value = config.az["azure-url"] || "";
     }
 
-    // Mapper-Toggles aus dem tatsächlichen Service-Zustand setzen (nicht aus JSON-Config)
-    // so dass der Toggle immer den echten Laufzustand widerspiegelt
+    // Set mapper toggles from the actual service state (not from JSON config)
+    // so the toggle always reflects the actual runtime state
     try {
       const statusResp = await fetchWithAuth("api/status");
       if (statusResp.ok) {
@@ -925,7 +926,7 @@ async function loadConfiguration() {
           config.az.enabled || false;
     }
 
-    // Toggle deaktivieren wenn URL-Feld leer ist (kein Mapper ohne URL möglich)
+    // Disable toggle if URL field is empty (no mapper without URL is possible)
     updateMapperToggleState("c8y-url", "c8y-enabled");
     updateMapperToggleState("aws-url", "aws-enabled");
     updateMapperToggleState("az-url", "az-enabled");
@@ -1355,7 +1356,7 @@ async function applyRoleRestrictions() {
   }
 }
 
-// Erstellt oder erneuert das Gerätezertifikat
+// Creates or renews the device certificate
 function manageCertificate() {
   setDeviceId();
 }
@@ -1470,15 +1471,16 @@ async function onMqttPortToggle(checked, save = true) {
       ? t("connect.port_applied", 9883)
       : t("connect.port_applied", 8883);
 
-  // Nur speichern wenn der Benutzer den Schalter betätigt hat (save=true)
+  // Only save if the user has actually toggled the switch (save=true)
   if (!save) return;
 
   if (status) status.textContent = "…";
 
-  // 1. Alle Datalayer-Mappings deaktivieren wenn auf 9883 umgeschaltet wird,
-  //    oder wieder aktivieren wenn zurück auf 8883.
+  // 1. Disable all datalayer mappings when switching to 9883,
+  //    or re-enable when switching back to 8883.
+  //    or re-enable when switching back to 8883.
   if (typeof _dlMappings !== "undefined" && _dlMappings.length > 0) {
-    const shouldEnable = !checked; // 8883 → einschalten, 9883 → ausschalten
+    const shouldEnable = !checked; // 8883 → enable, 9883 → disable
     const updated = _dlMappings.map((m) => ({ ...m, enabled: shouldEnable }));
     try {
       const mr = await fetchWithAuth("api/datalayer/mappings", {
@@ -1541,6 +1543,7 @@ async function loadC8yMqttPort() {
         if (toggle) {
           const enabled = match ? match[1].trim() === "true" : false;
           toggle.checked = enabled;
+          _mqttServiceEnabled = enabled;
           onMqttPortToggle(enabled, false);
           return;
         }
@@ -1554,6 +1557,7 @@ async function loadC8yMqttPort() {
       const cfg = await r2.json();
       const enabled = cfg.mqttServiceEnabled === true;
       const toggle = document.getElementById("c8y-mqtt-port-toggle");
+      _mqttServiceEnabled = enabled;
       if (toggle) {
         toggle.checked = enabled;
         onMqttPortToggle(enabled, false);
@@ -1789,7 +1793,7 @@ async function submitCertUpload() {
   }
 }
 
-// Speichert die Datalayer-Konfiguration über die API
+// Saves the datalayer configuration via the API
 async function saveDatalayerConfig() {
   try {
     // IDs korrigieren (siehe Hinweis unten) und Werte holen
@@ -1834,7 +1838,7 @@ async function saveDatalayerConfig() {
   }
 }
 
-// (toggleColorPicker und setColorTheme sind am Dateianfang als hoisted Deklarationen definiert)
+// (toggleColorPicker and setColorTheme are declared as hoisted declarations at the top of the file)
 
 function applyColorTheme() {
   var color = localStorage.getItem("tedge-color") || "green";
@@ -1896,6 +1900,8 @@ function initCollapsibleSections() {
       loadDatalayerStatus();
       loadDatalayerConfig();
       loadDatalayerMappings();
+      // Ensure port toggle is set before updateTopicPrefix() is called
+      loadC8yMqttPort().then(() => updateTopicPrefix());
     },
     "sec-sysinfo": () => {
       loadBuildInfo();
@@ -1925,14 +1931,11 @@ function initCollapsibleSections() {
     // Collapse all except first
     if (index > 0) section.classList.add("collapsed");
 
-    let loaded = index === 0; // first section already loaded via DOMContentLoaded
-
-    // Toggle on h2 click + lazy load
+    // Toggle on h2 click — reload data every time the section is expanded
     h2.addEventListener("click", () => {
       const wasCollapsed = section.classList.contains("collapsed");
       section.classList.toggle("collapsed");
-      if (wasCollapsed && !loaded) {
-        loaded = true;
+      if (wasCollapsed) {
         const loader = lazyLoaders[section.id];
         if (loader) loader();
       }
@@ -1962,6 +1965,7 @@ async function loadBuildInfo() {
 // ── ctrlX Datalayer ──────────────────────────────────────────────────────────
 
 let _dlMappings = []; // In-Memory Kopie der Mappings
+let _mqttServiceEnabled = null; // Cached MQTT service state (null = not yet loaded)
 
 /** 1. Initialisierung beim Laden */
 function _initDatalayerUI() {
@@ -1986,7 +1990,7 @@ async function loadDatalayerStatus() {
 
   if (!dotSvc || !text) return;
 
-  // Hilfsfunktion: Setzt Text und sorgt dafür, dass die Sprache umschaltbar bleibt
+  // Helper: sets text while keeping the language switchable
   const setStatus = (key) => {
     text.textContent = t(key);
     text.setAttribute("data-i18n", key);
@@ -1999,10 +2003,10 @@ async function loadDatalayerStatus() {
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
-    // Authentifizierungs-Fehler (Dienst läuft, aber Login falsch)
+    // Authentication error (service is running but login is wrong)
     if (r.status === 401 || r.status === 403) {
       dotSvc.textContent = "🟢";
-      // Hier müsstest du evtl. noch 'status.noauth' ("🟡 Auth Error") in der i18n anlegen!
+      // Note: you may need to add 'status.noauth' ("🟡 Auth Error") to i18n!
       setStatus("datalayer.status_noauth");
       return;
     }
@@ -2021,7 +2025,7 @@ async function loadDatalayerStatus() {
       dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
       setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
     } else {
-      // Dienst läuft
+      // Service is running
       dotSvc.textContent = "🟢";
 
       if (d.connected) {
@@ -2305,7 +2309,9 @@ function prepareMapping(path) {
 /** Liefert true wenn c8y.mqtt_service (Port 9883) aktiv ist */
 function isMqttServiceActive() {
   const toggle = document.getElementById("c8y-mqtt-port-toggle");
-  return toggle ? toggle.checked : false;
+  if (toggle) return toggle.checked;
+  // Fallback: use cached value if toggle element not in DOM yet
+  return _mqttServiceEnabled === true;
 }
 
 /** 4. Topic automatisch basierend auf Transform setzen */
@@ -2318,12 +2324,11 @@ function updateTopicPrefix() {
   ).value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
-  const topicHint = document.getElementById("datalayer-mapping-topic-hint");
 
   const lastPart = path.split("/").pop() || "value";
 
   if (isMqttServiceActive()) {
-    // MQTT Service (9883): c8y/mqtt/out/ Präfix erzwingen
+    // MQTT Service (9883): enforce c8y/mqtt/out/ prefix
     const prefix = "c8y/mqtt/out/";
     let topic = prefix;
     if (direction === "tedge_to_dl") {
@@ -2332,12 +2337,14 @@ function updateTopicPrefix() {
       topic += lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_service");
-      topicHint.style.color = "var(--c8y-palette-status-warning, #e8760d)";
-    }
+    // Placeholder shows the matching example for 9883
+    if (transform === "event")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
-    // Core MQTT (8883): te/ Präfix
+    // Core MQTT (8883): te/ prefix
     let topic = "te/device/main///";
     if (direction === "tedge_to_dl") {
       topic += "cmd/plc/" + lastPart;
@@ -2348,14 +2355,57 @@ function updateTopicPrefix() {
       else topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    if (topicHint) {
-      topicHint.textContent = t("datalayer.topic_hint_core");
-      topicHint.style.color = "var(--c8y-palette-gray-40)";
-    }
+    // Placeholder shows the matching example for 8883
+    if (transform === "event")
+      topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
+  // Live-update preview whenever topic changes
+  showMappingPayloadPreview();
 }
 
-/** 4b. Ein bestehendes Mapping zum Bearbeiten ins Formular laden */
+/** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
+function showMappingPayloadPreview() {
+  const pre = document.getElementById("datalayer-payload-preview");
+  if (!pre) return;
+
+  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const fieldName =
+    document.getElementById("datalayer-mapping-field").value.trim() ||
+    (document.getElementById("datalayer-mapping-path").value.split("/").pop() || "value");
+  const unit = document.getElementById("datalayer-mapping-unit").value.trim();
+  const topic = document.getElementById("datalayer-mapping-topic").value.trim();
+  const isC8yService = topic.startsWith("c8y/mqtt/out/");
+  const ts = new Date().toISOString();
+
+  let payload;
+  if (transform === "measurement") {
+    payload = { [fieldName]: 42.0, time: ts };
+    if (unit) payload.unit = unit;
+    if (isC8yService) payload.externalId = "<device-external-id>";
+  } else if (transform === "event") {
+    if (isC8yService) {
+      payload = { Text: "<datalayer-value>", type: "c8y_ctrlx_Event", time: ts };
+      payload.externalId = "<device-external-id>";
+    } else {
+      payload = { text: `Event: ${fieldName} is <value>`, type: "ctrlx_event" };
+    }
+  } else if (transform === "alarm") {
+    if (isC8yService) {
+      payload = { Text: "<datalayer-value>", severity: "MAJOR", status: "ACTIVE", type: "c8y_ctrlx_Alarm", time: ts };
+      payload.externalId = "<device-external-id>";
+    } else {
+      payload = { text: `Alarm at ${fieldName}: value is <value>`, severity: "major" };
+    }
+  } else {
+    payload = { raw: "<datalayer-value>" };
+  }
+
+  pre.textContent = JSON.stringify(payload, null, 2);
+}
+
 function editDatalayerMapping(id) {
   const mapping = _dlMappings.find((m) => m.id === id);
   if (!mapping) return;
@@ -2368,7 +2418,7 @@ function editDatalayerMapping(id) {
     mapping.path || mapping.datalayer_path || "";
   const existingTopic = mapping.topic || mapping.tedge_topic || "";
   let loadedTopic = existingTopic;
-  // Im MQTT-Service-Modus: Präfix sicherstellen
+  // In MQTT Service mode: ensure prefix is correct
   if (
     isMqttServiceActive() &&
     loadedTopic &&
@@ -2397,6 +2447,8 @@ function editDatalayerMapping(id) {
     mapping.field_name || "";
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
 
+  showMappingPayloadPreview();
+
   const titleEl = document.getElementById("mapping-form-title");
   if (titleEl) titleEl.textContent = t("datalayer.edit_mapping_title");
 
@@ -2405,9 +2457,9 @@ function editDatalayerMapping(id) {
   if (delBtn) delBtn.style.display = id ? "inline-block" : "none";
   section.scrollIntoView({ behavior: "smooth" });
 
-  // Speichere aktuelle Mapping-ID für Delete
+  // Store current mapping ID for delete
   window._currentMappingId = id;
-  // Löscht das aktuell geladene Mapping aus dem Edit-Formular
+  // Deletes the currently loaded mapping from the edit form
   async function deleteCurrentMapping() {
     const id = window._currentMappingId;
     if (!id) return;
@@ -2437,7 +2489,7 @@ async function saveNewMapping() {
   const idInput = document.getElementById("datalayer-mapping-id").value;
   const isEdit = !!idInput;
 
-  // Topic holen und abschließenden Slash entfernen, falls vorhanden
+  // Get topic and strip trailing slash if present
   let topicRaw = document
     .getElementById("datalayer-mapping-topic")
     .value.trim();
@@ -2449,7 +2501,7 @@ async function saveNewMapping() {
   if (isMqttServiceActive()) {
     const prefix = "c8y/mqtt/out/";
     if (!topicRaw.startsWith(prefix)) {
-      // Altes te/-Topic oder sonstiges: Präfix voranstellen
+      // Old te/ topic or other: prepend prefix
       const bare = topicRaw.replace(
         /^(te\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/|c8y\/[^/]*\/[^/]*\/)/,
         "",
@@ -2522,6 +2574,9 @@ async function saveNewMapping() {
 function cancelMapping() {
   const section = document.getElementById("datalayer-mapping-section");
   if (section) section.style.display = "none";
+
+  const pre = document.getElementById("datalayer-payload-preview");
+  if (pre) pre.textContent = "";
 
   [
     "datalayer-mapping-id",
@@ -2748,6 +2803,37 @@ function renderNodeList(nodes) {
 }
 
 // ── ctrlX Licensing ──────────────────────────────────────────────────────────
+
+async function checkLicenseStatus() {
+  try {
+    const resp = await fetchWithAuth("api/license-status");
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const banner = document.getElementById("license-warning-banner");
+    if (!banner) return;
+    if (!data.licensed) {
+      banner.innerHTML =
+        "⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
+        "Please obtain license <code>" +
+        (data.required || "") +
+        "</code> from the " +
+        '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
+        '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+      banner.style.display = "flex";
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) {
+    // silently ignore — banner stays hidden if endpoint not reachable
+  }
+}
+
+function scrollToLicensing() {
+  const sec = document.getElementById("sec-licensing");
+  if (!sec) return;
+  if (sec.classList.contains("collapsed")) sec.querySelector("h2")?.click();
+  sec.scrollIntoView({ behavior: "smooth" });
+}
 
 async function loadLicenses() {
   const loading = document.getElementById("licensing-loading");

@@ -239,7 +239,7 @@ impl AppState {
         let config = Self::load_config(&config_path);
         info!("[INIT] Configuration loaded successfully");
 
-        // Lege initiale Default-Datei an, falls sie nicht existiert
+        // Create initial default file if it does not exist
         if !config_path.exists() {
             info!(
                 "[INIT] Creating initial default config at: {:?}",
@@ -250,7 +250,7 @@ impl AppState {
             }
         }
 
-        // Datalayer-Konfigurationsdatei mit Defaults anlegen, falls sie fehlt
+        // Create datalayer config file with defaults if it is missing
         if !datalayer_config_path.exists() {
             info!(
                 "[INIT] Creating initial datalayer config at: {:?}",
@@ -331,7 +331,7 @@ impl AppState {
 
     fn load_datalayer_config(&self) -> DatalayerConfig {
         info!(
-            "[DL-CONFIG] Versuche Konfiguration zu lesen von: {:?}",
+            "[DL-CONFIG] Loading config from: {:?}",
             self.datalayer_config_path
         );
 
@@ -339,14 +339,14 @@ impl AppState {
             Ok(content) => match serde_json::from_str::<DatalayerConfig>(&content) {
                 Ok(cfg) => {
                     info!(
-                        "[DL-CONFIG] Erfolgreich geladen: {} Mappings aktiv.",
+                        "[DL-CONFIG] Loaded successfully: {} active mappings.",
                         cfg.mappings.len()
                     );
                     cfg
                 }
                 Err(e) => {
                     error!(
-                        "[DL-CONFIG] JSON PARSE-FEHLER in Zeile {}, Spalte {}: {}",
+                        "[DL-CONFIG] JSON PARSE ERROR at line {}, column {}: {}",
                         e.line(),
                         e.column(),
                         e
@@ -355,10 +355,7 @@ impl AppState {
                 }
             },
             Err(e) => {
-                warn!(
-                    "[DL-CONFIG] Konnte datalayer-mappings.json nicht lesen: {}",
-                    e
-                );
+                warn!("[DL-CONFIG] Could not read datalayer-mappings.json: {}", e);
                 DatalayerConfig::default()
             }
         }
@@ -406,7 +403,7 @@ impl AppState {
         Ok(())
     }
 }
-/// POST /api/datalayer/mappings/add  — Fügt ein einzelnes Mapping hinzu
+/// POST /api/datalayer/mappings/add  — Adds a single mapping
 async fn add_datalayer_mapping(
     req: HttpRequest,
     body: web::Json<DatalayerMapping>,
@@ -419,12 +416,12 @@ async fn add_datalayer_mapping(
 
     let mut new_mapping = body.into_inner();
 
-    // UUID generieren, falls noch keine da ist
+    // Generate a UUID if none is present yet
     if new_mapping.id.is_empty() {
         new_mapping.id = uuid::Uuid::new_v4().to_string();
     }
 
-    // Config laden, Mapping hinzufügen, Config speichern
+    // Load config, add mapping, save config
     let mut cfg = data.load_datalayer_config();
     cfg.mappings.push(new_mapping.clone());
 
@@ -433,11 +430,11 @@ async fn add_datalayer_mapping(
             .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
     }
 
-    info!("[DL-CONFIG] Neues Mapping hinzugefügt: {}", new_mapping.id);
+    info!("[DL-CONFIG] New mapping added: {}", new_mapping.id);
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "mapping": new_mapping})))
 }
 
-/// PUT /api/datalayer/mappings/{id}  — Aktualisiert ein bestehendes Mapping
+/// PUT /api/datalayer/mappings/{id}  — Updates an existing mapping
 async fn update_datalayer_mapping(
     req: HttpRequest,
     path: web::Path<String>,
@@ -465,14 +462,14 @@ async fn update_datalayer_mapping(
             .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
     }
 
-    info!("[DL-CONFIG] Mapping aktualisiert: {}", id);
+    info!("[DL-CONFIG] Mapping updated: {}", id);
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "mapping": updated})))
 }
 
-/// DELETE /api/datalayer/mappings/{id}  — Löscht ein einzelnes Mapping
+/// DELETE /api/datalayer/mappings/{id}  — Deletes a single mapping
 async fn delete_datalayer_mapping(
     req: HttpRequest,
-    path: web::Path<String>, // Die ID kommt aus der URL
+    path: web::Path<String>, // The ID comes from the URL
     data: web::Data<AppState>,
 ) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -486,13 +483,13 @@ async fn delete_datalayer_mapping(
     let initial_len = cfg.mappings.len();
     cfg.mappings.retain(|m| m.id != id_to_delete);
 
-    // Nur speichern, wenn wirklich etwas gelöscht wurde
+    // Only save if something was actually deleted
     if cfg.mappings.len() < initial_len {
         if let Err(e) = data.save_datalayer_config(&cfg) {
             return Ok(HttpResponse::InternalServerError()
                 .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
         }
-        info!("[DL-CONFIG] Mapping gelöscht: {}", id_to_delete);
+        info!("[DL-CONFIG] Mapping deleted: {}", id_to_delete);
     }
 
     Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
@@ -540,9 +537,9 @@ fn strip_url_scheme(url: &str) -> &str {
         url
     }
 }
-// Rückgabetyp auf 3 Werte ändern: (User, Rolle, Token)
+// Returns 3 values: (user, role, token)
 fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<String>) {
-    // Prüfe erst X-Auth-Token (von Caddy), dann den Standard Authorization Header
+    // Check X-Auth-Token (from Caddy) first, then the standard Authorization header
     let token = req
         .headers()
         .get("X-Auth-Token")
@@ -574,10 +571,10 @@ fn extract_user_info(req: &HttpRequest) -> (Option<String>, UserRole, Option<Str
         UserRole::from_header(webauth_role)
     };
 
-    // WICHTIG: Hier sehen wir im Log, ob es jetzt klappt
+    // NOTE: this log line confirms whether token extraction is working
     if let Some(ref t) = token {
         if !t.is_empty() {
-            info!("✓ Token erfolgreich extrahiert (Länge: {} Bytes)", t.len());
+            info!("✓ Token extracted successfully (length: {} bytes)", t.len());
         }
     }
 
@@ -3708,7 +3705,8 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
         .to_string();
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = match resolve_snap_config_path(&file_name, &snap_data) {
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let path = match resolve_snap_config_path(&file_name, &snap_data, &snap_common) {
         Some(p) => p,
         None => {
             return Ok(HttpResponse::BadRequest().json(
@@ -3784,7 +3782,8 @@ async fn save_snap_config_file(
     }
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = match resolve_snap_config_path(&body.file, &snap_data) {
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let path = match resolve_snap_config_path(&body.file, &snap_data, &snap_common) {
         Some(p) => p,
         None => {
             return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -3810,7 +3809,7 @@ async fn save_snap_config_file(
 }
 
 /// Whitelist-based path resolver — only allows known safe config files
-fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> {
+fn resolve_snap_config_path(file_name: &str, snap_data: &str, snap_common: &str) -> Option<String> {
     match file_name {
         "tedge-log-plugin.toml" => {
             Some(format!("{}/tedge/plugins/tedge-log-plugin.toml", snap_data))
@@ -3822,7 +3821,7 @@ fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> 
         "tedge.toml" => Some(format!("{}/tedge/tedge.toml", snap_data)),
         "inventory.json" => Some(format!("{}/tedge/device/inventory.json", snap_data)),
         "snap-inventory.json" => Some(format!("{}/snap-inventory.json", snap_data)),
-        "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_data)),
+        "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_common)),
         "datalayer-mappings.json" => {
             // liegt direkt in SNAP_DATA (nicht in einem Unterordner)
             Some(format!("{}/datalayer-mappings.json", snap_data))
@@ -3916,8 +3915,12 @@ async fn main() -> io::Result<()> {
     let is_snap = env::var("SNAP").is_ok();
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| String::from("."));
 
+    // Credentials and web config in SNAP_COMMON — survives snap updates
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+
     let config_path = if is_snap {
-        PathBuf::from(&snap_data).join("tedge-web-config.json")
+        // Use SNAP_COMMON so cert_upload and cloud config survive snap updates
+        PathBuf::from(&snap_common).join("tedge-web-config.json")
     } else {
         PathBuf::from("./tedge-web-config.json")
     };
@@ -3929,7 +3932,7 @@ async fn main() -> io::Result<()> {
     };
 
     // Credentials in SNAP_COMMON speichern – bleibt über Snap-Updates erhalten
-    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    // (snap_common already defined above)
     let credentials_path = if is_snap {
         PathBuf::from(&snap_common).join("datalayer-credentials.json")
     } else {

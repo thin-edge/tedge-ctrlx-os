@@ -25,6 +25,17 @@ echo "=== thin-edge.io snap post-refresh hook starting ==="
 echo "Running centralized directory setup..." >&2
 bash "$SNAP/scripts/setup-directories.sh"
 
+# Migrate tedge-web-config.json from SNAP_DATA to SNAP_COMMON (one-time migration)
+# SNAP_DATA is revision-specific; SNAP_COMMON survives updates.
+# If the file already exists in SNAP_COMMON, keep it (it's authoritative).
+# If only the old SNAP_DATA copy exists, migrate it over.
+_old_web_config="$SNAP_DATA/tedge-web-config.json"
+_new_web_config="$SNAP_COMMON/tedge-web-config.json"
+if [ ! -f "$_new_web_config" ] && [ -f "$_old_web_config" ]; then
+    echo "Migrating tedge-web-config.json from SNAP_DATA to SNAP_COMMON..." >&2
+    cp "$_old_web_config" "$_new_web_config"
+fi
+
 rm -f "$SNAP_DATA/tedge/sm-plugins/apt" 2>/dev/null || true
 
 echo "Regenerating snap inventory..." >&2

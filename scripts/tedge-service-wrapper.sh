@@ -16,23 +16,23 @@ if [ -f "$SNAP/meta/build-info.txt" ]; then
     echo "===================================="
 fi
 
-# Lock-Verzeichnis Snap-Update-sicher machen:
+# Ensure lock directory survives snap updates:
 LOCK_TARGET="$SNAP_COMMON/tedge/run/lock"
 LOCK_LINK="$SNAP_DATA/tedge/run/lock"
 
 chmod 777 "$LOCK_TARGET"
 
-# Entferne ggf. altes Lock-Verzeichnis oder Symlink
+# Remove any existing lock directory or symlink
 if [ -d "$LOCK_LINK" ] && [ ! -L "$LOCK_LINK" ]; then
   rmdir "$LOCK_LINK" 2>/dev/null || rm -rf "$LOCK_LINK"
 else
   rm -f "$LOCK_LINK"
 fi
 
-# Lege Symlink an und prüfe Erfolg
+# Create symlink and verify success
 ln -sf "$LOCK_TARGET" "$LOCK_LINK"
 if [ ! -L "$LOCK_LINK" ]; then
-  echo "[ERROR] Lock-Symlink konnte nicht angelegt werden: $LOCK_LINK -> $LOCK_TARGET" >&2
+  echo "[ERROR] Could not create lock symlink: $LOCK_LINK -> $LOCK_TARGET" >&2
   exit 1
 fi
 

@@ -10,10 +10,10 @@ echo "SNAP_REVISION: $SNAP_REVISION"
 
 
 
-# Pfade aus den von snapd gesetzten Umgebungsvariablen ableiten.
-# Snapd setzt SNAP_DATA und SNAP_COMMON immer korrekt – unabhängig vom Snap-Namen.
-# Das Script funktioniert damit sowohl mit "thin-edge-io" als auch mit
-# "ctrlx-cumulocity-thin-edge-io" ohne Anpassung.
+# Derive paths from environment variables set by snapd.
+# Snapd always sets SNAP_DATA and SNAP_COMMON correctly — regardless of the snap name.
+# This script therefore works with both "thin-edge-io" and
+# "ctrlx-cumulocity-thin-edge-io" without any changes.
 SNAP_DATA_PATH="${SNAP_DATA}"
 SNAP_COMMON_PATH="${SNAP_COMMON}"
 
@@ -58,7 +58,7 @@ chmod 777 "$SNAP_DATA_PATH/package-run/thin-edge-io"
 chmod 777 "$SNAP_DATA_PATH/tedge/tmp"
 chmod 777 "$SNAP_COMMON_PATH/tedge/log"
 
-# Lock-Verzeichnis in allen relevanten Snap-Revisionen anlegen (current, SNAP_DATA, common)
+# Create lock directory in all relevant snap revisions (current, SNAP_DATA, common)
 for LOCKDIR in "$SNAP_DATA_PATH/tedge/run/lock" "$SNAP_DATA/tedge/run/lock" "$SNAP_COMMON_PATH/tedge/run/lock"; do
     echo "Creating lock directory: $LOCKDIR"
     mkdir -p "$LOCKDIR"
@@ -78,7 +78,7 @@ ls -ld "$SNAP_DATA_PATH/tedge/run/lock"
 
 echo "Target verification:"
 
-# Kein Symlink mehr prüfen, sondern direktes Lock-Verzeichnis
+# No longer checking for a symlink — use a direct lock directory instead
 if [ -d "$SNAP_DATA_PATH/tedge/run/lock" ] && [ -w "$SNAP_DATA_PATH/tedge/run/lock" ]; then
     echo "  ✓ Lock directory exists and is writable"
 else
@@ -88,13 +88,13 @@ fi
 
 echo "=== Setup completed successfully ==="
 
-# ── tedge system.toml: root als Eigentümer ────────────────────────────────────
-# ctrlX snapd unterstützt weder system-usernames noch erlaubt AppArmor
-# useradd im Snap-Kontext. tedge versucht beim connect/bridge-Schreiben
-# Verzeichnisse per chown auf den "tedge"-User zu setzen — schlägt fehl.
-# Lösung: system.toml mit user="root"/group="root" einrichten, bevor tedge
-# zum ersten Mal läuft. Dadurch chownt tedge alle Verzeichnisse auf root:root,
-# was im Snap-Kontext immer klappt.
+# ── tedge system.toml: owned by root ────────────────────────────────────────────
+# ctrlX snapd supports neither system-usernames nor does AppArmor allow
+# useradd in the snap context. tedge tries to chown directories to the
+# "tedge" user when connecting/writing the bridge config — which fails.
+# Solution: create system.toml with user="root"/group="root" before tedge
+# runs for the first time. This causes tedge to chown all directories to
+# root:root, which always succeeds in the snap context.
 SYSTEM_TOML="$SNAP_DATA_PATH/tedge/system.toml"
 if [ ! -f "$SYSTEM_TOML" ]; then
     cat > "$SYSTEM_TOML" << 'EOF'

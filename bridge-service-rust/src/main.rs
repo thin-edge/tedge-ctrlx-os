@@ -2,7 +2,7 @@ mod datalayer;
 
 use anyhow::Result;
 use log::info;
-// handle_mqtt_message zum Import hinzugefügt
+// handle_mqtt_message added to import
 use crate::datalayer::{
     handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
     DatalayerEngine, MappingDirection,
@@ -16,16 +16,16 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-/// Liest den Common Name (CN) aus einem PEM-Zertifikat.
-/// Gibt None zurück wenn das Cert nicht lesbar oder kein CN vorhanden ist.
+/// Reads the Common Name (CN) from a PEM certificate.
+/// Returns None if the cert cannot be read or contains no CN.
 fn get_device_id_from_cert(cert_path: &std::path::Path) -> Option<String> {
     let pem = std::fs::read_to_string(cert_path).ok()?;
-    // Suche nach "Subject: CN = <value>" oder "Subject: ... CN=<value>"
-    // Das Cert enthält die Subject-Zeile als Base64-DER, daher parsen wir den PEM-Text
-    // mit einer simplen OpenSSL-freien Methode: wir suchen im decoded Subject nach dem CN.
-    // Einfachste Methode ohne externe Crate: Subject-Zeile aus `openssl x509` ist nicht verfügbar —
-    // stattdessen suchen wir den CN im PEM-Header-Kommentar (nicht immer vorhanden).
-    // Robustere Methode: aus dem DER-codierten Subject den CN extrahieren.
+    // Look for "Subject: CN = <value>" or "Subject: ... CN=<value>"
+    // The cert encodes the Subject as Base64-DER, so we parse the PEM text
+    // using a simple OpenSSL-free method: search the decoded Subject for the CN.
+    // Simplest approach without an external crate: Subject line from `openssl x509` is unavailable —
+    // instead, look for the CN in a PEM header comment (not always present).
+    // More robust method: extract the CN from the DER-encoded Subject.
     let cn = parse_cn_from_pem(&pem)?;
     if cn.is_empty() {
         None
@@ -34,7 +34,7 @@ fn get_device_id_from_cert(cert_path: &std::path::Path) -> Option<String> {
     }
 }
 
-/// Extrahiert den CN aus einem PEM-Zertifikat durch minimales DER-Parsing.
+/// Extracts the CN from a PEM certificate via minimal DER parsing.
 fn parse_cn_from_pem(pem: &str) -> Option<String> {
     // PEM → Base64 → DER
     let b64: String = pem.lines().filter(|l| !l.starts_with("-----")).collect();
@@ -43,8 +43,8 @@ fn parse_cn_from_pem(pem: &str) -> Option<String> {
     // CN OID: 2.5.4.3 → DER: 55 04 03
     let cn_oid: &[u8] = &[0x55, 0x04, 0x03];
     let pos = der.windows(3).position(|w| w == cn_oid)?;
-    // Nach der OID folgt: SET { SEQUENCE { OID, STRING } }
-    // Struktur: OID(3) dann Tag+Len+Value des Strings
+    // After the OID: SET { SEQUENCE { OID, STRING } }
+    // Structure: OID(3) then Tag+Len+Value of the string
     let after_oid = pos + 3;
     if after_oid + 2 > der.len() {
         return None;
@@ -96,8 +96,8 @@ fn base64_decode(input: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// Liest die Geräte-Seriennummer direkt aus sysfs/machine-id.
-/// Gleiche Prioritäten wie manage-device-id.sh, aber ohne Subprozess.
+/// Reads the device serial number directly from sysfs/machine-id.
+/// Same priority chain as manage-device-id.sh, but without a subprocess.
 fn get_device_serial() -> String {
     // Priority 1-3: DMI product/board/chassis serial
     for path in &[
@@ -164,7 +164,7 @@ impl TedgeDatalayerBridge {
         cli.connect(conn_opts).await?;
 
         let mut topics = vec![];
-        // tedge/health/+ nur abonnieren wenn MQTT Service (Port 9883) aktiv ist
+        // tedge/health/+ only if MQTT Service (port 9883) is active
         if config.mqtt_service_enabled {
             topics.push("tedge/health/+".to_string());
         }
@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
     } else {
         PathBuf::from("/tmp/datalayer-mappings.json")
     };
-    // Credentials liegen in SNAP_COMMON (überleben Snap-Updates), genau wie der Webserver sie speichert
+    // Credentials are stored in SNAP_COMMON (survive snap updates), same as where the webserver saves them
     let credentials_path: PathBuf = if is_snap {
         PathBuf::from(env::var("SNAP_COMMON").unwrap_or_default())
             .join("datalayer-credentials.json")
@@ -210,7 +210,7 @@ async fn main() -> Result<()> {
     let mut config = DatalayerEngine::load_config(&config_path);
     let credentials = DatalayerEngine::load_credentials(&credentials_path);
 
-    // device_external_id aus dem Cert-CN lesen (= was Cumulocity als externalId kennt).
+    // Read device_external_id from cert CN (= what Cumulocity knows as externalId).
     // Fallback: get_device_serial() (sysfs/machine-id)
     let external_id = if is_snap {
         let snap_common = env::var("SNAP_COMMON").unwrap_or_default();
@@ -225,7 +225,7 @@ async fn main() -> Result<()> {
         config.device_external_id = external_id;
     }
 
-    // mqtt_service_enabled aus tedge config lesen
+    // Read mqtt_service_enabled from tedge config
     let mqtt_service_enabled = if is_snap {
         let snap = env::var("SNAP").unwrap_or_default();
         let snap_data = env::var("SNAP_DATA").unwrap_or_default();
