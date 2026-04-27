@@ -3705,7 +3705,8 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
         .to_string();
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = match resolve_snap_config_path(&file_name, &snap_data) {
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let path = match resolve_snap_config_path(&file_name, &snap_data, &snap_common) {
         Some(p) => p,
         None => {
             return Ok(HttpResponse::BadRequest().json(
@@ -3781,7 +3782,8 @@ async fn save_snap_config_file(
     }
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let path = match resolve_snap_config_path(&body.file, &snap_data) {
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let path = match resolve_snap_config_path(&body.file, &snap_data, &snap_common) {
         Some(p) => p,
         None => {
             return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -3807,7 +3809,7 @@ async fn save_snap_config_file(
 }
 
 /// Whitelist-based path resolver — only allows known safe config files
-fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> {
+fn resolve_snap_config_path(file_name: &str, snap_data: &str, snap_common: &str) -> Option<String> {
     match file_name {
         "tedge-log-plugin.toml" => {
             Some(format!("{}/tedge/plugins/tedge-log-plugin.toml", snap_data))
@@ -3819,7 +3821,7 @@ fn resolve_snap_config_path(file_name: &str, snap_data: &str) -> Option<String> 
         "tedge.toml" => Some(format!("{}/tedge/tedge.toml", snap_data)),
         "inventory.json" => Some(format!("{}/tedge/device/inventory.json", snap_data)),
         "snap-inventory.json" => Some(format!("{}/snap-inventory.json", snap_data)),
-        "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_data)),
+        "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_common)),
         "datalayer-mappings.json" => {
             // liegt direkt in SNAP_DATA (nicht in einem Unterordner)
             Some(format!("{}/datalayer-mappings.json", snap_data))
@@ -3913,8 +3915,12 @@ async fn main() -> io::Result<()> {
     let is_snap = env::var("SNAP").is_ok();
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| String::from("."));
 
+    // Credentials and web config in SNAP_COMMON — survives snap updates
+    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+
     let config_path = if is_snap {
-        PathBuf::from(&snap_data).join("tedge-web-config.json")
+        // Use SNAP_COMMON so cert_upload and cloud config survive snap updates
+        PathBuf::from(&snap_common).join("tedge-web-config.json")
     } else {
         PathBuf::from("./tedge-web-config.json")
     };
@@ -3926,7 +3932,7 @@ async fn main() -> io::Result<()> {
     };
 
     // Credentials in SNAP_COMMON speichern – bleibt über Snap-Updates erhalten
-    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    // (snap_common already defined above)
     let credentials_path = if is_snap {
         PathBuf::from(&snap_common).join("datalayer-credentials.json")
     } else {
