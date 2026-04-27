@@ -1543,6 +1543,7 @@ async function loadC8yMqttPort() {
         if (toggle) {
           const enabled = match ? match[1].trim() === "true" : false;
           toggle.checked = enabled;
+          _mqttServiceEnabled = enabled;
           onMqttPortToggle(enabled, false);
           return;
         }
@@ -1556,6 +1557,7 @@ async function loadC8yMqttPort() {
       const cfg = await r2.json();
       const enabled = cfg.mqttServiceEnabled === true;
       const toggle = document.getElementById("c8y-mqtt-port-toggle");
+      _mqttServiceEnabled = enabled;
       if (toggle) {
         toggle.checked = enabled;
         onMqttPortToggle(enabled, false);
@@ -1898,6 +1900,8 @@ function initCollapsibleSections() {
       loadDatalayerStatus();
       loadDatalayerConfig();
       loadDatalayerMappings();
+      // Ensure port toggle is set before updateTopicPrefix() is called
+      loadC8yMqttPort().then(() => updateTopicPrefix());
     },
     "sec-sysinfo": () => {
       loadBuildInfo();
@@ -1961,6 +1965,7 @@ async function loadBuildInfo() {
 // ── ctrlX Datalayer ──────────────────────────────────────────────────────────
 
 let _dlMappings = []; // In-Memory Kopie der Mappings
+let _mqttServiceEnabled = null; // Cached MQTT service state (null = not yet loaded)
 
 /** 1. Initialisierung beim Laden */
 function _initDatalayerUI() {
@@ -2304,7 +2309,9 @@ function prepareMapping(path) {
 /** Liefert true wenn c8y.mqtt_service (Port 9883) aktiv ist */
 function isMqttServiceActive() {
   const toggle = document.getElementById("c8y-mqtt-port-toggle");
-  return toggle ? toggle.checked : false;
+  if (toggle) return toggle.checked;
+  // Fallback: use cached value if toggle element not in DOM yet
+  return _mqttServiceEnabled === true;
 }
 
 /** 4. Topic automatisch basierend auf Transform setzen */
@@ -2327,15 +2334,14 @@ function updateTopicPrefix() {
     if (direction === "tedge_to_dl") {
       topic += "cmd/" + lastPart;
     } else {
-      if (transform === "measurement") topic += "myMeasurement";
-      else if (transform === "event") topic += "myEvent";
-      else if (transform === "alarm") topic += "myAlarm";
-      else topic += lastPart;
+      topic += lastPart;
     }
     topicInput.value = topic;
     // Placeholder shows the matching example for 9883
-    if (transform === "event") topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    if (transform === "event")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
     else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
     // Core MQTT (8883): te/ prefix
@@ -2350,13 +2356,56 @@ function updateTopicPrefix() {
     }
     topicInput.value = topic;
     // Placeholder shows the matching example for 8883
-    if (transform === "event") topicInput.placeholder = "e.g. te/device/main///e/myValue";
-    else if (transform === "alarm") topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    if (transform === "event")
+      topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. te/device/main///a/myValue";
     else topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
+  // Live-update preview whenever topic changes
+  showMappingPayloadPreview();
 }
 
-/** 4b. Ein bestehendes Mapping zum Bearbeiten ins Formular laden */
+/** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
+function showMappingPayloadPreview() {
+  const pre = document.getElementById("datalayer-payload-preview");
+  if (!pre) return;
+
+  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const fieldName =
+    document.getElementById("datalayer-mapping-field").value.trim() ||
+    (document.getElementById("datalayer-mapping-path").value.split("/").pop() || "value");
+  const unit = document.getElementById("datalayer-mapping-unit").value.trim();
+  const topic = document.getElementById("datalayer-mapping-topic").value.trim();
+  const isC8yService = topic.startsWith("c8y/mqtt/out/");
+  const ts = new Date().toISOString();
+
+  let payload;
+  if (transform === "measurement") {
+    payload = { [fieldName]: 42.0, time: ts };
+    if (unit) payload.unit = unit;
+    if (isC8yService) payload.externalId = "<device-external-id>";
+  } else if (transform === "event") {
+    if (isC8yService) {
+      payload = { Text: "<datalayer-value>", type: "c8y_ctrlx_Event", time: ts };
+      payload.externalId = "<device-external-id>";
+    } else {
+      payload = { text: `Event: ${fieldName} is <value>`, type: "ctrlx_event" };
+    }
+  } else if (transform === "alarm") {
+    if (isC8yService) {
+      payload = { Text: "<datalayer-value>", severity: "MAJOR", status: "ACTIVE", type: "c8y_ctrlx_Alarm", time: ts };
+      payload.externalId = "<device-external-id>";
+    } else {
+      payload = { text: `Alarm at ${fieldName}: value is <value>`, severity: "major" };
+    }
+  } else {
+    payload = { raw: "<datalayer-value>" };
+  }
+
+  pre.textContent = JSON.stringify(payload, null, 2);
+}
+
 function editDatalayerMapping(id) {
   const mapping = _dlMappings.find((m) => m.id === id);
   if (!mapping) return;
@@ -2397,6 +2446,8 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-field").value =
     mapping.field_name || "";
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
+
+  showMappingPayloadPreview();
 
   const titleEl = document.getElementById("mapping-form-title");
   if (titleEl) titleEl.textContent = t("datalayer.edit_mapping_title");
@@ -2523,6 +2574,9 @@ async function saveNewMapping() {
 function cancelMapping() {
   const section = document.getElementById("datalayer-mapping-section");
   if (section) section.style.display = "none";
+
+  const pre = document.getElementById("datalayer-payload-preview");
+  if (pre) pre.textContent = "";
 
   [
     "datalayer-mapping-id",
@@ -2759,8 +2813,10 @@ async function checkLicenseStatus() {
     if (!banner) return;
     if (!data.licensed) {
       banner.innerHTML =
-        '⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. ' +
-        'Please obtain license <code>' + (data.required || '') + '</code> from the ' +
+        "⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
+        "Please obtain license <code>" +
+        (data.required || "") +
+        "</code> from the " +
         '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
         '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
       banner.style.display = "flex";
