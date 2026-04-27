@@ -529,12 +529,12 @@ const I18N = {
     "datalayer.topic_hint_service": "e.g. c8y/mqtt/out/myTopic",
   },
 };
-// 1. Token beim Start aus der URL extrahieren
+// 1. Extract token from URL on startup
 const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get("token");
 if (tokenFromUrl) {
   sessionStorage.setItem("ctrlx_token", tokenFromUrl);
-  // Token aus der URL entfernen für saubere Optik
+  // Remove token from URL for a clean address bar appearance
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
@@ -543,7 +543,7 @@ if (tokenFromUrl) {
  * includes the JWT token stored in sessionStorage.
  */
 async function fetchWithAuth(url, options = {}) {
-  // 1. Token aus sessionStorage holen (wird beim Login/Seitenladen dort gespeichert)
+  // 1. Retrieve token from sessionStorage (stored there on login/page load)
   const token = sessionStorage.getItem("ctrlx_token");
 
   const headers = {
@@ -552,7 +552,7 @@ async function fetchWithAuth(url, options = {}) {
   };
 
   if (token) {
-    // Wir setzen beide Header, um sicherzugehen
+    // Set both headers to be safe
     headers["Authorization"] = `Bearer ${token}`;
     headers["X-Auth-Token"] = `Bearer ${token}`;
   }
@@ -747,13 +747,13 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 // Load status on page load
 window.addEventListener("DOMContentLoaded", () => {
-  // Token aus der URL extrahieren (ctrlX übergibt dies oft als ?token=...)
+  // Extract token from URL (ctrlX often passes it as ?token=...)
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get("token");
 
   if (token) {
     sessionStorage.setItem("ctrlx_token", token);
-    // Optional: Token aus der URL entfernen für eine sauberere Adressleiste
+    // Optional: remove token from URL for a cleaner address bar
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
@@ -804,7 +804,7 @@ async function loadStatus() {
     updateStatusBadge("mapper-c8y-status", data.mapper_c8y || "unknown");
     updateStatusBadge("mapper-aws-status", data.mapper_aws || "unknown");
     updateStatusBadge("mapper-az-status", data.mapper_az || "unknown");
-    // Mapper-Status ergänzen
+    // Supplement mapper status
     updateStatusBadge("c8y-mapper-status", data.c8y || "unknown");
     updateStatusBadge("aws-mapper-status", data.aws || "unknown");
     updateStatusBadge("az-mapper-status", data.az || "unknown");
@@ -896,8 +896,8 @@ async function loadConfiguration() {
       document.getElementById("az-url").value = config.az["azure-url"] || "";
     }
 
-    // Mapper-Toggles aus dem tatsächlichen Service-Zustand setzen (nicht aus JSON-Config)
-    // so dass der Toggle immer den echten Laufzustand widerspiegelt
+    // Set mapper toggles from the actual service state (not from JSON config)
+    // so the toggle always reflects the actual runtime state
     try {
       const statusResp = await fetchWithAuth("api/status");
       if (statusResp.ok) {
@@ -926,7 +926,7 @@ async function loadConfiguration() {
           config.az.enabled || false;
     }
 
-    // Toggle deaktivieren wenn URL-Feld leer ist (kein Mapper ohne URL möglich)
+    // Disable toggle if URL field is empty (no mapper without URL is possible)
     updateMapperToggleState("c8y-url", "c8y-enabled");
     updateMapperToggleState("aws-url", "aws-enabled");
     updateMapperToggleState("az-url", "az-enabled");
@@ -1356,7 +1356,7 @@ async function applyRoleRestrictions() {
   }
 }
 
-// Erstellt oder erneuert das Gerätezertifikat
+// Creates or renews the device certificate
 function manageCertificate() {
   setDeviceId();
 }
@@ -1471,15 +1471,16 @@ async function onMqttPortToggle(checked, save = true) {
       ? t("connect.port_applied", 9883)
       : t("connect.port_applied", 8883);
 
-  // Nur speichern wenn der Benutzer den Schalter betätigt hat (save=true)
+  // Only save if the user has actually toggled the switch (save=true)
   if (!save) return;
 
   if (status) status.textContent = "…";
 
-  // 1. Alle Datalayer-Mappings deaktivieren wenn auf 9883 umgeschaltet wird,
-  //    oder wieder aktivieren wenn zurück auf 8883.
+  // 1. Disable all datalayer mappings when switching to 9883,
+  //    or re-enable when switching back to 8883.
+  //    or re-enable when switching back to 8883.
   if (typeof _dlMappings !== "undefined" && _dlMappings.length > 0) {
-    const shouldEnable = !checked; // 8883 → einschalten, 9883 → ausschalten
+    const shouldEnable = !checked; // 8883 → enable, 9883 → disable
     const updated = _dlMappings.map((m) => ({ ...m, enabled: shouldEnable }));
     try {
       const mr = await fetchWithAuth("api/datalayer/mappings", {
@@ -1790,7 +1791,7 @@ async function submitCertUpload() {
   }
 }
 
-// Speichert die Datalayer-Konfiguration über die API
+// Saves the datalayer configuration via the API
 async function saveDatalayerConfig() {
   try {
     // IDs korrigieren (siehe Hinweis unten) und Werte holen
@@ -1835,7 +1836,7 @@ async function saveDatalayerConfig() {
   }
 }
 
-// (toggleColorPicker und setColorTheme sind am Dateianfang als hoisted Deklarationen definiert)
+// (toggleColorPicker and setColorTheme are declared as hoisted declarations at the top of the file)
 
 function applyColorTheme() {
   var color = localStorage.getItem("tedge-color") || "green";
@@ -1987,7 +1988,7 @@ async function loadDatalayerStatus() {
 
   if (!dotSvc || !text) return;
 
-  // Hilfsfunktion: Setzt Text und sorgt dafür, dass die Sprache umschaltbar bleibt
+  // Helper: sets text while keeping the language switchable
   const setStatus = (key) => {
     text.textContent = t(key);
     text.setAttribute("data-i18n", key);
@@ -2000,10 +2001,10 @@ async function loadDatalayerStatus() {
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
-    // Authentifizierungs-Fehler (Dienst läuft, aber Login falsch)
+    // Authentication error (service is running but login is wrong)
     if (r.status === 401 || r.status === 403) {
       dotSvc.textContent = "🟢";
-      // Hier müsstest du evtl. noch 'status.noauth' ("🟡 Auth Error") in der i18n anlegen!
+      // Note: you may need to add 'status.noauth' ("🟡 Auth Error") to i18n!
       setStatus("datalayer.status_noauth");
       return;
     }
@@ -2022,7 +2023,7 @@ async function loadDatalayerStatus() {
       dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
       setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
     } else {
-      // Dienst läuft
+      // Service is running
       dotSvc.textContent = "🟢";
 
       if (d.connected) {
@@ -2323,7 +2324,7 @@ function updateTopicPrefix() {
   const lastPart = path.split("/").pop() || "value";
 
   if (isMqttServiceActive()) {
-    // MQTT Service (9883): c8y/mqtt/out/ Präfix erzwingen
+    // MQTT Service (9883): enforce c8y/mqtt/out/ prefix
     const prefix = "c8y/mqtt/out/";
     let topic = prefix;
     if (direction === "tedge_to_dl") {
@@ -2335,12 +2336,12 @@ function updateTopicPrefix() {
       else topic += lastPart;
     }
     topicInput.value = topic;
-    // Placeholder zeigt das passende Beispiel für 9883
+    // Placeholder shows the matching example for 9883
     if (transform === "event") topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
     else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
     else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
-    // Core MQTT (8883): te/ Präfix
+    // Core MQTT (8883): te/ prefix
     let topic = "te/device/main///";
     if (direction === "tedge_to_dl") {
       topic += "cmd/plc/" + lastPart;
@@ -2351,7 +2352,7 @@ function updateTopicPrefix() {
       else topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    // Placeholder zeigt das passende Beispiel für 8883
+    // Placeholder shows the matching example for 8883
     if (transform === "event") topicInput.placeholder = "e.g. te/device/main///e/myValue";
     else if (transform === "alarm") topicInput.placeholder = "e.g. te/device/main///a/myValue";
     else topicInput.placeholder = "e.g. te/device/main///m/myValue";
@@ -2371,7 +2372,7 @@ function editDatalayerMapping(id) {
     mapping.path || mapping.datalayer_path || "";
   const existingTopic = mapping.topic || mapping.tedge_topic || "";
   let loadedTopic = existingTopic;
-  // Im MQTT-Service-Modus: Präfix sicherstellen
+  // In MQTT Service mode: ensure prefix is correct
   if (
     isMqttServiceActive() &&
     loadedTopic &&
@@ -2408,9 +2409,9 @@ function editDatalayerMapping(id) {
   if (delBtn) delBtn.style.display = id ? "inline-block" : "none";
   section.scrollIntoView({ behavior: "smooth" });
 
-  // Speichere aktuelle Mapping-ID für Delete
+  // Store current mapping ID for delete
   window._currentMappingId = id;
-  // Löscht das aktuell geladene Mapping aus dem Edit-Formular
+  // Deletes the currently loaded mapping from the edit form
   async function deleteCurrentMapping() {
     const id = window._currentMappingId;
     if (!id) return;
@@ -2440,7 +2441,7 @@ async function saveNewMapping() {
   const idInput = document.getElementById("datalayer-mapping-id").value;
   const isEdit = !!idInput;
 
-  // Topic holen und abschließenden Slash entfernen, falls vorhanden
+  // Get topic and strip trailing slash if present
   let topicRaw = document
     .getElementById("datalayer-mapping-topic")
     .value.trim();
@@ -2452,7 +2453,7 @@ async function saveNewMapping() {
   if (isMqttServiceActive()) {
     const prefix = "c8y/mqtt/out/";
     if (!topicRaw.startsWith(prefix)) {
-      // Altes te/-Topic oder sonstiges: Präfix voranstellen
+      // Old te/ topic or other: prepend prefix
       const bare = topicRaw.replace(
         /^(te\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/|c8y\/[^/]*\/[^/]*\/)/,
         "",

@@ -49,7 +49,7 @@ get_system_serial() {
         fi
     fi
     
-    # Priority 4: Product UUID (VMs) — volle UUID als Fallback
+    # Priority 4: Product UUID (VMs) — full UUID as fallback
     if [ -r /sys/class/dmi/id/product_uuid ] && [ -s /sys/class/dmi/id/product_uuid ]; then
         serial=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null | tr -d '\0\n' | xargs)
         if [ -n "$serial" ] && [ "$serial" != "0" ] && [ "$serial" != "None" ]; then
@@ -58,7 +58,7 @@ get_system_serial() {
         fi
     fi
 
-    # Priority 5: machine-id (immer vorhanden, eindeutig pro System)
+    # Priority 5: machine-id (always present, unique per system)
     if [ -r /etc/machine-id ] && [ -s /etc/machine-id ]; then
         serial=$(cat /etc/machine-id 2>/dev/null | tr -d '\0\n' | xargs)
         if [ -n "$serial" ] && [ "$serial" != "0" ]; then
@@ -67,7 +67,7 @@ get_system_serial() {
         fi
     fi
 
-    # Letzter Ausweg: Fehler ausgeben statt hostname
+    # Last resort: print an error instead of using the hostname
     echo "ERROR: Could not determine system serial number" >&2
     exit 1
 }
@@ -82,7 +82,7 @@ get_current_device_id() {
     fi
 }
 
-# NEU: Aktualisiert die inventory.json mit der echten Seriennummer
+# NEW: Updates inventory.json with the real serial number
 update_inventory() {
     local device_id="$1"
     local inventory_file="$TEDGE_DATA_DIR/device/inventory.json"

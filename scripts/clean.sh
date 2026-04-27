@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# Entfernt Build-Artefakte und bereinigt das Projekt
+# Removes build artifacts and cleans the project
 
-echo "[clean.sh] Entferne Build-Artefakte ..."
-# ...hier folgt die Logik für ein vollständiges Clean ...
+echo "[clean.sh] Removing build artifacts ..."
+# ... insert logic for a full clean here ...

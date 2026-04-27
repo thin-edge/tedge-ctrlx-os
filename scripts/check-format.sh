@@ -8,21 +8,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
 
-# JS/HTML: Prettier (muss installiert sein)
+# JS/HTML: Prettier (must be installed)
 PRETTIER_CMD=$(command -v prettier || true)
 if [ -z "$PRETTIER_CMD" ]; then
   echo "[ERROR] Prettier is not installed. Please run 'npm install -g prettier' to install it."
   exit 1
 fi
 
-# Rust: rustfmt (muss installiert sein)
+# Rust: rustfmt (must be installed)
 RUSTFMT_CMD=$(command -v rustfmt || true)
 if [ -z "$RUSTFMT_CMD" ]; then
   echo "[ERROR] rustfmt is not installed. Please run 'rustup component add rustfmt' to install it."
   exit 1
 fi
 
-# JS Linting (nur wenn ESLint vorhanden)
+# JS Linting (only if ESLint is available)
 ESLINT_CMD=$(command -v eslint || true)
 if [ -z "$ESLINT_CMD" ]; then
   echo "[WARNING] ESLint is not installed. JS linting will be skipped. (npm install -g eslint)"
@@ -41,7 +41,7 @@ else
   find ./web/www -type f -name '*.js' | xargs "$ESLINT_CMD"
 fi
 
-# Rust Linting (nur wenn Clippy vorhanden)
+# Rust Linting (only if Clippy is available)
 if cargo clippy --version >/dev/null 2>&1; then
   if [ -d "bridge-service-rust" ]; then
     (cd bridge-service-rust && cargo clippy --all-targets --all-features -- -D warnings)
@@ -53,7 +53,7 @@ else
   echo "[WARNING] Clippy is not installed. Rust linting will be skipped. (rustup component add clippy)"
 fi
 
-# JS/HTML prüfen und ggf. automatisch formatieren
+# JS/HTML: check and optionally auto-format
 if [ "$1" = "--fix" ]; then
   echo "[i] Running Prettier with --write (auto-fix)..."
   find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
@@ -62,7 +62,7 @@ else
   find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
 fi
 
-# Rust prüfen
+# Rust: check formatting
 find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/target/*" | \
   xargs "$RUSTFMT_CMD" --edition 2021 --check
 
