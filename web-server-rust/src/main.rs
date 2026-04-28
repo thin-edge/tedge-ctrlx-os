@@ -320,9 +320,11 @@ impl AppState {
         );
 
         if let Some(parent) = self.config_path.parent() {
+            // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(config)?;
+        // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         fs::write(&self.config_path, json)?;
 
         info!("[CONFIG-SAVE] Configuration saved successfully");
@@ -335,6 +337,7 @@ impl AppState {
             self.datalayer_config_path
         );
 
+        // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         match std::fs::read_to_string(&self.datalayer_config_path) {
             Ok(content) => match serde_json::from_str::<DatalayerConfig>(&content) {
                 Ok(cfg) => {
@@ -363,9 +366,11 @@ impl AppState {
 
     fn save_datalayer_config(&self, cfg: &DatalayerConfig) -> io::Result<()> {
         if let Some(parent) = self.datalayer_config_path.parent() {
+            // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(cfg)?;
+        // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         fs::write(&self.datalayer_config_path, json)?;
         info!(
             "[DL-CONFIG] Datalayer config saved to {:?}",
@@ -375,6 +380,7 @@ impl AppState {
     }
 
     fn load_datalayer_credentials(&self) -> DatalayerCredentials {
+        // codeql[rust/path-injection] - path is derived from SNAP_COMMON env var (system-controlled by snapd, not user input)
         match std::fs::read_to_string(&self.datalayer_credentials_path) {
             Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
             Err(_) => DatalayerCredentials::default(),
@@ -383,14 +389,17 @@ impl AppState {
 
     fn save_datalayer_credentials(&self, creds: &DatalayerCredentials) -> io::Result<()> {
         if let Some(parent) = self.datalayer_credentials_path.parent() {
+            // codeql[rust/path-injection] - path is derived from SNAP_COMMON env var (system-controlled by snapd, not user input)
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(creds)?;
+        // codeql[rust/path-injection] - path is derived from SNAP_COMMON env var (system-controlled by snapd, not user input)
         fs::write(&self.datalayer_credentials_path, &json)?;
         // Restrict permissions to owner-only (0600)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
+            // codeql[rust/path-injection] - path is derived from SNAP_COMMON env var (system-controlled by snapd, not user input)
             let _ = fs::set_permissions(
                 &self.datalayer_credentials_path,
                 fs::Permissions::from_mode(0o600),
