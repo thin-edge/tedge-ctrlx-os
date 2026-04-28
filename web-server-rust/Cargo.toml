@@ -8,8 +8,8 @@ description = "Configuration web interface for thin-edge.io on ctrlX AUTOMATION"
 
 [dependencies]
 paho-mqtt = "0.12"
-actix-web = "=4.8.0"
-actix-files = "=0.6.6"
+actix-web = "4.13"
+actix-files = "0.6.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.40", features = ["full"] }
@@ -18,12 +18,11 @@ log = "0.4"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 uuid = { version = "1.11", features = ["v4"] }
 
-# Pin dependencies for Rust 1.85 compatibility
 [dependencies.actix-http]
-version = "=3.8.0"
+version = "3.12"
 
 [dependencies.time]
-version = "=0.3.36"
+version = "0.3.47"
 
 [[bin]]
 name = "tedge-web-config"
