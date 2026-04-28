@@ -1,0 +1,41 @@
+name: autotag
+#
+# Create a git tag based on the version in snap/snapcraft.yaml if one does not already exist.
+# The tag will trigger the release workflow.
+#
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  create_tag:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'thin-edge'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ACTIONS_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Create tag if version changed
+        run: |
+          VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
+          if [ -z "$VERSION" ]; then
+            echo "Could not detect version from snap/snapcraft.yaml"
+            exit 1
+          fi
+          if [ -n "$(git tag -l "$VERSION")" ]; then
+            echo "Skipping: tag $VERSION already exists"
+            exit 0
+          fi
+          git config --global user.email "info@thin-edge.io"
+          git config --global user.name "Versioneer"
+          echo "Creating tag: $VERSION"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"

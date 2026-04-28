@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            pkg-config \
+            libssl-dev \
+            libsqlite3-dev \
+            libssl3 \
+            libsqlite3-0 \
+            ca-certificates \
+            tzdata \
+            git
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install lessc
+        run: npm install -g less
+
+      - name: Install Rust 1.94
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94"
+          components: rustfmt, clippy
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Set version in snapcraft.yaml
+        run: |
+          SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
+          THIN_EDGE_COMMIT=$(git ls-remote https://github.com/thin-edge/thin-edge.io.git HEAD | awk '{print $1}')
+          GIT_COMMIT="$(git rev-parse --short HEAD)"
+          sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_COMMIT/" snap/snapcraft.yaml
+          sed -i "s/^version:.*/version: ${{ steps.version.outputs.VERSION }}/" snap/snapcraft.yaml
+          mkdir -p configs
+          cat > configs/build-info.txt <<EOF
+          Version: ${{ steps.version.outputs.VERSION }}
+          Build Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Build Host: github-actions
+          Build User: ${{ github.actor }}
+          Base: core22
+          Architecture: amd64+arm64
+          Git Commit: ${GIT_COMMIT}
+          Upstream Commit: ${THIN_EDGE_COMMIT}
+          EOF
+          echo "SNAP_NAME=${SNAP_NAME}" >> "$GITHUB_ENV"
+
+      - name: Compile LESS to CSS
+        run: lessc web/www/styles.less web/www/styles.css
+
+      - name: Build amd64 snap
+        run: sudo -E snapcraft --destructive-mode --enable-manifest --target-arch=amd64
+
+      - name: Build arm64 snap
+        run: sudo -E snapcraft --destructive-mode --enable-manifest --target-arch=arm64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          generate_release_notes: true
+          files: |
+            ${{ env.SNAP_NAME }}_*_amd64.snap
+            ${{ env.SNAP_NAME }}_*_arm64.snap
