@@ -173,7 +173,7 @@ impl Default for DatalayerConfig {
             base_url: "https://localhost".to_string(),
             poll_interval_ms: 5000,
             mappings: Vec::new(),
-            accept_invalid_certs: true,
+            accept_invalid_certs: false,
             mqtt_service_enabled: false,
             device_external_id: String::new(),
         }
@@ -208,6 +208,9 @@ impl DatalayerEngine {
             .join("datalayer-credentials.json");
         let config = Self::load_config(&config_path);
         let credentials = Self::load_credentials(&credentials_path);
+        if config.accept_invalid_certs {
+            log::warn!("[DATALAYER] TLS certificate verification is DISABLED — only use in trusted network environments");
+        }
         let http_client = reqwest::Client::builder()
             .danger_accept_invalid_certs(config.accept_invalid_certs)
             .build()

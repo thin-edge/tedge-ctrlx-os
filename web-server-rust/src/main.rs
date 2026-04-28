@@ -1688,8 +1688,7 @@ async fn upload_cert_c8y(
     let username = body.username.clone();
     let password = body.password.clone();
     info!(
-        "[CERT-UPLOAD] Running: tedge cert upload c8y --user {}",
-        username
+        "[CERT-UPLOAD] Running: tedge cert upload c8y --user [REDACTED]"
     );
 
     let result = web::block(move || {
@@ -2853,8 +2852,26 @@ async fn set_log_level(
         })));
     }
 
+    // Allowlist to prevent path traversal via the service name field
+    let valid_services = [
+        "webserver",
+        "bridge",
+        "tedge",
+        "tedge-mapper-c8y",
+        "tedge-mapper-aws",
+        "tedge-mapper-az",
+        "tedge-watchdog",
+        "tedge-log-upload-manager",
+    ];
+    if !valid_services.contains(&body.service.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid service name"
+        })));
+    }
+
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
-    let log_levels_dir = format!("{}/log-levels", snap_data);
+    let log_levels_dir = format!("{}/log-levels", sanitize_snap_path(&snap_data));
     let _ = fs::create_dir_all(&log_levels_dir);
     let level_file = format!("{}/{}", log_levels_dir, body.service);
     fs::write(&level_file, &body.level)?;
@@ -2971,7 +2988,7 @@ async fn dl_client_and_token(
     creds: &DatalayerCredentials,
 ) -> (reqwest::Client, Option<String>) {
     let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_certs(cfg.accept_invalid_certs)
         .timeout(std::time::Duration::from_secs(5))
         .build()
         .unwrap_or_default();
@@ -3914,16 +3931,31 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     })))
 }
 
+/// Sanitize a path derived from environment variables (e.g. SNAP_DATA) to prevent
+/// path traversal: remove any `..` components before constructing file paths.
+fn sanitize_snap_path(path: &str) -> String {
+    use std::path::Component;
+    let sanitized: std::path::PathBuf = std::path::Path::new(path)
+        .components()
+        .filter(|c| !matches!(c, Component::ParentDir))
+        .collect();
+    sanitized.to_string_lossy().into_owned()
+}
+
 #[actix_web::main]
 async fn main() -> io::Result<()> {
     // Logging initialisieren
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
     let is_snap = env::var("SNAP").is_ok();
-    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| String::from("."));
+    let snap_data = sanitize_snap_path(
+        &env::var("SNAP_DATA").unwrap_or_else(|_| String::from(".")),
+    );
 
     // Credentials and web config in SNAP_COMMON — survives snap updates
-    let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone());
+    let snap_common = sanitize_snap_path(
+        &env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone()),
+    );
 
     let config_path = if is_snap {
         // Use SNAP_COMMON so cert_upload and cloud config survive snap updates

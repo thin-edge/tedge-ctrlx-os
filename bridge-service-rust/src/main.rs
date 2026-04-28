@@ -1,7 +1,7 @@
 mod datalayer;
 
 use anyhow::Result;
-use log::info;
+use log::{info, warn};
 // handle_mqtt_message added to import
 use crate::datalayer::{
     handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
@@ -221,7 +221,7 @@ async fn main() -> Result<()> {
         get_device_serial()
     };
     if !external_id.is_empty() {
-        info!("[BRIDGE] Device external ID: {}", external_id);
+        info!("[BRIDGE] Device external ID registered ({} chars)", external_id.len());
         config.device_external_id = external_id;
     }
 
@@ -253,6 +253,9 @@ async fn main() -> Result<()> {
         mqtt_service_enabled
     );
     let shutdown = Arc::new(AtomicBool::new(false));
+    if config.accept_invalid_certs {
+        warn!("[BRIDGE] TLS certificate verification is DISABLED — only use in trusted network environments");
+    }
     let mut bridge = TedgeDatalayerBridge::new(config.accept_invalid_certs);
 
     // SIGTERM handler: set shutdown flag for graceful exit

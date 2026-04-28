@@ -1244,7 +1244,16 @@ function showNotification(message, type = "info") {
   const el = document.createElement("div");
   el.className = `alert ${typeClass} alert-dismissible`;
   el.setAttribute("role", "alert");
-  el.innerHTML = `${message} <button type="button" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></button>`;
+  // Use DOM methods to prevent XSS – never insert message via innerHTML
+  const msgNode = document.createTextNode(message);
+  const btnClose = document.createElement("button");
+  btnClose.type = "button";
+  btnClose.className = "close";
+  btnClose.setAttribute("aria-label", "Close");
+  btnClose.innerHTML = '<span aria-hidden="true">&times;</span>';
+  btnClose.addEventListener("click", () => el.remove());
+  el.appendChild(msgNode);
+  el.appendChild(btnClose);
   el.querySelector(".close").addEventListener("click", () => el.remove());
   container.appendChild(el);
 
@@ -2800,24 +2809,37 @@ function datalayerUp() {
 /** 13. Knoten-Liste in die Box rendern */
 function renderNodeList(nodes) {
   const listBox = document.getElementById("datalayer-node-list");
+  listBox.innerHTML = "";
   if (!nodes || nodes.length === 0) {
-    listBox.innerHTML = `<div class="node-empty-hint">Keine Unterknoten gefunden.</div>`;
+    const hint = document.createElement("div");
+    hint.className = "node-empty-hint";
+    hint.textContent = "Keine Unterknoten gefunden.";
+    listBox.appendChild(hint);
     return;
   }
 
-  listBox.innerHTML = nodes
-    .map((node) => {
-      const fullPath = node.path;
-      return `
-            <div class="node-item">
-                <span class="node-name" onclick="document.getElementById('datalayer-browse-path').value='${fullPath}'; browseDatalayer();">
-                    ${fullPath.split("/").pop()}
-                </span>
-                <button class="btn-add-mapping" onclick="prepareMapping('${fullPath}')">Add</button>
-            </div>
-        `;
-    })
-    .join("");
+  nodes.forEach((node) => {
+    const fullPath = node.path;
+    const item = document.createElement("div");
+    item.className = "node-item";
+
+    const span = document.createElement("span");
+    span.className = "node-name";
+    span.textContent = fullPath.split("/").pop();
+    span.addEventListener("click", () => {
+      document.getElementById("datalayer-browse-path").value = fullPath;
+      browseDatalayer();
+    });
+
+    const btn = document.createElement("button");
+    btn.className = "btn-add-mapping";
+    btn.textContent = "Add";
+    btn.addEventListener("click", () => prepareMapping(fullPath));
+
+    item.appendChild(span);
+    item.appendChild(btn);
+    listBox.appendChild(item);
+  });
 }
 
 // ── ctrlX Licensing ──────────────────────────────────────────────────────────
