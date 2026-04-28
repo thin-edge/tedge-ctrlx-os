@@ -1,6 +1,7 @@
 # Roadmap — Not Yet Implemented Features
 
 This document describes features of **thin-edge.io** and the **ctrlX AUTOMATION** platform that are not yet implemented or only partially supported in the current app version (2.0.0).
+Not all described features are possible to be implemented due to the ctrlx-CORE hardware and ctrlX OS limitations. The roadmap is intended to provide transparency about the current state of the app and to set expectations for future development.
 
 ---
 
