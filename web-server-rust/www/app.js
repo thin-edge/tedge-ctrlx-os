@@ -266,6 +266,7 @@ const I18N = {
       "Dieses Mapping verwendet ein 'te/'-Topic. Beim MQTT Service muss stattdessen 'c8y/mqtt/out/...' verwendet werden.",
     "datalayer.topic_hint_core": "z.B. te/device/main///m/meinWert",
     "datalayer.topic_hint_service": "z.B. c8y/mqtt/out/meinTopic",
+    "datalayer.payload_preview": "Payload preview",
   },
   en: {
     // Header
@@ -511,6 +512,7 @@ const I18N = {
     "datalayer.col_direction": "Direction",
     "datalayer.add_mapping_title": "Add Mapping",
     "datalayer.edit_mapping_title": "Edit Mapping",
+    "datalayer.payload_preview": "Payload preview",
     "common.delete": "Delete",
     // Notifications
     "notify.dl_config_err": "Error saving datalayer configuration",
@@ -2371,10 +2373,13 @@ function showMappingPayloadPreview() {
   const pre = document.getElementById("datalayer-payload-preview");
   if (!pre) return;
 
-  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const transform = document.getElementById(
+    "datalayer-mapping-transform",
+  ).value;
   const fieldName =
     document.getElementById("datalayer-mapping-field").value.trim() ||
-    (document.getElementById("datalayer-mapping-path").value.split("/").pop() || "value");
+    document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
+    "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
   const topic = document.getElementById("datalayer-mapping-topic").value.trim();
   const isC8yService = topic.startsWith("c8y/mqtt/out/");
@@ -2387,17 +2392,30 @@ function showMappingPayloadPreview() {
     if (isC8yService) payload.externalId = "<device-external-id>";
   } else if (transform === "event") {
     if (isC8yService) {
-      payload = { Text: "<datalayer-value>", type: "c8y_ctrlx_Event", time: ts };
+      payload = {
+        Text: "<datalayer-value>",
+        type: "c8y_ctrlx_Event",
+        time: ts,
+      };
       payload.externalId = "<device-external-id>";
     } else {
       payload = { text: `Event: ${fieldName} is <value>`, type: "ctrlx_event" };
     }
   } else if (transform === "alarm") {
     if (isC8yService) {
-      payload = { Text: "<datalayer-value>", severity: "MAJOR", status: "ACTIVE", type: "c8y_ctrlx_Alarm", time: ts };
+      payload = {
+        Text: "<datalayer-value>",
+        severity: "MAJOR",
+        status: "ACTIVE",
+        type: "c8y_ctrlx_Alarm",
+        time: ts,
+      };
       payload.externalId = "<device-external-id>";
     } else {
-      payload = { text: `Alarm at ${fieldName}: value is <value>`, severity: "major" };
+      payload = {
+        text: `Alarm at ${fieldName}: value is <value>`,
+        severity: "major",
+      };
     }
   } else {
     payload = { raw: "<datalayer-value>" };
@@ -2812,14 +2830,15 @@ async function checkLicenseStatus() {
     const banner = document.getElementById("license-warning-banner");
     if (!banner) return;
     if (!data.licensed) {
+      const reqName = data.required || "SWL-XCx-RUN-DLACCESSNRTxx-NNNN";
       banner.innerHTML =
-        "⚠ <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
-        "Please obtain license <code>" +
-        (data.required || "") +
+        "\u26A0 <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
+        "Please obtain license <code style='margin: 0 4px;'>" +
+        reqName +
         "</code> from the " +
-        '<a onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
+        '<a style="cursor:pointer;text-decoration:underline" onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
         '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
-      banner.style.display = "flex";
+      banner.style.display = "block";
     } else {
       banner.style.display = "none";
     }
