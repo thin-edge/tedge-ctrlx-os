@@ -1687,9 +1687,7 @@ async fn upload_cert_c8y(
 
     let username = body.username.clone();
     let password = body.password.clone();
-    info!(
-        "[CERT-UPLOAD] Running: tedge cert upload c8y --user [REDACTED]"
-    );
+    info!("[CERT-UPLOAD] Running: tedge cert upload c8y --user [REDACTED]");
 
     let result = web::block(move || {
         Command::new(&tedge_bin)
@@ -3948,14 +3946,12 @@ async fn main() -> io::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
     let is_snap = env::var("SNAP").is_ok();
-    let snap_data = sanitize_snap_path(
-        &env::var("SNAP_DATA").unwrap_or_else(|_| String::from(".")),
-    );
+    let snap_data =
+        sanitize_snap_path(&env::var("SNAP_DATA").unwrap_or_else(|_| String::from(".")));
 
     // Credentials and web config in SNAP_COMMON — survives snap updates
-    let snap_common = sanitize_snap_path(
-        &env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone()),
-    );
+    let snap_common =
+        sanitize_snap_path(&env::var("SNAP_COMMON").unwrap_or_else(|_| snap_data.clone()));
 
     let config_path = if is_snap {
         // Use SNAP_COMMON so cert_upload and cloud config survive snap updates

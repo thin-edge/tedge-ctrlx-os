@@ -221,7 +221,10 @@ async fn main() -> Result<()> {
         get_device_serial()
     };
     if !external_id.is_empty() {
-        info!("[BRIDGE] Device external ID registered ({} chars)", external_id.len());
+        info!(
+            "[BRIDGE] Device external ID registered ({} chars)",
+            external_id.len()
+        );
         config.device_external_id = external_id;
     }
 
