@@ -59,7 +59,8 @@ jobs:
         run: |
           SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
           VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
-          BUILD_VERSION="${VERSION_BASE}.${{ github.run_number }}"
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BUILD_VERSION="${VERSION_BASE}.${COMMIT_COUNT}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           THIN_EDGE_COMMIT=$(git ls-remote https://github.com/thin-edge/thin-edge.io.git HEAD | awk '{print $1}')
           sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_COMMIT/" snap/snapcraft.yaml
