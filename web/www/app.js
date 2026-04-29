@@ -985,7 +985,7 @@ async function requestCaCert() {
       spinnerEl.setAttribute("aria-hidden", "true");
       btn.appendChild(spinnerEl);
       btn.appendChild(
-        document.createTextNode(" " + (msg || t("device.ca_waiting")))
+        document.createTextNode(" " + (msg || t("device.ca_waiting"))),
       );
     }
     if (statusEl) {
