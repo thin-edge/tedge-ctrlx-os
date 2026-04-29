@@ -28,9 +28,10 @@ jobs:
 
       - name: Create tag if version changed
         run: |
-          VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
-          if [ -z "$VERSION" ]; then
-            echo "Could not detect version from snap/snapcraft.yaml"
+          VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
+          VERSION="${VERSION_BASE}.${{ github.event.workflow_run.run_number }}"
+          if [ -z "$VERSION_BASE" ]; then
+            echo "Could not detect base version from snap/snapcraft.yaml"
             exit 1
           fi
           if [ -n "$(git tag -l "$VERSION")" ]; then

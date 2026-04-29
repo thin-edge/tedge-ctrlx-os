@@ -58,15 +58,15 @@ jobs:
       - name: Generate build info
         run: |
           SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
-          VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
-          BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
+          VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
+          BUILD_VERSION="${VERSION_BASE}.${{ github.run_number }}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           THIN_EDGE_COMMIT=$(git ls-remote https://github.com/thin-edge/thin-edge.io.git HEAD | awk '{print $1}')
           sed -i "s/^\(\s*source-commit:\s*\).*/\1$THIN_EDGE_COMMIT/" snap/snapcraft.yaml
-          sed -i "s/^version:.*/version: ${VERSION}-${BUILD_SUFFIX}/" snap/snapcraft.yaml
+          sed -i "s/^version:.*/version: ${BUILD_VERSION}/" snap/snapcraft.yaml
           mkdir -p configs
           cat > configs/build-info.txt <<EOF
-          Version: ${VERSION}-${BUILD_SUFFIX}
+          Version: ${BUILD_VERSION}
           Build Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
           Build Host: github-actions
           Build User: ${{ github.actor }}
@@ -75,7 +75,7 @@ jobs:
           Git Commit: ${GIT_COMMIT}
           Upstream Commit: ${THIN_EDGE_COMMIT}
           EOF
-          echo "SNAP_VERSION=${VERSION}-${BUILD_SUFFIX}" >> "$GITHUB_ENV"
+          echo "SNAP_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
           echo "SNAP_NAME=${SNAP_NAME}" >> "$GITHUB_ENV"
 
       - name: Compile LESS to CSS

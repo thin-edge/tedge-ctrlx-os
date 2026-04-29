@@ -2627,7 +2627,15 @@ function renderDatalayerMappings() {
   if (!tbody) return;
 
   if (_dlMappings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint" style="text-align:center; padding:20px;">${t("datalayer.no_mappings")}</td></tr>`;
+    tbody.innerHTML = "";
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "node-empty-hint";
+    td.style.cssText = "text-align:center; padding:20px;";
+    td.textContent = t("datalayer.no_mappings");
+    tr.appendChild(td);
+    tbody.appendChild(tr);
     return;
   }
 
@@ -2685,25 +2693,89 @@ function renderDatalayerMappings() {
       editDatalayerMapping(m.id);
     });
 
-    tr.innerHTML = `
-      <td class="cell-path" title="${p}" style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pathHtml}</td>
-      <td class="cell-topic text-truncate" title="${t_topic}" style="color:${topicColor}; max-width:200px;">${topicWarning}${t_topic}</td>
-      <td class="text-center" title="${dirTitle}" style="font-size:16px; color:${dirColor}; width:32px;">
-        <i class="fa-solid ${dirIcon}"></i>
-      </td>
-      <td style="white-space:nowrap;">${fieldHtml}</td>
-      <td class="text-center" style="width:52px;">
-        <label class="tedge-switch">
-          <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
-          <span class="tedge-switch-slider"></span>
-        </label>
-      </td>
-      <td class="text-right" style="width:36px;">
-        <button class="btn btn-dot text-danger" title="Löschen" onclick="event.stopPropagation(); deleteDatalayerMapping('${m.id}')">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </td>
-    `;
+    // Build table row with DOM methods to prevent XSS
+    const tdPath = document.createElement("td");
+    tdPath.className = "cell-path";
+    tdPath.title = p;
+    tdPath.style.cssText = "max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+    const pathPrefixSpan = document.createElement("span");
+    pathPrefixSpan.style.cssText = "color:var(--c8y-palette-gray-40);font-size:11px;";
+    pathPrefixSpan.textContent = pathPrefix;
+    const pathLastStrong = document.createElement("strong");
+    pathLastStrong.textContent = pathLast;
+    tdPath.appendChild(pathPrefixSpan);
+    tdPath.appendChild(pathLastStrong);
+
+    const tdTopic = document.createElement("td");
+    tdTopic.className = "cell-topic text-truncate";
+    tdTopic.title = t_topic;
+    tdTopic.style.cssText = `color:${topicColor}; max-width:200px;`;
+    if (topicIncompatible) {
+      const warnIcon = document.createElement("i");
+      warnIcon.className = "fa-solid fa-triangle-exclamation";
+      warnIcon.style.cssText = "color:#e8760d; margin-right:4px; font-size:11px;";
+      warnIcon.title = "Topic inkompatibel mit MQTT Service";
+      tdTopic.appendChild(warnIcon);
+    }
+    tdTopic.appendChild(document.createTextNode(t_topic));
+
+    const tdDir = document.createElement("td");
+    tdDir.className = "text-center";
+    tdDir.title = dirTitle;
+    tdDir.style.cssText = `font-size:16px; color:${dirColor}; width:32px;`;
+    const dirI = document.createElement("i");
+    dirI.className = `fa-solid ${dirIcon}`;
+    tdDir.appendChild(dirI);
+
+    const tdField = document.createElement("td");
+    tdField.style.whiteSpace = "nowrap";
+    const transSpan = document.createElement("span");
+    transSpan.className = `label ${labelClass}`;
+    transSpan.style.fontSize = "10px";
+    transSpan.textContent = trans.toUpperCase();
+    tdField.appendChild(transSpan);
+    if (fieldName) {
+      tdField.appendChild(document.createTextNode(" "));
+      const fnSpan = document.createElement("span");
+      fnSpan.style.fontSize = "12px";
+      fnSpan.textContent = fieldName;
+      tdField.appendChild(fnSpan);
+    }
+
+    const tdToggle = document.createElement("td");
+    tdToggle.className = "text-center";
+    tdToggle.style.width = "52px";
+    const lbl = document.createElement("label");
+    lbl.className = "tedge-switch";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = !!m.enabled;
+    const mappingId = m.id;
+    chk.addEventListener("change", () => toggleDatalayerMapping(mappingId, chk.checked));
+    const slider = document.createElement("span");
+    slider.className = "tedge-switch-slider";
+    lbl.appendChild(chk);
+    lbl.appendChild(slider);
+    tdToggle.appendChild(lbl);
+
+    const tdDel = document.createElement("td");
+    tdDel.className = "text-right";
+    tdDel.style.width = "36px";
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-dot text-danger";
+    delBtn.title = "Löschen";
+    delBtn.addEventListener("click", (ev) => { ev.stopPropagation(); deleteDatalayerMapping(mappingId); });
+    const delI = document.createElement("i");
+    delI.className = "fa-solid fa-trash";
+    delBtn.appendChild(delI);
+    tdDel.appendChild(delBtn);
+
+    tr.appendChild(tdPath);
+    tr.appendChild(tdTopic);
+    tr.appendChild(tdDir);
+    tr.appendChild(tdField);
+    tr.appendChild(tdToggle);
+    tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
   if (typeof applyI18n === "function") applyI18n();
@@ -2775,7 +2847,11 @@ async function browseDatalayer() {
   if (!path.startsWith("/")) path = "/" + path;
   if (path === "/") path = "";
 
-  listBox.innerHTML = `<div class="node-empty-hint">${t("status.loading")}</div>`;
+  listBox.innerHTML = "";
+  const loadingHint = document.createElement("div");
+  loadingHint.className = "node-empty-hint";
+  loadingHint.textContent = t("status.loading");
+  listBox.appendChild(loadingHint);
 
   try {
     const r = await fetchWithAuth(
@@ -2790,7 +2866,11 @@ async function browseDatalayer() {
 
     renderNodeList(formattedNodes);
   } catch (e) {
-    listBox.innerHTML = `<div class="node-empty-hint text-danger">Fehler: ${e.message}</div>`;
+    listBox.innerHTML = "";
+    const errHint = document.createElement("div");
+    errHint.className = "node-empty-hint text-danger";
+    errHint.textContent = "Fehler: " + e.message;
+    listBox.appendChild(errHint);
   }
 }
 
@@ -2853,13 +2933,31 @@ async function checkLicenseStatus() {
     if (!banner) return;
     if (!data.licensed) {
       const reqName = data.required || "SWL-XCx-RUN-DLACCESSNRTxx-NNNN";
-      banner.innerHTML =
-        "\u26A0 <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
-        "Please obtain license <code style='margin: 0 4px;'>" +
-        reqName +
-        "</code> from the " +
-        '<a style="cursor:pointer;text-decoration:underline" onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
-        '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+      // Build banner with DOM methods to prevent XSS via reqName
+      banner.innerHTML = "";
+      banner.appendChild(document.createTextNode("\u26A0 "));
+      const strong = document.createElement("strong");
+      strong.textContent = "License missing:";
+      banner.appendChild(strong);
+      banner.appendChild(document.createTextNode(" No valid ctrlX OS license found for this app. Please obtain license "));
+      const code = document.createElement("code");
+      code.style.margin = "0 4px";
+      code.textContent = reqName;
+      banner.appendChild(code);
+      banner.appendChild(document.createTextNode(" from the "));
+      const aLocal = document.createElement("a");
+      aLocal.style.cssText = "cursor:pointer;text-decoration:underline";
+      aLocal.textContent = "ctrlX Licensing section";
+      aLocal.addEventListener("click", scrollToLicensing);
+      banner.appendChild(aLocal);
+      banner.appendChild(document.createTextNode(" or "));
+      const aExt = document.createElement("a");
+      aExt.href = "/license-manager";
+      aExt.target = "_blank";
+      aExt.rel = "noopener";
+      aExt.textContent = "Bosch Rexroth Licensing Center";
+      banner.appendChild(aExt);
+      banner.appendChild(document.createTextNode("."));
       banner.style.display = "block";
     } else {
       banner.style.display = "none";
@@ -2908,8 +3006,8 @@ async function loadLicenses() {
       return;
     }
 
-    tbody.innerHTML = licenses
-      .map((lic) => {
+    tbody.innerHTML = "";
+    licenses.forEach((lic) => {
         const name = lic.name || lic.appName || lic.title || "-";
         // ctrlX capabilities API: finalExpirationDate or isPermanent
         const validUntil = lic.isPermanent
@@ -2929,14 +3027,22 @@ async function loadLicenses() {
           ? "var(--c8y-brand-success, #27ae60)"
           : "var(--c8y-brand-danger, #e74c3c)";
         const statusLabel = lic.status || (active ? "active" : "inactive");
-        return `<tr style="border-bottom:1px solid var(--c8y-palette-gray-80,#333)">
-          <td style="padding:6px 8px">${name}</td>
-          <td style="padding:6px 8px"><span style="color:${statusColor}">${statusLabel}</span></td>
-          <td style="padding:6px 8px">${validUntil}</td>
-          <td style="padding:6px 8px">${qty}</td>
-        </tr>`;
-      })
-      .join("");
+        // Build row with DOM methods to prevent XSS via license data
+        const row = document.createElement("tr");
+        row.style.borderBottom = "1px solid var(--c8y-palette-gray-80,#333)";
+        const mkTd = (text) => { const td = document.createElement("td"); td.style.padding = "6px 8px"; td.textContent = text; return td; };
+        row.appendChild(mkTd(name));
+        const tdStatus = document.createElement("td");
+        tdStatus.style.padding = "6px 8px";
+        const statusSpan = document.createElement("span");
+        statusSpan.style.color = statusColor;
+        statusSpan.textContent = statusLabel;
+        tdStatus.appendChild(statusSpan);
+        row.appendChild(tdStatus);
+        row.appendChild(mkTd(String(validUntil)));
+        row.appendChild(mkTd(String(qty)));
+        tbody.appendChild(row);
+      });
 
     if (table) table.style.display = "";
   } catch (e) {
