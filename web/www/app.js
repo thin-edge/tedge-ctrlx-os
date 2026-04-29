@@ -916,7 +916,9 @@ function updateCaDownloadStatusDisplay(timestamp) {
   if (!el) return;
   if (timestamp) {
     const ts = parseInt(timestamp, 10);
-    const timeStr = !isNaN(ts) ? " (" + new Date(ts * 1000).toLocaleString() + ")" : "";
+    const timeStr = !isNaN(ts)
+      ? " (" + new Date(ts * 1000).toLocaleString() + ")"
+      : "";
     el.textContent = "🟢 Downloaded" + timeStr;
     el.style.color = "var(--brand-primary, #53cd61)";
   } else {
@@ -1569,7 +1571,9 @@ async function loadDeviceIdInfo() {
     }
     if (caNameField && !caNameField.value) {
       caNameField.value = nameWithoutPrefix ? "ctrlx-" + nameWithoutPrefix : "";
-      caNameField.placeholder = placeholder ? "ctrlx-" + placeholder : "ctrlx-device-name";
+      caNameField.placeholder = placeholder
+        ? "ctrlx-" + placeholder
+        : "ctrlx-device-name";
     }
 
     // Certificate status + button highlight + inline cert details
