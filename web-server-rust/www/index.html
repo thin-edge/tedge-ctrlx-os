@@ -618,17 +618,6 @@
                     "
                   ></a>
                 </div>
-
-                <div class="action-buttons">
-                  <button
-                    class="btn btn-primary btn-sm"
-                    id="btn-ca-request"
-                    onclick="requestCaCert()"
-                    data-i18n="device.ca_request"
-                  >
-                    Request Certificate
-                  </button>
-                </div>
               </div>
 
               <!-- Self-Signed mode fields -->
@@ -783,17 +772,44 @@
                 id="cert-ca-status-row"
                 style="display: none; margin-top: 8px"
               >
-                <span
-                  ><strong data-i18n="device.cert_status"
-                    >Certificate Status:</strong
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <span
+                    ><strong data-i18n="device.cert_status"
+                      >Certificate Status:</strong
+                    >
+                    <span
+                      id="cert-ca-status"
+                      class="cert-status"
+                      data-i18n="device.cert_unknown"
+                      >⚪ Unknown</span
+                    ></span
                   >
                   <span
-                    id="cert-ca-status"
-                    class="cert-status"
-                    data-i18n="device.cert_unknown"
-                    >⚪ Unknown</span
-                  ></span
-                >
+                    ><strong data-i18n="device.download_status"
+                      >Download Status:</strong
+                    >
+                    <span id="cert-ca-download-status" class="cert-status"
+                      >⚪ Not yet downloaded</span
+                    ></span
+                  >
+                </div>
+                <div class="action-buttons" style="margin-top: 8px">
+                  <button
+                    class="btn btn-primary btn-sm"
+                    id="btn-ca-request"
+                    onclick="requestCaCert()"
+                    data-i18n="device.ca_request"
+                  >
+                    Request Certificate
+                  </button>
+                </div>
               </div>
             </div>
             <div

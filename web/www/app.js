@@ -92,6 +92,8 @@ const I18N = {
     "device.upload_cert": "Hochladen",
     "device.cert_unknown": "⚪ Unbekannt",
     "device.not_uploaded": "⚪ Noch nicht hochgeladen",
+    "device.download_status": "Download Status:",
+    "device.not_downloaded": "⚪ Noch nicht heruntergeladen",
     "device.cert_active": "🟢 Aktiv",
     "device.cert_missing": "🔴 Fehlt",
     "device.cert_details": "Zertifikatsdetails",
@@ -369,6 +371,8 @@ const I18N = {
     "device.upload_cert": "Upload",
     "device.cert_unknown": "⚪ Unknown",
     "device.not_uploaded": "⚪ Not yet uploaded",
+    "device.download_status": "Download Status:",
+    "device.not_downloaded": "⚪ Not yet downloaded",
     "device.cert_active": "🟢 Active",
     "device.cert_missing": "🔴 Missing",
     "device.cert_details": "Certificate Details",
@@ -907,6 +911,20 @@ function _syncCaStatus() {
   dst.textContent = src.textContent;
 }
 
+function updateCaDownloadStatusDisplay(timestamp) {
+  const el = document.getElementById("cert-ca-download-status");
+  if (!el) return;
+  if (timestamp) {
+    const ts = parseInt(timestamp, 10);
+    const timeStr = !isNaN(ts) ? " (" + new Date(ts * 1000).toLocaleString() + ")" : "";
+    el.textContent = "🟢 Downloaded" + timeStr;
+    el.style.color = "var(--brand-primary, #53cd61)";
+  } else {
+    el.textContent = t("device.not_downloaded");
+    el.style.color = "";
+  }
+}
+
 function onCaNameInput() {
   _updateCaRegHint();
 }
@@ -1036,6 +1054,7 @@ async function requestCaCert() {
         showNotification(t("notify.ca_cert_requested"), "success");
         if (otpInput) otpInput.value = "";
         resetBtn();
+        updateCaDownloadStatusDisplay(String(Math.floor(Date.now() / 1000)));
         setTimeout(() => {
           loadDeviceIdInfo();
           loadCertDetailsInline();
