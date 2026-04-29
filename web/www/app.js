@@ -764,6 +764,9 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStatus();
   checkLicenseStatus();
 
+  // Apply persisted certificate mode (default: CA)
+  _applyCertMode(getCertMode());
+
   // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
   ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
     const toggleId = urlId.replace("-url", "-enabled");
@@ -816,6 +819,122 @@ async function loadStatus() {
   } catch (error) {
     console.error("Error loading status:", error);
     showNotification(t("notify.status_load_err"), "error");
+  }
+}
+
+// ── Certificate mode (CA vs Self-Signed) ────────────────────────────────────
+
+// Persist mode in localStorage so it survives page reloads
+const CERT_MODE_KEY = "certMode";
+
+function getCertMode() {
+  return localStorage.getItem(CERT_MODE_KEY) || "ca";
+}
+
+function setCertMode(mode) {
+  localStorage.setItem(CERT_MODE_KEY, mode);
+  _applyCertMode(mode);
+}
+
+function _applyCertMode(mode) {
+  const caFields = document.getElementById("cert-ca-fields");
+  const selfFields = document.getElementById("cert-self-fields");
+  const caStatusRow = document.getElementById("cert-ca-status-row");
+  const btnCa = document.getElementById("btn-cert-mode-ca");
+  const btnSelf = document.getElementById("btn-cert-mode-self");
+
+  if (mode === "ca") {
+    if (caFields) caFields.style.display = "";
+    if (selfFields) selfFields.style.display = "none";
+    if (caStatusRow) caStatusRow.style.display = "";
+    if (btnCa) { btnCa.className = "btn btn-sm btn-primary"; }
+    if (btnSelf) { btnSelf.className = "btn btn-sm btn-outline-secondary"; }
+    // Sync CA status from existing cert-status element
+    _syncCaStatus();
+    _updateCaRegHint();
+  } else {
+    if (caFields) caFields.style.display = "none";
+    if (selfFields) selfFields.style.display = "";
+    if (caStatusRow) caStatusRow.style.display = "none";
+    if (btnCa) { btnCa.className = "btn btn-sm btn-outline-secondary"; }
+    if (btnSelf) { btnSelf.className = "btn btn-sm btn-primary"; }
+  }
+}
+
+function _syncCaStatus() {
+  const src = document.getElementById("cert-status");
+  const dst = document.getElementById("cert-ca-status");
+  if (!src || !dst) return;
+  dst.className = src.className;
+  dst.textContent = src.textContent;
+}
+
+function onCaNameInput() {
+  _updateCaRegHint();
+}
+
+function _updateCaRegHint() {
+  const nameInput = document.getElementById("cert-ca-name");
+  const hint = document.getElementById("cert-ca-reg-hint");
+  const link = document.getElementById("cert-ca-reg-link");
+  if (!nameInput || !hint || !link) return;
+
+  const name = nameInput.value.trim();
+  const certStatus = document.getElementById("cert-status");
+  const isActive = certStatus && certStatus.classList.contains("success");
+
+  if (name && !isActive) {
+    const c8yUrl = (document.getElementById("c8y-url") || {}).value || "";
+    const base = c8yUrl.replace(/\/+$/, "");
+    const regUrl = base
+      ? base + "/apps/devicemanagement/index.html#/deviceregistration"
+      : "#";
+    link.href = regUrl;
+    link.textContent = regUrl !== "#" ? regUrl : t("device.ca_reg_url_missing") || "(configure C8Y URL first)";
+    hint.style.display = "";
+  } else {
+    hint.style.display = "none";
+  }
+}
+
+async function requestCaCert() {
+  const nameInput = document.getElementById("cert-ca-name");
+  const otpInput = document.getElementById("cert-ca-otp");
+  const name = (nameInput || {}).value?.trim();
+  const otp = (otpInput || {}).value?.trim();
+
+  if (!name) {
+    showNotification(t("notify.cert_cn_required") || "Please enter a device name.", "error");
+    return;
+  }
+  if (!otp) {
+    showNotification(t("notify.ca_otp_required") || "Please enter the one-time password.", "error");
+    return;
+  }
+
+  const btn = document.getElementById("btn-ca-request");
+  if (btn) { btn.disabled = true; btn.textContent = "…"; }
+
+  try {
+    const response = await fetchWithAuth("api/device-id/ca-request", {
+      method: "POST",
+      body: JSON.stringify({ device_name: "ctrlx-" + name, otp }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 403) {
+      showNotification(data.error || t("notify.admin_required"), "error");
+    } else if (data.success) {
+      showNotification(t("notify.ca_cert_requested") || "Certificate request submitted successfully.", "success");
+      if (otpInput) otpInput.value = "";
+      setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 2000);
+    } else {
+      showNotification(data.error || t("cert.create_err") || "Certificate request failed.", "error");
+    }
+  } catch (e) {
+    showNotification(t("cert.create_err") || "Certificate request failed.", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = t("device.ca_request") || "Request Certificate"; }
   }
 }
 
@@ -1286,19 +1405,25 @@ async function loadDeviceIdInfo() {
       deviceIdField.placeholder = "Hardware UUID";
     }
 
-    // Pre-fill cert-common-name from current cert CN
+    // Pre-fill cert-common-name (self-signed) and cert-ca-name (CA) from current cert CN
     const cnField = document.getElementById("cert-common-name");
+    const caNameField = document.getElementById("cert-ca-name");
+    const cert =
+      data.current &&
+      data.current !== "not-set" &&
+      !data.current.startsWith("No certificate")
+        ? data.current
+        : "";
+    const raw = cert || data.system_serial || "";
+    const nameWithoutPrefix = raw.replace(/^ctrlx-/i, "");
+    const placeholder = (data.system_serial || "").replace(/^ctrlx-/i, "") || "device-name";
     if (cnField && !cnField.value) {
-      const cert =
-        data.current &&
-        data.current !== "not-set" &&
-        !data.current.startsWith("No certificate")
-          ? data.current
-          : "";
-      const raw = cert || data.system_serial || "";
-      cnField.value = raw.replace(/^ctrlx-/i, "");
-      cnField.placeholder =
-        (data.system_serial || "").replace(/^ctrlx-/i, "") || "e.g. ctrlx-001";
+      cnField.value = nameWithoutPrefix;
+      cnField.placeholder = placeholder || "e.g. ctrlx-001";
+    }
+    if (caNameField && !caNameField.value) {
+      caNameField.value = nameWithoutPrefix;
+      caNameField.placeholder = placeholder;
     }
 
     // Certificate status + button highlight + inline cert details
@@ -1329,6 +1454,9 @@ async function loadDeviceIdInfo() {
       const inline = document.getElementById("cert-details-inline");
       if (inline) inline.style.display = "none";
     }
+    // Keep CA status row in sync
+    _syncCaStatus();
+    _updateCaRegHint();
   } catch (error) {
     console.error("Error loading device ID info:", error);
   }
@@ -1455,6 +1583,8 @@ async function loadCertDetailsInline() {
           certStatus.className = "cert-status error";
           certStatus.textContent = t("device.cert_missing");
         }
+        _syncCaStatus();
+        _updateCaRegHint();
       }
     }
   } catch (_) {}
@@ -1888,6 +2018,7 @@ function initCollapsibleSections() {
       loadC8yMqttPort();
     },
     "sec-device": () => {
+      _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
       loadCertDetailsInline();
@@ -2697,9 +2828,11 @@ function renderDatalayerMappings() {
     const tdPath = document.createElement("td");
     tdPath.className = "cell-path";
     tdPath.title = p;
-    tdPath.style.cssText = "max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+    tdPath.style.cssText =
+      "max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
     const pathPrefixSpan = document.createElement("span");
-    pathPrefixSpan.style.cssText = "color:var(--c8y-palette-gray-40);font-size:11px;";
+    pathPrefixSpan.style.cssText =
+      "color:var(--c8y-palette-gray-40);font-size:11px;";
     pathPrefixSpan.textContent = pathPrefix;
     const pathLastStrong = document.createElement("strong");
     pathLastStrong.textContent = pathLast;
@@ -2713,7 +2846,8 @@ function renderDatalayerMappings() {
     if (topicIncompatible) {
       const warnIcon = document.createElement("i");
       warnIcon.className = "fa-solid fa-triangle-exclamation";
-      warnIcon.style.cssText = "color:#e8760d; margin-right:4px; font-size:11px;";
+      warnIcon.style.cssText =
+        "color:#e8760d; margin-right:4px; font-size:11px;";
       warnIcon.title = "Topic inkompatibel mit MQTT Service";
       tdTopic.appendChild(warnIcon);
     }
@@ -2751,7 +2885,9 @@ function renderDatalayerMappings() {
     chk.type = "checkbox";
     chk.checked = !!m.enabled;
     const mappingId = m.id;
-    chk.addEventListener("change", () => toggleDatalayerMapping(mappingId, chk.checked));
+    chk.addEventListener("change", () =>
+      toggleDatalayerMapping(mappingId, chk.checked),
+    );
     const slider = document.createElement("span");
     slider.className = "tedge-switch-slider";
     lbl.appendChild(chk);
@@ -2764,7 +2900,10 @@ function renderDatalayerMappings() {
     const delBtn = document.createElement("button");
     delBtn.className = "btn btn-dot text-danger";
     delBtn.title = "Löschen";
-    delBtn.addEventListener("click", (ev) => { ev.stopPropagation(); deleteDatalayerMapping(mappingId); });
+    delBtn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      deleteDatalayerMapping(mappingId);
+    });
     const delI = document.createElement("i");
     delI.className = "fa-solid fa-trash";
     delBtn.appendChild(delI);
@@ -2939,7 +3078,11 @@ async function checkLicenseStatus() {
       const strong = document.createElement("strong");
       strong.textContent = "License missing:";
       banner.appendChild(strong);
-      banner.appendChild(document.createTextNode(" No valid ctrlX OS license found for this app. Please obtain license "));
+      banner.appendChild(
+        document.createTextNode(
+          " No valid ctrlX OS license found for this app. Please obtain license ",
+        ),
+      );
       const code = document.createElement("code");
       code.style.margin = "0 4px";
       code.textContent = reqName;
@@ -3008,41 +3151,46 @@ async function loadLicenses() {
 
     tbody.innerHTML = "";
     licenses.forEach((lic) => {
-        const name = lic.name || lic.appName || lic.title || "-";
-        // ctrlX capabilities API: finalExpirationDate or isPermanent
-        const validUntil = lic.isPermanent
-          ? "Permanent"
-          : lic.finalExpirationDate ||
-            lic.endDate ||
-            lic.validUntil ||
-            lic.expiry ||
-            lic.expirationDate ||
-            "-";
-        const qty = lic.count ?? lic.quantity ?? "-";
-        // ctrlX capabilities: no explicit status field — active if present in list
-        const active = lic.status
-          ? lic.status === "valid" || lic.status === "active"
-          : true;
-        const statusColor = active
-          ? "var(--c8y-brand-success, #27ae60)"
-          : "var(--c8y-brand-danger, #e74c3c)";
-        const statusLabel = lic.status || (active ? "active" : "inactive");
-        // Build row with DOM methods to prevent XSS via license data
-        const row = document.createElement("tr");
-        row.style.borderBottom = "1px solid var(--c8y-palette-gray-80,#333)";
-        const mkTd = (text) => { const td = document.createElement("td"); td.style.padding = "6px 8px"; td.textContent = text; return td; };
-        row.appendChild(mkTd(name));
-        const tdStatus = document.createElement("td");
-        tdStatus.style.padding = "6px 8px";
-        const statusSpan = document.createElement("span");
-        statusSpan.style.color = statusColor;
-        statusSpan.textContent = statusLabel;
-        tdStatus.appendChild(statusSpan);
-        row.appendChild(tdStatus);
-        row.appendChild(mkTd(String(validUntil)));
-        row.appendChild(mkTd(String(qty)));
-        tbody.appendChild(row);
-      });
+      const name = lic.name || lic.appName || lic.title || "-";
+      // ctrlX capabilities API: finalExpirationDate or isPermanent
+      const validUntil = lic.isPermanent
+        ? "Permanent"
+        : lic.finalExpirationDate ||
+          lic.endDate ||
+          lic.validUntil ||
+          lic.expiry ||
+          lic.expirationDate ||
+          "-";
+      const qty = lic.count ?? lic.quantity ?? "-";
+      // ctrlX capabilities: no explicit status field — active if present in list
+      const active = lic.status
+        ? lic.status === "valid" || lic.status === "active"
+        : true;
+      const statusColor = active
+        ? "var(--c8y-brand-success, #27ae60)"
+        : "var(--c8y-brand-danger, #e74c3c)";
+      const statusLabel = lic.status || (active ? "active" : "inactive");
+      // Build row with DOM methods to prevent XSS via license data
+      const row = document.createElement("tr");
+      row.style.borderBottom = "1px solid var(--c8y-palette-gray-80,#333)";
+      const mkTd = (text) => {
+        const td = document.createElement("td");
+        td.style.padding = "6px 8px";
+        td.textContent = text;
+        return td;
+      };
+      row.appendChild(mkTd(name));
+      const tdStatus = document.createElement("td");
+      tdStatus.style.padding = "6px 8px";
+      const statusSpan = document.createElement("span");
+      statusSpan.style.color = statusColor;
+      statusSpan.textContent = statusLabel;
+      tdStatus.appendChild(statusSpan);
+      row.appendChild(tdStatus);
+      row.appendChild(mkTd(String(validUntil)));
+      row.appendChild(mkTd(String(qty)));
+      tbody.appendChild(row);
+    });
 
     if (table) table.style.display = "";
   } catch (e) {
