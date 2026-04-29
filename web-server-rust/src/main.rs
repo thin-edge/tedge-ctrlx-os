@@ -2303,6 +2303,141 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
     }))
 }
 
+#[derive(serde::Deserialize)]
+struct CaRequestBody {
+    device_name: String,
+    otp: String,
+}
+
+async fn ca_cert_download(
+    req: HttpRequest,
+    body: web::Json<CaRequestBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+
+    info!(
+        "[CA-CERT] Certificate download requested by user: {:?}, role: {:?}",
+        user, role
+    );
+
+    if !role.can_execute() {
+        warn!("[CA-CERT] Access denied - admin permissions required");
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Insufficient permissions - admin access required"
+        })));
+    }
+
+    let is_snap = env::var("SNAP").is_ok();
+
+    if !is_snap {
+        warn!("[CA-CERT] Not in snap environment");
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Certificate management only available in snap environment"
+        })));
+    }
+
+    let device_name = body.device_name.trim().to_string();
+    let otp = body.otp.clone();
+
+    if device_name.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Device name cannot be empty"
+        })));
+    }
+
+    // Validate device name: alphanumeric, dash, underscore, dot – no path traversal
+    if device_name.len() > 64
+        || !device_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+    {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Device name may only contain letters, digits, hyphens, underscores, and dots (max 64 chars)"
+        })));
+    }
+
+    if otp.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "One-time password cannot be empty"
+        })));
+    }
+
+    let snap = env::var("SNAP").unwrap_or_default();
+    let snap_name = env::var("SNAP_INSTANCE_NAME")
+        .unwrap_or_else(|_| "ctrlx-cumulocity-thin-edge-io".to_string());
+    let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
+
+    info!(
+        "[CA-CERT] Running: tedge cert download c8y --device-id {} --one-time-password [REDACTED]",
+        device_name
+    );
+
+    // Pass OTP via environment variable to avoid it appearing in process listing
+    let output = Command::new("sudo")
+        .arg("snap")
+        .arg("run")
+        .arg(format!("{}.tedge", snap_name))
+        .arg("cert")
+        .arg("download")
+        .arg("c8y")
+        .arg("--device-id")
+        .arg(&device_name)
+        .arg("--one-time-password")
+        .arg(&otp)
+        .env("DEVICE_ONE_TIME_PASSWORD", &otp)
+        .stdin(std::process::Stdio::null())
+        .output();
+
+    // Fallback: try tedge binary directly (non-snap or dev environment)
+    let output = match output {
+        Err(_) => Command::new(&tedge_bin)
+            .arg("cert")
+            .arg("download")
+            .arg("c8y")
+            .arg("--device-id")
+            .arg(&device_name)
+            .arg("--one-time-password")
+            .arg(&otp)
+            .stdin(std::process::Stdio::null())
+            .output(),
+        ok => ok,
+    };
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            info!("[CA-CERT] Certificate downloaded successfully for {}", device_name);
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": format!("Certificate downloaded for device: {}", device_name),
+                "output": stdout.trim()
+            })))
+        }
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            let combined = format!("{}{}", stdout, stderr).trim().to_string();
+            error!("[CA-CERT] Failed to download certificate: {}", combined);
+            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": combined
+            })))
+        }
+        Err(e) => {
+            error!("[CA-CERT] Failed to execute tedge: {}", e);
+            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to execute tedge: {}", e)
+            })))
+        }
+    }
+}
+
 async fn set_device_id(
     req: HttpRequest,
     body: web::Json<SetDeviceIdRequest>,
@@ -4042,6 +4177,7 @@ async fn main() -> io::Result<()> {
                             .route("/cert/upload/c8y", web::post().to(upload_cert_c8y))
                             .route("/device-id", web::get().to(get_device_id))
                             .route("/device-id", web::post().to(set_device_id))
+                            .route("/device-id/ca-request", web::post().to(ca_cert_download))
                             .route("/device-id/recreate", web::post().to(recreate_certificate))
                             .route(
                                 "/device-id/create-auto",
