@@ -2424,6 +2424,18 @@ async fn ca_cert_download(
     let ca_jobs = data.ca_jobs.clone();
     let job_id_bg = job_id.clone();
 
+    // Read c8y URL from app config so we can ensure tedge has it configured
+    let c8y_url = {
+        let cfg = data.config.lock().unwrap_or_else(|e| e.into_inner());
+        cfg.c8y.url.clone().unwrap_or_default()
+    };
+    if c8y_url.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "C8y URL not configured – please set the Cloud Configuration URL first"
+        })));
+    }
+
     info!(
         "[CA-CERT] Starting background job {} for device: {}",
         job_id, device_name
@@ -2431,6 +2443,26 @@ async fn ca_cert_download(
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
+        // Ensure c8y.url is set in tedge config before downloading the cert
+        let set_url_result = tokio::process::Command::new("sudo")
+            .arg("snap")
+            .arg("run")
+            .arg(format!("{}.tedge", snap_name))
+            .arg("config")
+            .arg("set")
+            .arg("c8y.url")
+            .arg(&c8y_url)
+            .stdin(Stdio::null())
+            .output()
+            .await;
+
+        if let Ok(ref out) = set_url_result {
+            if !out.status.success() {
+                let err = String::from_utf8_lossy(&out.stderr).to_string();
+                warn!("[CA-CERT] Job {} – could not set c8y.url via snap: {}", job_id_bg, err);
+            }
+        }
+
         let output = tokio::process::Command::new("sudo")
             .arg("snap")
             .arg("run")
@@ -2448,6 +2480,16 @@ async fn ca_cert_download(
         // Fallback: direct tedge binary
         let output = match output {
             Err(_) => {
+                // Also try to set c8y.url via direct binary
+                let _ = tokio::process::Command::new(&tedge_bin)
+                    .arg("config")
+                    .arg("set")
+                    .arg("c8y.url")
+                    .arg(&c8y_url)
+                    .stdin(Stdio::null())
+                    .output()
+                    .await;
+
                 tokio::process::Command::new(&tedge_bin)
                     .arg("cert")
                     .arg("download")
@@ -4273,7 +4315,10 @@ async fn main() -> io::Result<()> {
                             .route("/device-id", web::get().to(get_device_id))
                             .route("/device-id", web::post().to(set_device_id))
                             .route("/device-id/ca-request", web::post().to(ca_cert_download))
-                            .route("/device-id/ca-request/{job_id}", web::get().to(ca_cert_status))
+                            .route(
+                                "/device-id/ca-request/{job_id}",
+                                web::get().to(ca_cert_status),
+                            )
                             .route("/device-id/recreate", web::post().to(recreate_certificate))
                             .route(
                                 "/device-id/create-auto",
