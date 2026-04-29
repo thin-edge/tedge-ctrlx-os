@@ -494,13 +494,29 @@
           <h2 data-i18n="section.device">Device Certificate</h2>
 
           <!-- Certificate mode toggle -->
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:18px;">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 18px;
+            "
+          >
             <span
               id="cert-mode-label-ca"
-              style="font-size:13px; font-weight:600; color:var(--brand-primary);"
+              style="
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--brand-primary);
+              "
               data-i18n="device.mode_ca"
-            >CA-Certificate</span>
-            <label class="tedge-switch" for="cert-mode-toggle" style="margin:0">
+              >CA-Certificate</span
+            >
+            <label
+              class="tedge-switch"
+              for="cert-mode-toggle"
+              style="margin: 0"
+            >
               <input
                 type="checkbox"
                 id="cert-mode-toggle"
@@ -510,9 +526,10 @@
             </label>
             <span
               id="cert-mode-label-self"
-              style="font-size:13px; color:var(--c8y-palette-gray-40);"
+              style="font-size: 13px; color: var(--c8y-palette-gray-40)"
               data-i18n="device.mode_self"
-            >Self-Signed</span>
+              >Self-Signed</span
+            >
           </div>
 
           <div style="display: flex; gap: 24px; flex-wrap: wrap">
@@ -538,32 +555,25 @@
               <!-- CA-Certificate mode fields -->
               <div id="cert-ca-fields">
                 <div class="form-group">
-                  <label for="cert-ca-name" data-i18n="device.ca_name">Device Name:</label>
-                  <div style="display:flex; align-items:stretch; gap:0; width:100%; max-width:420px; box-sizing:border-box;">
-                    <span style="
-                      background: var(--c8y-palette-gray-80,#222);
-                      border: 1px solid var(--c8y-palette-gray-70);
-                      border-right: none;
-                      border-radius: 4px 0 0 4px;
-                      padding: 6px 10px;
-                      font-size: 13px;
-                      color: var(--c8y-palette-gray-40);
-                      white-space: nowrap;
-                    ">ctrlx-</span>
-                    <input
-                      type="text"
-                      id="cert-ca-name"
-                      placeholder="device-name"
-                      autocomplete="off"
-                      style="border-radius: 0 4px 4px 0; flex:1;"
-                      oninput="onCaNameInput()"
-                    />
-                  </div>
-                  <small data-i18n="device.ca_name_hint">Used as CN for the CA-signed device certificate</small>
+                  <label for="cert-ca-name" data-i18n="device.ca_name"
+                    >Device Name:</label
+                  >
+                  <input
+                    type="text"
+                    id="cert-ca-name"
+                    placeholder="ctrlx-device-name"
+                    autocomplete="off"
+                    oninput="onCaNameInput()"
+                  />
+                  <small data-i18n="device.ca_name_hint"
+                    >Used as CN for the CA-signed device certificate</small
+                  >
                 </div>
 
                 <div class="form-group">
-                  <label for="cert-ca-otp" data-i18n="device.ca_otp">One-Time Password:</label>
+                  <label for="cert-ca-otp" data-i18n="device.ca_otp"
+                    >One-Time Password:</label
+                  >
                   <input
                     type="password"
                     id="cert-ca-otp"
@@ -571,19 +581,41 @@
                     autocomplete="one-time-code"
                     oninput="onCaNameInput()"
                   />
-                  <small data-i18n="device.ca_otp_hint">One-time password provided by the CA for device registration</small>
+                  <small data-i18n="device.ca_otp_hint"
+                    >One-time password provided by the CA for device
+                    registration</small
+                  >
                 </div>
 
                 <!-- Registration hint -->
                 <div
                   id="cert-ca-reg-hint"
-                  style="display:none; margin-bottom:14px; padding:10px 14px; border-radius:6px;
-                         background:rgba(255,200,0,0.08); border:1px solid rgba(255,200,0,0.3); font-size:13px;"
+                  style="
+                    display: none;
+                    margin-bottom: 14px;
+                    padding: 10px 14px;
+                    border-radius: 6px;
+                    background: rgba(255, 200, 0, 0.08);
+                    border: 1px solid rgba(255, 200, 0, 0.3);
+                    font-size: 13px;
+                  "
                 >
-                  <span style="color:#f0ad4e;">⚠</span>
-                  <span data-i18n="device.ca_reg_hint">Device registration not yet started. Please register the device first:</span>
-                  <a id="cert-ca-reg-link" href="#" target="_blank" rel="noopener"
-                     style="display:block; margin-top:4px; font-size:12px; word-break:break-all;"
+                  <span style="color: #f0ad4e">⚠</span>
+                  <span data-i18n="device.ca_reg_hint"
+                    >Device registration not yet started. Please register the
+                    device first:</span
+                  >
+                  <a
+                    id="cert-ca-reg-link"
+                    href="#"
+                    target="_blank"
+                    rel="noopener"
+                    style="
+                      display: block;
+                      margin-top: 4px;
+                      font-size: 12px;
+                      word-break: break-all;
+                    "
                   ></a>
                 </div>
 
@@ -593,32 +625,54 @@
                     id="btn-ca-request"
                     onclick="requestCaCert()"
                     data-i18n="device.ca_request"
-                  >Request Certificate</button>
+                  >
+                    Request Certificate
+                  </button>
                 </div>
               </div>
 
               <!-- Self-Signed mode fields -->
-              <div id="cert-self-fields" style="display:none;">
+              <div id="cert-self-fields" style="display: none">
                 <div class="form-group">
-                  <label for="cert-common-name" data-i18n="device.name">Device Name:</label>
+                  <label for="cert-common-name" data-i18n="device.name"
+                    >Device Name:</label
+                  >
                   <input
                     type="text"
                     id="cert-common-name"
                     placeholder="e.g. ctrlx-001"
                     autocomplete="off"
                   />
-                  <small data-i18n="device.name_hint">Used as CN when creating the device certificate</small>
+                  <small data-i18n="device.name_hint"
+                    >Used as CN when creating the device certificate</small
+                  >
                 </div>
                 <div
-                  style="margin: 0 0 16px 0; display: flex; gap: 24px; flex-wrap: wrap;"
+                  style="
+                    margin: 0 0 16px 0;
+                    display: flex;
+                    gap: 24px;
+                    flex-wrap: wrap;
+                  "
                 >
                   <span
-                    ><strong data-i18n="device.cert_status">Certificate Status:</strong>
-                    <span id="cert-status" class="cert-status" data-i18n="device.cert_unknown">⚪ Unknown</span></span
+                    ><strong data-i18n="device.cert_status"
+                      >Certificate Status:</strong
+                    >
+                    <span
+                      id="cert-status"
+                      class="cert-status"
+                      data-i18n="device.cert_unknown"
+                      >⚪ Unknown</span
+                    ></span
                   >
                   <span
-                    ><strong data-i18n="device.upload_status">Upload Status:</strong>
-                    <span id="cert-upload-status" class="cert-status">⚪ Not yet uploaded</span></span
+                    ><strong data-i18n="device.upload_status"
+                      >Upload Status:</strong
+                    >
+                    <span id="cert-upload-status" class="cert-status"
+                      >⚪ Not yet uploaded</span
+                    ></span
                   >
                 </div>
                 <div class="action-buttons">
@@ -628,53 +682,118 @@
                     onclick="saveDeviceConfig()"
                     disabled
                     data-i18n="device.save"
-                  >Save</button>
+                  >
+                    Save
+                  </button>
                   <button
                     class="btn btn-warning btn-sm"
                     id="btn-set-device-id"
                     onclick="manageCertificate()"
                     disabled
                     data-i18n="device.renew_cert"
-                  >Renew Certificate</button>
+                  >
+                    Renew Certificate
+                  </button>
                   <button
                     class="btn btn-outline-secondary btn-sm"
                     id="btn-upload-cert"
                     onclick="toggleCertUploadForm()"
                     data-i18n="device.upload_cert"
-                  >Upload Certificate</button>
+                  >
+                    Upload Certificate
+                  </button>
                 </div>
                 <div
                   id="cert-upload-form"
-                  style="display: none; margin-top: 14px; padding: 14px;
-                         border: 1px solid var(--c8y-palette-gray-70);
-                         border-radius: 6px; background: var(--c8y-palette-gray-90);"
+                  style="
+                    display: none;
+                    margin-top: 14px;
+                    padding: 14px;
+                    border: 1px solid var(--c8y-palette-gray-70);
+                    border-radius: 6px;
+                    background: var(--c8y-palette-gray-90);
+                  "
                 >
                   <div
-                    style="font-size: 12px; font-weight: 600; text-transform: uppercase;
-                           color: var(--c8y-palette-gray-40, #999); margin-bottom: 10px;"
+                    style="
+                      font-size: 12px;
+                      font-weight: 600;
+                      text-transform: uppercase;
+                      color: var(--c8y-palette-gray-40, #999);
+                      margin-bottom: 10px;
+                    "
                     data-i18n="device.creds_title"
-                  >Cumulocity Credentials</div>
+                  >
+                    Cumulocity Credentials
+                  </div>
                   <form id="c8y-upload-form" onsubmit="return false;">
                     <div class="form-group" style="margin-bottom: 10px">
-                      <label for="c8y-upload-user" style="font-size: 13px" data-i18n="device.c8y_user">Cumulocity Username:</label>
-                      <input type="text" id="c8y-upload-user" placeholder="admin" autocomplete="username" style="margin-top: 4px" />
+                      <label
+                        for="c8y-upload-user"
+                        style="font-size: 13px"
+                        data-i18n="device.c8y_user"
+                        >Cumulocity Username:</label
+                      >
+                      <input
+                        type="text"
+                        id="c8y-upload-user"
+                        placeholder="admin"
+                        autocomplete="username"
+                        style="margin-top: 4px"
+                      />
                     </div>
                     <div class="form-group" style="margin-bottom: 12px">
-                      <label for="c8y-upload-pass" style="font-size: 13px" data-i18n="device.c8y_pass">Password:</label>
-                      <input type="password" id="c8y-upload-pass" placeholder="••••••••" autocomplete="current-password" form="c8y-upload-form" style="margin-top: 4px" />
+                      <label
+                        for="c8y-upload-pass"
+                        style="font-size: 13px"
+                        data-i18n="device.c8y_pass"
+                        >Password:</label
+                      >
+                      <input
+                        type="password"
+                        id="c8y-upload-pass"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                        form="c8y-upload-form"
+                        style="margin-top: 4px"
+                      />
                     </div>
                     <div class="action-buttons">
-                      <button class="btn btn-primary btn-sm" onclick="submitCertUpload()" data-i18n="device.upload_btn">Upload Certificate</button>
-                      <button class="btn btn-outline-secondary btn-sm" onclick="toggleCertUploadForm()" data-i18n="device.cancel">Cancel</button>
+                      <button
+                        class="btn btn-primary btn-sm"
+                        onclick="submitCertUpload()"
+                        data-i18n="device.upload_btn"
+                      >
+                        Upload Certificate
+                      </button>
+                      <button
+                        class="btn btn-outline-secondary btn-sm"
+                        onclick="toggleCertUploadForm()"
+                        data-i18n="device.cancel"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </form>
                 </div>
               </div>
 
               <!-- CA cert status (shown in CA mode) -->
-              <div id="cert-ca-status-row" style="display:none; margin-top:8px;">
-                <span><strong data-i18n="device.cert_status">Certificate Status:</strong>
-                <span id="cert-ca-status" class="cert-status" data-i18n="device.cert_unknown">⚪ Unknown</span></span>
+              <div
+                id="cert-ca-status-row"
+                style="display: none; margin-top: 8px"
+              >
+                <span
+                  ><strong data-i18n="device.cert_status"
+                    >Certificate Status:</strong
+                  >
+                  <span
+                    id="cert-ca-status"
+                    class="cert-status"
+                    data-i18n="device.cert_unknown"
+                    >⚪ Unknown</span
+                  ></span
+                >
               </div>
             </div>
             <div
@@ -682,16 +801,31 @@
               style="display: none; flex: 1; min-width: 220px"
             >
               <div
-                style="font-size: 12px; font-weight: 600; text-transform: uppercase;
-                       color: var(--c8y-palette-gray-40, #999); margin-bottom: 8px;"
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40, #999);
+                  margin-bottom: 8px;
+                "
                 data-i18n="device.cert_details"
-              >Certificate Details</div>
+              >
+                Certificate Details
+              </div>
               <pre
                 id="cert-details-pre"
-                style="background: var(--c8y-palette-gray-90); border: 1px solid var(--c8y-palette-gray-70);
-                       border-radius: 4px; padding: 10px; font-size: 11px; font-family: monospace;
-                       white-space: pre-wrap; word-break: break-all;
-                       color: var(--c8y-palette-gray-20); margin: 0;"
+                style="
+                  background: var(--c8y-palette-gray-90);
+                  border: 1px solid var(--c8y-palette-gray-70);
+                  border-radius: 4px;
+                  padding: 10px;
+                  font-size: 11px;
+                  font-family: monospace;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                  color: var(--c8y-palette-gray-20);
+                  margin: 0;
+                "
               ></pre>
             </div>
           </div>

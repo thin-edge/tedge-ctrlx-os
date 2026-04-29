@@ -73,13 +73,15 @@ const I18N = {
     "device.mode_ca": "CA-Zertifikat",
     "device.mode_self": "Self-Signed",
     "device.ca_name": "Gerätename:",
-    "device.ca_name_hint": "Wird als CN für das CA-signierte Gerätezertifikat verwendet",
+    "device.ca_name_hint":
+      "Wird als CN für das CA-signierte Gerätezertifikat verwendet",
     "device.ca_otp": "Einmalpasswort:",
     "device.ca_otp_hint": "Einmalpasswort der CA für die Geräteregistrierung",
     "device.ca_request": "Zertifikat anfordern",
     "device.ca_waiting": "Warte auf Cloud-Freigabe…",
     "device.ca_starting": "Zertifikatsanfrage wird gestartet…",
-    "device.ca_reg_hint": "Geräteregistrierung noch nicht gestartet. Bitte zuerst das Gerät registrieren:",
+    "device.ca_reg_hint":
+      "Geräteregistrierung noch nicht gestartet. Bitte zuerst das Gerät registrieren:",
     "device.ca_reg_url_missing": "(zuerst C8Y-URL konfigurieren)",
     "device.cert_status": "Zertifikatsstatus:",
     "device.upload_status": "Upload-Status:",
@@ -165,7 +167,8 @@ const I18N = {
     "notify.cert_cn_required": "Bitte Certificate Common Name eingeben",
     "notify.ca_otp_required": "Bitte Einmalpasswort eingeben",
     "notify.ca_cert_requested": "Zertifikat erfolgreich heruntergeladen",
-    "notify.ca_timeout": "Zeitüberschreitung: Keine Cloud-Freigabe innerhalb von 10 Minuten",
+    "notify.ca_timeout":
+      "Zeitüberschreitung: Keine Cloud-Freigabe innerhalb von 10 Minuten",
     "notify.cert_upload_user": "Bitte Cumulocity-Benutzername eingeben",
     "notify.cert_upload_pass": "Bitte Passwort eingeben",
     "notify.uploading": "Hochladen...",
@@ -349,11 +352,13 @@ const I18N = {
     "device.ca_name": "Device Name:",
     "device.ca_name_hint": "Used as CN for the CA-signed device certificate",
     "device.ca_otp": "One-Time Password:",
-    "device.ca_otp_hint": "One-time password provided by the CA for device registration",
+    "device.ca_otp_hint":
+      "One-time password provided by the CA for device registration",
     "device.ca_request": "Request Certificate",
     "device.ca_waiting": "Waiting for cloud approval…",
     "device.ca_starting": "Starting certificate request…",
-    "device.ca_reg_hint": "Device registration not yet started. Please register the device first:",
+    "device.ca_reg_hint":
+      "Device registration not yet started. Please register the device first:",
     "device.ca_reg_url_missing": "(configure C8Y URL first)",
     "device.cert_status": "Certificate Status:",
     "device.upload_status": "Upload Status:",
@@ -871,7 +876,8 @@ function _applyCertMode(mode) {
   const toggle = document.getElementById("cert-mode-toggle");
   const labelCa = document.getElementById("cert-mode-label-ca");
   const labelSelf = document.getElementById("cert-mode-label-self");
-  const activeStyle = "font-size:13px; font-weight:600; color:var(--brand-primary);";
+  const activeStyle =
+    "font-size:13px; font-weight:600; color:var(--brand-primary);";
   const inactiveStyle = "font-size:13px; color:var(--c8y-palette-gray-40);";
 
   if (mode === "ca") {
@@ -922,7 +928,10 @@ function _updateCaRegHint() {
       ? base + "/apps/devicemanagement/index.html#/deviceregistration"
       : "#";
     link.href = regUrl;
-    link.textContent = regUrl !== "#" ? regUrl : t("device.ca_reg_url_missing") || "(configure C8Y URL first)";
+    link.textContent =
+      regUrl !== "#"
+        ? regUrl
+        : t("device.ca_reg_url_missing") || "(configure C8Y URL first)";
     hint.style.display = "";
   } else {
     hint.style.display = "none";
@@ -973,7 +982,7 @@ async function requestCaCert() {
   try {
     const response = await fetchWithAuth("api/device-id/ca-request", {
       method: "POST",
-      body: JSON.stringify({ device_name: "ctrlx-" + name, otp }),
+      body: JSON.stringify({ device_name: name, otp }),
     });
     const data = await response.json().catch(() => ({}));
 
@@ -990,7 +999,10 @@ async function requestCaCert() {
 
     jobId = data.job_id;
   } catch (e) {
-    showNotification(t("cert.create_err") || t("notify.cert_upload_fail"), "error");
+    showNotification(
+      t("cert.create_err") || t("notify.cert_upload_fail"),
+      "error",
+    );
     resetBtn();
     return;
   }
@@ -1000,7 +1012,10 @@ async function requestCaCert() {
     showNotification(t("notify.ca_cert_requested"), "success");
     if (otpInput) otpInput.value = "";
     resetBtn();
-    setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 2000);
+    setTimeout(() => {
+      loadDeviceIdInfo();
+      loadCertDetailsInline();
+    }, 2000);
     return;
   }
 
@@ -1021,17 +1036,26 @@ async function requestCaCert() {
         showNotification(t("notify.ca_cert_requested"), "success");
         if (otpInput) otpInput.value = "";
         resetBtn();
-        setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 1000);
+        setTimeout(() => {
+          loadDeviceIdInfo();
+          loadCertDetailsInline();
+        }, 1000);
       } else if (d.status === "error") {
         clearInterval(poll);
         showNotification(d.message || t("cert.create_err"), "error");
         resetBtn();
-        if (statusEl) { statusEl.textContent = ""; statusEl.className = ""; }
+        if (statusEl) {
+          statusEl.textContent = "";
+          statusEl.className = "";
+        }
       } else if (attempts >= maxAttempts) {
         clearInterval(poll);
         showNotification(t("notify.ca_timeout"), "error");
         resetBtn();
-        if (statusEl) { statusEl.textContent = ""; statusEl.className = ""; }
+        if (statusEl) {
+          statusEl.textContent = "";
+          statusEl.className = "";
+        }
       }
       // status === "pending" → keep polling
     } catch (_) {
@@ -1518,14 +1542,15 @@ async function loadDeviceIdInfo() {
         : "";
     const raw = cert || data.system_serial || "";
     const nameWithoutPrefix = raw.replace(/^ctrlx-/i, "");
-    const placeholder = (data.system_serial || "").replace(/^ctrlx-/i, "") || "device-name";
+    const placeholder =
+      (data.system_serial || "").replace(/^ctrlx-/i, "") || "device-name";
     if (cnField && !cnField.value) {
       cnField.value = nameWithoutPrefix;
       cnField.placeholder = placeholder || "e.g. ctrlx-001";
     }
     if (caNameField && !caNameField.value) {
-      caNameField.value = nameWithoutPrefix;
-      caNameField.placeholder = placeholder;
+      caNameField.value = nameWithoutPrefix ? "ctrlx-" + nameWithoutPrefix : "";
+      caNameField.placeholder = placeholder ? "ctrlx-" + placeholder : "ctrlx-device-name";
     }
 
     // Certificate status + button highlight + inline cert details
