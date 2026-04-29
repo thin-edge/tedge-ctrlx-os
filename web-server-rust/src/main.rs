@@ -2457,7 +2457,10 @@ async fn ca_cert_download(
         // Uses --config-dir so tedge finds the private key at the ctrlX cert store path
         // configured by manage-device-id.sh (device.key_path / device.cert_path).
         let mut create_cmd = tokio::process::Command::new("sudo");
-        create_cmd.arg("snap").arg("run").arg(format!("{}.tedge", snap_name));
+        create_cmd
+            .arg("snap")
+            .arg("run")
+            .arg(format!("{}.tedge", snap_name));
         if !tedge_config_dir.is_empty() {
             create_cmd.arg("--config-dir").arg(&tedge_config_dir);
         }
@@ -2471,36 +2474,57 @@ async fn ca_cert_download(
             .output()
             .await;
 
-        match &create_out {
-            Ok(o) if o.status.success() =>
-                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg),
+        // Helper: decide if cert create result is acceptable to continue
+        let cert_create_ok = match &create_out {
+            Ok(o) if o.status.success() => {
+                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg);
+                true
+            }
             Ok(o) => {
-                let msg = String::from_utf8_lossy(&o.stderr).to_string();
-                // "already exists" is expected on re-request – not a fatal error
-                if msg.contains("already") || msg.contains("exists") {
+                let stderr = String::from_utf8_lossy(&o.stderr).to_string();
+                let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+                let combined = format!("{}{}", stdout, stderr).trim().to_string();
+                // "already exists" means key+cert are present – CSR will be re-generated
+                if combined.to_lowercase().contains("already") || combined.to_lowercase().contains("exists") {
                     info!("[CA-CERT] Job {} – cert already exists, continuing", job_id_bg);
+                    true
                 } else {
-                    warn!("[CA-CERT] Job {} – cert create: {}", job_id_bg, msg.trim());
+                    error!("[CA-CERT] Job {} – cert create failed: {}", job_id_bg, combined);
+                    false
                 }
             }
-            Err(e) => warn!("[CA-CERT] Job {} – cert create exec error: {}", job_id_bg, e),
-        }
-
-        // Fallback cert create via direct binary if snap run failed
-        if create_out.is_err() {
-            let mut fb = tokio::process::Command::new(&tedge_bin);
-            if !tedge_config_dir.is_empty() {
-                fb.arg("--config-dir").arg(&tedge_config_dir);
+            Err(e) => {
+                warn!("[CA-CERT] Job {} – snap cert create exec error: {}, trying direct binary", job_id_bg, e);
+                // Fallback: direct tedge binary
+                let mut fb = tokio::process::Command::new(&tedge_bin);
+                if !tedge_config_dir.is_empty() {
+                    fb.arg("--config-dir").arg(&tedge_config_dir);
+                }
+                match fb.arg("cert").arg("create").arg("--device-id").arg(&device_name)
+                    .env("TEDGE_C8Y_URL", &c8y_url).stdin(Stdio::null()).output().await
+                {
+                    Ok(o) if o.status.success() => { info!("[CA-CERT] Job {} – cert create (fallback) succeeded", job_id_bg); true }
+                    Ok(o) => {
+                        let msg = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr)).trim().to_string();
+                        if msg.to_lowercase().contains("already") || msg.to_lowercase().contains("exists") { true }
+                        else { error!("[CA-CERT] Job {} – cert create (fallback) failed: {}", job_id_bg, msg); false }
+                    }
+                    Err(e2) => { error!("[CA-CERT] Job {} – cert create (fallback) exec error: {}", job_id_bg, e2); false }
+                }
             }
-            let _ = fb
-                .arg("cert")
-                .arg("create")
-                .arg("--device-id")
-                .arg(&device_name)
-                .env("TEDGE_C8Y_URL", &c8y_url)
-                .stdin(Stdio::null())
-                .output()
-                .await;
+        };
+
+        if !cert_create_ok {
+            let err_msg = match &create_out {
+                Ok(o) => format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr)).trim().to_string(),
+                Err(e) => format!("Failed to execute tedge cert create: {}", e),
+            };
+            let mut jobs = ca_jobs.lock().unwrap_or_else(|e| e.into_inner());
+            jobs.insert(job_id_bg, CaJob {
+                status: CaJobStatus::Error,
+                message: format!("tedge cert create failed: {}", err_msg),
+            });
+            return;
         }
 
         // Step 2: download CA-signed certificate (blocks until cloud approves).
