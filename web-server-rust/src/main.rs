@@ -2,11 +2,13 @@ use actix_files::Files;
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Result};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
@@ -222,11 +224,32 @@ struct SetDeviceIdRequest {
     device_id: String,
 }
 
+// ── CA certificate download job store ────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum CaJobStatus {
+    Pending,
+    Success,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CaJob {
+    status: CaJobStatus,
+    message: String,
+}
+
+type CaJobStore = Arc<Mutex<HashMap<String, CaJob>>>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 struct AppState {
     config: std::sync::Mutex<Config>,
     config_path: PathBuf,
     datalayer_config_path: PathBuf,
     datalayer_credentials_path: PathBuf,
+    ca_jobs: CaJobStore,
 }
 
 impl AppState {
@@ -274,6 +297,7 @@ impl AppState {
             config_path,
             datalayer_config_path,
             datalayer_credentials_path: credentials_path,
+            ca_jobs: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -2303,6 +2327,387 @@ async fn get_device_id(req: HttpRequest) -> Result<HttpResponse> {
     }))
 }
 
+#[derive(serde::Deserialize)]
+struct CaRequestBody {
+    device_name: String,
+    otp: String,
+}
+
+async fn ca_cert_download(
+    req: HttpRequest,
+    body: web::Json<CaRequestBody>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+
+    info!(
+        "[CA-CERT] Certificate download requested by user: {:?}, role: {:?}",
+        user, role
+    );
+
+    if !role.can_execute() {
+        warn!("[CA-CERT] Access denied - admin permissions required");
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Insufficient permissions - admin access required"
+        })));
+    }
+
+    let is_snap = env::var("SNAP").is_ok();
+
+    if !is_snap {
+        warn!("[CA-CERT] Not in snap environment");
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Certificate management only available in snap environment"
+        })));
+    }
+
+    let device_name = body.device_name.trim().to_string();
+    let otp = body.otp.clone();
+
+    if device_name.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Device name cannot be empty"
+        })));
+    }
+
+    // Validate device name: alphanumeric, dash, underscore, dot – no path traversal
+    if device_name.len() > 64
+        || !device_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+    {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Device name may only contain letters, digits, hyphens, underscores, and dots (max 64 chars)"
+        })));
+    }
+
+    if otp.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "One-time password cannot be empty"
+        })));
+    }
+
+    // Generate a unique job ID
+    let job_id = format!(
+        "{:x}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos()
+            ^ (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as u32)
+    );
+
+    // Register job as pending
+    {
+        let mut jobs = data.ca_jobs.lock().unwrap_or_else(|e| e.into_inner());
+        jobs.insert(
+            job_id.clone(),
+            CaJob {
+                status: CaJobStatus::Pending,
+                message: "Waiting for cloud approval…".to_string(),
+            },
+        );
+    }
+
+    let snap_name = env::var("SNAP_INSTANCE_NAME")
+        .unwrap_or_else(|_| "ctrlx-cumulocity-thin-edge-io".to_string());
+    let snap = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
+    // Config dir is where manage-device-id.sh already ran `tedge config set device.key_path`
+    // pointing to the ctrlX certificate store. We pass --config-dir so tedge cert download
+    // finds the existing private key at $SNAP_COMMON/package-certificates/.../own/private/
+    let tedge_config_dir = if snap_data.is_empty() {
+        String::new()
+    } else {
+        format!("{}/tedge", snap_data)
+    };
+    let ca_jobs = data.ca_jobs.clone();
+    let job_id_bg = job_id.clone();
+
+    // Read c8y URL from app config – strip https:// prefix, tedge expects domain only
+    let c8y_url = {
+        let cfg = data.config.lock().unwrap_or_else(|e| e.into_inner());
+        strip_url_scheme(&cfg.c8y.url.clone().unwrap_or_default()).to_string()
+    };
+    if c8y_url.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "C8y URL not configured – please set the Cloud Configuration URL first"
+        })));
+    }
+
+    info!(
+        "[CA-CERT] Starting background job {} for device: {} (config-dir: {})",
+        job_id, device_name, tedge_config_dir
+    );
+
+    // Run tedge cert download in background – it blocks until cloud approves
+    tokio::spawn(async move {
+        // Ensure the device-certs directory exists – tedge cert create writes the CSR there.
+        // setup-directories.sh creates this on fresh installs, but older snaps may be missing it.
+        if !tedge_config_dir.is_empty() {
+            let device_certs_dir = format!("{}/device-certs", tedge_config_dir);
+            let _ = tokio::process::Command::new("sudo")
+                .arg("mkdir")
+                .arg("-p")
+                .arg(&device_certs_dir)
+                .stdin(Stdio::null())
+                .output()
+                .await;
+        }
+
+        // Step 1: `tedge cert create` – generates the CSR and (re)creates the self-signed cert.
+        // Must run before `cert download` because download needs the CSR file.
+        // Uses --config-dir so tedge finds the private key at the ctrlX cert store path
+        // configured by manage-device-id.sh (device.key_path / device.cert_path).
+        let mut create_cmd = tokio::process::Command::new("sudo");
+        create_cmd
+            .arg("snap")
+            .arg("run")
+            .arg(format!("{}.tedge", snap_name));
+        if !tedge_config_dir.is_empty() {
+            create_cmd.arg("--config-dir").arg(&tedge_config_dir);
+        }
+        let create_out = create_cmd
+            .arg("cert")
+            .arg("create")
+            .arg("--device-id")
+            .arg(&device_name)
+            .env("TEDGE_C8Y_URL", &c8y_url)
+            .stdin(Stdio::null())
+            .output()
+            .await;
+
+        // Helper: decide if cert create result is acceptable to continue
+        let cert_create_ok = match &create_out {
+            Ok(o) if o.status.success() => {
+                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg);
+                true
+            }
+            Ok(o) => {
+                let stderr = String::from_utf8_lossy(&o.stderr).to_string();
+                let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+                let combined = format!("{}{}", stdout, stderr).trim().to_string();
+                // "already exists" means key+cert are present – CSR will be re-generated
+                if combined.to_lowercase().contains("already")
+                    || combined.to_lowercase().contains("exists")
+                {
+                    info!(
+                        "[CA-CERT] Job {} – cert already exists, continuing",
+                        job_id_bg
+                    );
+                    true
+                } else {
+                    error!(
+                        "[CA-CERT] Job {} – cert create failed: {}",
+                        job_id_bg, combined
+                    );
+                    false
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "[CA-CERT] Job {} – snap cert create exec error: {}, trying direct binary",
+                    job_id_bg, e
+                );
+                // Fallback: direct tedge binary
+                let mut fb = tokio::process::Command::new(&tedge_bin);
+                if !tedge_config_dir.is_empty() {
+                    fb.arg("--config-dir").arg(&tedge_config_dir);
+                }
+                match fb
+                    .arg("cert")
+                    .arg("create")
+                    .arg("--device-id")
+                    .arg(&device_name)
+                    .env("TEDGE_C8Y_URL", &c8y_url)
+                    .stdin(Stdio::null())
+                    .output()
+                    .await
+                {
+                    Ok(o) if o.status.success() => {
+                        info!(
+                            "[CA-CERT] Job {} – cert create (fallback) succeeded",
+                            job_id_bg
+                        );
+                        true
+                    }
+                    Ok(o) => {
+                        let msg = format!(
+                            "{}{}",
+                            String::from_utf8_lossy(&o.stdout),
+                            String::from_utf8_lossy(&o.stderr)
+                        )
+                        .trim()
+                        .to_string();
+                        if msg.to_lowercase().contains("already")
+                            || msg.to_lowercase().contains("exists")
+                        {
+                            true
+                        } else {
+                            error!(
+                                "[CA-CERT] Job {} – cert create (fallback) failed: {}",
+                                job_id_bg, msg
+                            );
+                            false
+                        }
+                    }
+                    Err(e2) => {
+                        error!(
+                            "[CA-CERT] Job {} – cert create (fallback) exec error: {}",
+                            job_id_bg, e2
+                        );
+                        false
+                    }
+                }
+            }
+        };
+
+        if !cert_create_ok {
+            let err_msg = match &create_out {
+                Ok(o) => format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&o.stdout),
+                    String::from_utf8_lossy(&o.stderr)
+                )
+                .trim()
+                .to_string(),
+                Err(e) => format!("Failed to execute tedge cert create: {}", e),
+            };
+            let mut jobs = ca_jobs.lock().unwrap_or_else(|e| e.into_inner());
+            jobs.insert(
+                job_id_bg,
+                CaJob {
+                    status: CaJobStatus::Error,
+                    message: format!("tedge cert create failed: {}", err_msg),
+                },
+            );
+            return;
+        }
+
+        // Step 2: download CA-signed certificate (blocks until cloud approves).
+        // Pass c8y.url via environment variable override – avoids needing write
+        // access to tedge's config file (TEDGE_C8Y_URL is respected by all tedge commands).
+        let mut cmd = tokio::process::Command::new("sudo");
+        cmd.arg("snap")
+            .arg("run")
+            .arg(format!("{}.tedge", snap_name));
+        if !tedge_config_dir.is_empty() {
+            cmd.arg("--config-dir").arg(&tedge_config_dir);
+        }
+        let output = cmd
+            .arg("cert")
+            .arg("download")
+            .arg("c8y")
+            .arg("--device-id")
+            .arg(&device_name)
+            .env("DEVICE_ONE_TIME_PASSWORD", &otp)
+            .env("TEDGE_C8Y_URL", &c8y_url)
+            .stdin(Stdio::null())
+            .output()
+            .await;
+
+        // Fallback: direct tedge binary with --config-dir
+        let output = match output {
+            Err(_) => {
+                let mut fb = tokio::process::Command::new(&tedge_bin);
+                if !tedge_config_dir.is_empty() {
+                    fb.arg("--config-dir").arg(&tedge_config_dir);
+                }
+                fb.arg("cert")
+                    .arg("download")
+                    .arg("c8y")
+                    .arg("--device-id")
+                    .arg(&device_name)
+                    .env("DEVICE_ONE_TIME_PASSWORD", &otp)
+                    .env("TEDGE_C8Y_URL", &c8y_url)
+                    .stdin(Stdio::null())
+                    .output()
+                    .await
+            }
+            ok => ok,
+        };
+
+        let result = match output {
+            Ok(out) if out.status.success() => {
+                let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                info!("[CA-CERT] Job {} succeeded for {}", job_id_bg, device_name);
+                CaJob {
+                    status: CaJobStatus::Success,
+                    message: if stdout.is_empty() {
+                        format!("Certificate downloaded for device: {}", device_name)
+                    } else {
+                        stdout
+                    },
+                }
+            }
+            Ok(out) => {
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let combined = format!("{}{}", stdout, stderr).trim().to_string();
+                error!("[CA-CERT] Job {} failed: {}", job_id_bg, combined);
+                CaJob {
+                    status: CaJobStatus::Error,
+                    message: combined,
+                }
+            }
+            Err(e) => {
+                error!("[CA-CERT] Job {} exec error: {}", job_id_bg, e);
+                CaJob {
+                    status: CaJobStatus::Error,
+                    message: format!("Failed to execute tedge: {}", e),
+                }
+            }
+        };
+
+        let mut jobs = ca_jobs.lock().unwrap_or_else(|e| e.into_inner());
+        jobs.insert(job_id_bg, result);
+    });
+
+    Ok(HttpResponse::Accepted().json(serde_json::json!({
+        "success": true,
+        "job_id": job_id,
+        "message": "Certificate download started – waiting for cloud approval"
+    })))
+}
+
+async fn ca_cert_status(
+    req: HttpRequest,
+    path: web::Path<String>,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Insufficient permissions"
+        })));
+    }
+
+    let job_id = path.into_inner();
+    let jobs = data.ca_jobs.lock().unwrap_or_else(|e| e.into_inner());
+
+    match jobs.get(&job_id) {
+        Some(job) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "job_id": job_id,
+            "status": job.status,
+            "message": job.message
+        }))),
+        None => Ok(HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Job not found"
+        }))),
+    }
+}
+
 async fn set_device_id(
     req: HttpRequest,
     body: web::Json<SetDeviceIdRequest>,
@@ -4042,6 +4447,11 @@ async fn main() -> io::Result<()> {
                             .route("/cert/upload/c8y", web::post().to(upload_cert_c8y))
                             .route("/device-id", web::get().to(get_device_id))
                             .route("/device-id", web::post().to(set_device_id))
+                            .route("/device-id/ca-request", web::post().to(ca_cert_download))
+                            .route(
+                                "/device-id/ca-request/{job_id}",
+                                web::get().to(ca_cert_status),
+                            )
                             .route("/device-id/recreate", web::post().to(recreate_certificate))
                             .route(
                                 "/device-id/create-auto",

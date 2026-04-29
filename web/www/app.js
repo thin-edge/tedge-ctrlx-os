@@ -70,6 +70,19 @@ const I18N = {
     "device.id_hint": "Eindeutiger Bezeichner (nur Admin kann ändern)",
     "device.id_hint_ro":
       "Eindeutiger Bezeichner (nur Lesen – Admin erforderlich)",
+    "device.mode_ca": "CA-Zertifikat",
+    "device.mode_self": "Self-Signed",
+    "device.ca_name": "Gerätename:",
+    "device.ca_name_hint":
+      "Wird als CN für das CA-signierte Gerätezertifikat verwendet",
+    "device.ca_otp": "Einmalpasswort:",
+    "device.ca_otp_hint": "Einmalpasswort der CA für die Geräteregistrierung",
+    "device.ca_request": "Zertifikat anfordern",
+    "device.ca_waiting": "Warte auf Cloud-Freigabe…",
+    "device.ca_starting": "Zertifikatsanfrage wird gestartet…",
+    "device.ca_reg_hint":
+      "Geräteregistrierung noch nicht gestartet. Bitte zuerst das Gerät registrieren:",
+    "device.ca_reg_url_missing": "(zuerst C8Y-URL konfigurieren)",
     "device.cert_status": "Zertifikatsstatus:",
     "device.upload_status": "Upload-Status:",
     "device.save": "Speichern",
@@ -79,6 +92,8 @@ const I18N = {
     "device.upload_cert": "Hochladen",
     "device.cert_unknown": "⚪ Unbekannt",
     "device.not_uploaded": "⚪ Noch nicht hochgeladen",
+    "device.download_status": "Download Status:",
+    "device.not_downloaded": "⚪ Noch nicht heruntergeladen",
     "device.cert_active": "🟢 Aktiv",
     "device.cert_missing": "🔴 Fehlt",
     "device.cert_details": "Zertifikatsdetails",
@@ -152,6 +167,10 @@ const I18N = {
     "notify.restart_err": "Dienste konnten nicht neu gestartet werden",
     "notify.no_perm_status": "Keine Berechtigung für diesen Vorgang",
     "notify.cert_cn_required": "Bitte Certificate Common Name eingeben",
+    "notify.ca_otp_required": "Bitte Einmalpasswort eingeben",
+    "notify.ca_cert_requested": "Zertifikat erfolgreich heruntergeladen",
+    "notify.ca_timeout":
+      "Zeitüberschreitung: Keine Cloud-Freigabe innerhalb von 10 Minuten",
     "notify.cert_upload_user": "Bitte Cumulocity-Benutzername eingeben",
     "notify.cert_upload_pass": "Bitte Passwort eingeben",
     "notify.uploading": "Hochladen...",
@@ -330,6 +349,19 @@ const I18N = {
     "device.id_hint": "The unique device identifier",
     "device.id_hint_ro":
       "The unique device identifier (read-only – admin only)",
+    "device.mode_ca": "CA-Certificate",
+    "device.mode_self": "Self-Signed",
+    "device.ca_name": "Device Name:",
+    "device.ca_name_hint": "Used as CN for the CA-signed device certificate",
+    "device.ca_otp": "One-Time Password:",
+    "device.ca_otp_hint":
+      "One-time password provided by the CA for device registration",
+    "device.ca_request": "Request Certificate",
+    "device.ca_waiting": "Waiting for cloud approval…",
+    "device.ca_starting": "Starting certificate request…",
+    "device.ca_reg_hint":
+      "Device registration not yet started. Please register the device first:",
+    "device.ca_reg_url_missing": "(configure C8Y URL first)",
     "device.cert_status": "Certificate Status:",
     "device.upload_status": "Upload Status:",
     "device.save": "Save",
@@ -339,6 +371,8 @@ const I18N = {
     "device.upload_cert": "Upload",
     "device.cert_unknown": "⚪ Unknown",
     "device.not_uploaded": "⚪ Not yet uploaded",
+    "device.download_status": "Download Status:",
+    "device.not_downloaded": "⚪ Not yet downloaded",
     "device.cert_active": "🟢 Active",
     "device.cert_missing": "🔴 Missing",
     "device.cert_details": "Certificate Details",
@@ -401,6 +435,9 @@ const I18N = {
     "notify.restart_err": "Could not restart services",
     "notify.no_perm_status": "Insufficient permissions for this action",
     "notify.cert_cn_required": "Please enter a Certificate Common Name",
+    "notify.ca_otp_required": "Please enter the one-time password",
+    "notify.ca_cert_requested": "Certificate downloaded successfully",
+    "notify.ca_timeout": "Timeout: No cloud approval within 10 minutes",
     "notify.cert_upload_user": "Please enter a Cumulocity username",
     "notify.cert_upload_pass": "Please enter the password",
     "notify.uploading": "Uploading...",
@@ -764,6 +801,9 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStatus();
   checkLicenseStatus();
 
+  // Apply persisted certificate mode (default: CA)
+  _applyCertMode(getCertMode());
+
   // URL → Toggle: sofort deaktivieren wenn URL-Feld geleert wird
   ["c8y-url", "aws-url", "az-url"].forEach((urlId) => {
     const toggleId = urlId.replace("-url", "-enabled");
@@ -817,6 +857,232 @@ async function loadStatus() {
     console.error("Error loading status:", error);
     showNotification(t("notify.status_load_err"), "error");
   }
+}
+
+// ── Certificate mode (CA vs Self-Signed) ────────────────────────────────────
+
+// Persist mode in localStorage so it survives page reloads
+const CERT_MODE_KEY = "certMode";
+
+function getCertMode() {
+  return localStorage.getItem(CERT_MODE_KEY) || "ca";
+}
+
+function setCertMode(mode) {
+  localStorage.setItem(CERT_MODE_KEY, mode);
+  _applyCertMode(mode);
+}
+
+function _applyCertMode(mode) {
+  const caFields = document.getElementById("cert-ca-fields");
+  const selfFields = document.getElementById("cert-self-fields");
+  const caStatusRow = document.getElementById("cert-ca-status-row");
+  const toggle = document.getElementById("cert-mode-toggle");
+  const labelCa = document.getElementById("cert-mode-label-ca");
+  const labelSelf = document.getElementById("cert-mode-label-self");
+  const activeStyle =
+    "font-size:13px; font-weight:600; color:var(--brand-primary);";
+  const inactiveStyle = "font-size:13px; color:var(--c8y-palette-gray-40);";
+
+  if (mode === "ca") {
+    if (toggle) toggle.checked = false;
+    if (labelCa) labelCa.style.cssText = activeStyle;
+    if (labelSelf) labelSelf.style.cssText = inactiveStyle;
+    if (caFields) caFields.style.display = "";
+    if (selfFields) selfFields.style.display = "none";
+    if (caStatusRow) caStatusRow.style.display = "";
+    _syncCaStatus();
+    _updateCaRegHint();
+  } else {
+    if (toggle) toggle.checked = true;
+    if (labelCa) labelCa.style.cssText = inactiveStyle;
+    if (labelSelf) labelSelf.style.cssText = activeStyle;
+    if (caFields) caFields.style.display = "none";
+    if (selfFields) selfFields.style.display = "";
+    if (caStatusRow) caStatusRow.style.display = "none";
+  }
+}
+
+function _syncCaStatus() {
+  const src = document.getElementById("cert-status");
+  const dst = document.getElementById("cert-ca-status");
+  if (!src || !dst) return;
+  dst.className = src.className;
+  dst.textContent = src.textContent;
+}
+
+function updateCaDownloadStatusDisplay(timestamp) {
+  const el = document.getElementById("cert-ca-download-status");
+  if (!el) return;
+  if (timestamp) {
+    const ts = parseInt(timestamp, 10);
+    const timeStr = !isNaN(ts)
+      ? " (" + new Date(ts * 1000).toLocaleString() + ")"
+      : "";
+    el.textContent = "🟢 Downloaded" + timeStr;
+    el.style.color = "var(--brand-primary, #53cd61)";
+  } else {
+    el.textContent = t("device.not_downloaded");
+    el.style.color = "";
+  }
+}
+
+function onCaNameInput() {
+  _updateCaRegHint();
+}
+
+function _updateCaRegHint() {
+  const nameInput = document.getElementById("cert-ca-name");
+  const hint = document.getElementById("cert-ca-reg-hint");
+  const link = document.getElementById("cert-ca-reg-link");
+  if (!nameInput || !hint || !link) return;
+
+  const name = nameInput.value.trim();
+  const certStatus = document.getElementById("cert-status");
+  const isActive = certStatus && certStatus.classList.contains("success");
+
+  if (name && !isActive) {
+    const c8yUrl = (document.getElementById("c8y-url") || {}).value || "";
+    const base = c8yUrl.replace(/\/+$/, "");
+    const regUrl = base
+      ? base + "/apps/devicemanagement/index.html#/deviceregistration"
+      : "#";
+    link.href = regUrl;
+    link.textContent =
+      regUrl !== "#"
+        ? regUrl
+        : t("device.ca_reg_url_missing") || "(configure C8Y URL first)";
+    hint.style.display = "";
+  } else {
+    hint.style.display = "none";
+  }
+}
+
+async function requestCaCert() {
+  const nameInput = document.getElementById("cert-ca-name");
+  const otpInput = document.getElementById("cert-ca-otp");
+  const name = (nameInput || {}).value?.trim();
+  const otp = (otpInput || {}).value?.trim();
+
+  if (!name) {
+    showNotification(t("notify.cert_cn_required"), "error");
+    return;
+  }
+  if (!otp) {
+    showNotification(t("notify.ca_otp_required"), "error");
+    return;
+  }
+
+  const btn = document.getElementById("btn-ca-request");
+  const statusEl = document.getElementById("cert-ca-status");
+
+  function setWaiting(msg) {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span class="ca-spinner" aria-hidden="true"></span> ' +
+        (msg || t("device.ca_waiting"));
+    }
+    if (statusEl) {
+      statusEl.textContent = msg || t("device.ca_waiting");
+      statusEl.className = "text-muted";
+    }
+  }
+
+  function resetBtn() {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = t("device.ca_request");
+    }
+  }
+
+  setWaiting(t("device.ca_starting"));
+
+  let jobId = null;
+  try {
+    const response = await fetchWithAuth("api/device-id/ca-request", {
+      method: "POST",
+      body: JSON.stringify({ device_name: name, otp }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 403) {
+      showNotification(data.error || t("notify.admin_required"), "error");
+      resetBtn();
+      return;
+    }
+    if (!data.success) {
+      showNotification(data.error || t("cert.create_err"), "error");
+      resetBtn();
+      return;
+    }
+
+    jobId = data.job_id;
+  } catch (e) {
+    showNotification(
+      t("cert.create_err") || t("notify.cert_upload_fail"),
+      "error",
+    );
+    resetBtn();
+    return;
+  }
+
+  if (!jobId) {
+    // Should not happen – but treat as success for forward-compatibility
+    showNotification(t("notify.ca_cert_requested"), "success");
+    if (otpInput) otpInput.value = "";
+    resetBtn();
+    setTimeout(() => {
+      loadDeviceIdInfo();
+      loadCertDetailsInline();
+    }, 2000);
+    return;
+  }
+
+  // Poll for job completion (max ~10 min, every 5 s)
+  setWaiting(t("device.ca_waiting"));
+  let attempts = 0;
+  const maxAttempts = 120; // 120 × 5 s = 600 s = 10 min
+  const pollInterval = 5000;
+
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetchWithAuth("api/device-id/ca-request/" + jobId);
+      const d = await r.json().catch(() => ({}));
+
+      if (d.status === "success") {
+        clearInterval(poll);
+        showNotification(t("notify.ca_cert_requested"), "success");
+        if (otpInput) otpInput.value = "";
+        resetBtn();
+        updateCaDownloadStatusDisplay(String(Math.floor(Date.now() / 1000)));
+        setTimeout(() => {
+          loadDeviceIdInfo();
+          loadCertDetailsInline();
+        }, 1000);
+      } else if (d.status === "error") {
+        clearInterval(poll);
+        showNotification(d.message || t("cert.create_err"), "error");
+        resetBtn();
+        if (statusEl) {
+          statusEl.textContent = "";
+          statusEl.className = "";
+        }
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        showNotification(t("notify.ca_timeout"), "error");
+        resetBtn();
+        if (statusEl) {
+          statusEl.textContent = "";
+          statusEl.className = "";
+        }
+      }
+      // status === "pending" → keep polling
+    } catch (_) {
+      // network hiccup – keep polling
+    }
+  }, pollInterval);
 }
 
 // Update status badge
@@ -1286,19 +1552,28 @@ async function loadDeviceIdInfo() {
       deviceIdField.placeholder = "Hardware UUID";
     }
 
-    // Pre-fill cert-common-name from current cert CN
+    // Pre-fill cert-common-name (self-signed) and cert-ca-name (CA) from current cert CN
     const cnField = document.getElementById("cert-common-name");
+    const caNameField = document.getElementById("cert-ca-name");
+    const cert =
+      data.current &&
+      data.current !== "not-set" &&
+      !data.current.startsWith("No certificate")
+        ? data.current
+        : "";
+    const raw = cert || data.system_serial || "";
+    const nameWithoutPrefix = raw.replace(/^ctrlx-/i, "");
+    const placeholder =
+      (data.system_serial || "").replace(/^ctrlx-/i, "") || "device-name";
     if (cnField && !cnField.value) {
-      const cert =
-        data.current &&
-        data.current !== "not-set" &&
-        !data.current.startsWith("No certificate")
-          ? data.current
-          : "";
-      const raw = cert || data.system_serial || "";
-      cnField.value = raw.replace(/^ctrlx-/i, "");
-      cnField.placeholder =
-        (data.system_serial || "").replace(/^ctrlx-/i, "") || "e.g. ctrlx-001";
+      cnField.value = nameWithoutPrefix;
+      cnField.placeholder = placeholder || "e.g. ctrlx-001";
+    }
+    if (caNameField && !caNameField.value) {
+      caNameField.value = nameWithoutPrefix ? "ctrlx-" + nameWithoutPrefix : "";
+      caNameField.placeholder = placeholder
+        ? "ctrlx-" + placeholder
+        : "ctrlx-device-name";
     }
 
     // Certificate status + button highlight + inline cert details
@@ -1329,6 +1604,9 @@ async function loadDeviceIdInfo() {
       const inline = document.getElementById("cert-details-inline");
       if (inline) inline.style.display = "none";
     }
+    // Keep CA status row in sync
+    _syncCaStatus();
+    _updateCaRegHint();
   } catch (error) {
     console.error("Error loading device ID info:", error);
   }
@@ -1455,6 +1733,8 @@ async function loadCertDetailsInline() {
           certStatus.className = "cert-status error";
           certStatus.textContent = t("device.cert_missing");
         }
+        _syncCaStatus();
+        _updateCaRegHint();
       }
     }
   } catch (_) {}
@@ -1888,6 +2168,7 @@ function initCollapsibleSections() {
       loadC8yMqttPort();
     },
     "sec-device": () => {
+      _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
       loadCertDetailsInline();
@@ -2627,7 +2908,15 @@ function renderDatalayerMappings() {
   if (!tbody) return;
 
   if (_dlMappings.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="node-empty-hint" style="text-align:center; padding:20px;">${t("datalayer.no_mappings")}</td></tr>`;
+    tbody.innerHTML = "";
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "node-empty-hint";
+    td.style.cssText = "text-align:center; padding:20px;";
+    td.textContent = t("datalayer.no_mappings");
+    tr.appendChild(td);
+    tbody.appendChild(tr);
     return;
   }
 
@@ -2685,25 +2974,97 @@ function renderDatalayerMappings() {
       editDatalayerMapping(m.id);
     });
 
-    tr.innerHTML = `
-      <td class="cell-path" title="${p}" style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pathHtml}</td>
-      <td class="cell-topic text-truncate" title="${t_topic}" style="color:${topicColor}; max-width:200px;">${topicWarning}${t_topic}</td>
-      <td class="text-center" title="${dirTitle}" style="font-size:16px; color:${dirColor}; width:32px;">
-        <i class="fa-solid ${dirIcon}"></i>
-      </td>
-      <td style="white-space:nowrap;">${fieldHtml}</td>
-      <td class="text-center" style="width:52px;">
-        <label class="tedge-switch">
-          <input type="checkbox" ${m.enabled ? "checked" : ""} onchange="toggleDatalayerMapping('${m.id}', this.checked)">
-          <span class="tedge-switch-slider"></span>
-        </label>
-      </td>
-      <td class="text-right" style="width:36px;">
-        <button class="btn btn-dot text-danger" title="Löschen" onclick="event.stopPropagation(); deleteDatalayerMapping('${m.id}')">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </td>
-    `;
+    // Build table row with DOM methods to prevent XSS
+    const tdPath = document.createElement("td");
+    tdPath.className = "cell-path";
+    tdPath.title = p;
+    tdPath.style.cssText =
+      "max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+    const pathPrefixSpan = document.createElement("span");
+    pathPrefixSpan.style.cssText =
+      "color:var(--c8y-palette-gray-40);font-size:11px;";
+    pathPrefixSpan.textContent = pathPrefix;
+    const pathLastStrong = document.createElement("strong");
+    pathLastStrong.textContent = pathLast;
+    tdPath.appendChild(pathPrefixSpan);
+    tdPath.appendChild(pathLastStrong);
+
+    const tdTopic = document.createElement("td");
+    tdTopic.className = "cell-topic text-truncate";
+    tdTopic.title = t_topic;
+    tdTopic.style.cssText = `color:${topicColor}; max-width:200px;`;
+    if (topicIncompatible) {
+      const warnIcon = document.createElement("i");
+      warnIcon.className = "fa-solid fa-triangle-exclamation";
+      warnIcon.style.cssText =
+        "color:#e8760d; margin-right:4px; font-size:11px;";
+      warnIcon.title = "Topic inkompatibel mit MQTT Service";
+      tdTopic.appendChild(warnIcon);
+    }
+    tdTopic.appendChild(document.createTextNode(t_topic));
+
+    const tdDir = document.createElement("td");
+    tdDir.className = "text-center";
+    tdDir.title = dirTitle;
+    tdDir.style.cssText = `font-size:16px; color:${dirColor}; width:32px;`;
+    const dirI = document.createElement("i");
+    dirI.className = `fa-solid ${dirIcon}`;
+    tdDir.appendChild(dirI);
+
+    const tdField = document.createElement("td");
+    tdField.style.whiteSpace = "nowrap";
+    const transSpan = document.createElement("span");
+    transSpan.className = `label ${labelClass}`;
+    transSpan.style.fontSize = "10px";
+    transSpan.textContent = trans.toUpperCase();
+    tdField.appendChild(transSpan);
+    if (fieldName) {
+      tdField.appendChild(document.createTextNode(" "));
+      const fnSpan = document.createElement("span");
+      fnSpan.style.fontSize = "12px";
+      fnSpan.textContent = fieldName;
+      tdField.appendChild(fnSpan);
+    }
+
+    const tdToggle = document.createElement("td");
+    tdToggle.className = "text-center";
+    tdToggle.style.width = "52px";
+    const lbl = document.createElement("label");
+    lbl.className = "tedge-switch";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = !!m.enabled;
+    const mappingId = m.id;
+    chk.addEventListener("change", () =>
+      toggleDatalayerMapping(mappingId, chk.checked),
+    );
+    const slider = document.createElement("span");
+    slider.className = "tedge-switch-slider";
+    lbl.appendChild(chk);
+    lbl.appendChild(slider);
+    tdToggle.appendChild(lbl);
+
+    const tdDel = document.createElement("td");
+    tdDel.className = "text-right";
+    tdDel.style.width = "36px";
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-dot text-danger";
+    delBtn.title = "Löschen";
+    delBtn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      deleteDatalayerMapping(mappingId);
+    });
+    const delI = document.createElement("i");
+    delI.className = "fa-solid fa-trash";
+    delBtn.appendChild(delI);
+    tdDel.appendChild(delBtn);
+
+    tr.appendChild(tdPath);
+    tr.appendChild(tdTopic);
+    tr.appendChild(tdDir);
+    tr.appendChild(tdField);
+    tr.appendChild(tdToggle);
+    tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
   if (typeof applyI18n === "function") applyI18n();
@@ -2775,7 +3136,11 @@ async function browseDatalayer() {
   if (!path.startsWith("/")) path = "/" + path;
   if (path === "/") path = "";
 
-  listBox.innerHTML = `<div class="node-empty-hint">${t("status.loading")}</div>`;
+  listBox.innerHTML = "";
+  const loadingHint = document.createElement("div");
+  loadingHint.className = "node-empty-hint";
+  loadingHint.textContent = t("status.loading");
+  listBox.appendChild(loadingHint);
 
   try {
     const r = await fetchWithAuth(
@@ -2790,7 +3155,11 @@ async function browseDatalayer() {
 
     renderNodeList(formattedNodes);
   } catch (e) {
-    listBox.innerHTML = `<div class="node-empty-hint text-danger">Fehler: ${e.message}</div>`;
+    listBox.innerHTML = "";
+    const errHint = document.createElement("div");
+    errHint.className = "node-empty-hint text-danger";
+    errHint.textContent = "Fehler: " + e.message;
+    listBox.appendChild(errHint);
   }
 }
 
@@ -2853,13 +3222,35 @@ async function checkLicenseStatus() {
     if (!banner) return;
     if (!data.licensed) {
       const reqName = data.required || "SWL-XCx-RUN-DLACCESSNRTxx-NNNN";
-      banner.innerHTML =
-        "\u26A0 <strong>License missing:</strong> No valid ctrlX OS license found for this app. " +
-        "Please obtain license <code style='margin: 0 4px;'>" +
-        reqName +
-        "</code> from the " +
-        '<a style="cursor:pointer;text-decoration:underline" onclick="scrollToLicensing()">ctrlX Licensing section</a> or ' +
-        '<a href="/license-manager" target="_blank" rel="noopener">Bosch Rexroth Licensing Center</a>.';
+      // Build banner with DOM methods to prevent XSS via reqName
+      banner.innerHTML = "";
+      banner.appendChild(document.createTextNode("\u26A0 "));
+      const strong = document.createElement("strong");
+      strong.textContent = "License missing:";
+      banner.appendChild(strong);
+      banner.appendChild(
+        document.createTextNode(
+          " No valid ctrlX OS license found for this app. Please obtain license ",
+        ),
+      );
+      const code = document.createElement("code");
+      code.style.margin = "0 4px";
+      code.textContent = reqName;
+      banner.appendChild(code);
+      banner.appendChild(document.createTextNode(" from the "));
+      const aLocal = document.createElement("a");
+      aLocal.style.cssText = "cursor:pointer;text-decoration:underline";
+      aLocal.textContent = "ctrlX Licensing section";
+      aLocal.addEventListener("click", scrollToLicensing);
+      banner.appendChild(aLocal);
+      banner.appendChild(document.createTextNode(" or "));
+      const aExt = document.createElement("a");
+      aExt.href = "/license-manager";
+      aExt.target = "_blank";
+      aExt.rel = "noopener";
+      aExt.textContent = "Bosch Rexroth Licensing Center";
+      banner.appendChild(aExt);
+      banner.appendChild(document.createTextNode("."));
       banner.style.display = "block";
     } else {
       banner.style.display = "none";
@@ -2908,35 +3299,48 @@ async function loadLicenses() {
       return;
     }
 
-    tbody.innerHTML = licenses
-      .map((lic) => {
-        const name = lic.name || lic.appName || lic.title || "-";
-        // ctrlX capabilities API: finalExpirationDate or isPermanent
-        const validUntil = lic.isPermanent
-          ? "Permanent"
-          : lic.finalExpirationDate ||
-            lic.endDate ||
-            lic.validUntil ||
-            lic.expiry ||
-            lic.expirationDate ||
-            "-";
-        const qty = lic.count ?? lic.quantity ?? "-";
-        // ctrlX capabilities: no explicit status field — active if present in list
-        const active = lic.status
-          ? lic.status === "valid" || lic.status === "active"
-          : true;
-        const statusColor = active
-          ? "var(--c8y-brand-success, #27ae60)"
-          : "var(--c8y-brand-danger, #e74c3c)";
-        const statusLabel = lic.status || (active ? "active" : "inactive");
-        return `<tr style="border-bottom:1px solid var(--c8y-palette-gray-80,#333)">
-          <td style="padding:6px 8px">${name}</td>
-          <td style="padding:6px 8px"><span style="color:${statusColor}">${statusLabel}</span></td>
-          <td style="padding:6px 8px">${validUntil}</td>
-          <td style="padding:6px 8px">${qty}</td>
-        </tr>`;
-      })
-      .join("");
+    tbody.innerHTML = "";
+    licenses.forEach((lic) => {
+      const name = lic.name || lic.appName || lic.title || "-";
+      // ctrlX capabilities API: finalExpirationDate or isPermanent
+      const validUntil = lic.isPermanent
+        ? "Permanent"
+        : lic.finalExpirationDate ||
+          lic.endDate ||
+          lic.validUntil ||
+          lic.expiry ||
+          lic.expirationDate ||
+          "-";
+      const qty = lic.count ?? lic.quantity ?? "-";
+      // ctrlX capabilities: no explicit status field — active if present in list
+      const active = lic.status
+        ? lic.status === "valid" || lic.status === "active"
+        : true;
+      const statusColor = active
+        ? "var(--c8y-brand-success, #27ae60)"
+        : "var(--c8y-brand-danger, #e74c3c)";
+      const statusLabel = lic.status || (active ? "active" : "inactive");
+      // Build row with DOM methods to prevent XSS via license data
+      const row = document.createElement("tr");
+      row.style.borderBottom = "1px solid var(--c8y-palette-gray-80,#333)";
+      const mkTd = (text) => {
+        const td = document.createElement("td");
+        td.style.padding = "6px 8px";
+        td.textContent = text;
+        return td;
+      };
+      row.appendChild(mkTd(name));
+      const tdStatus = document.createElement("td");
+      tdStatus.style.padding = "6px 8px";
+      const statusSpan = document.createElement("span");
+      statusSpan.style.color = statusColor;
+      statusSpan.textContent = statusLabel;
+      tdStatus.appendChild(statusSpan);
+      row.appendChild(tdStatus);
+      row.appendChild(mkTd(String(validUntil)));
+      row.appendChild(mkTd(String(qty)));
+      tbody.appendChild(row);
+    });
 
     if (table) table.style.display = "";
   } catch (e) {

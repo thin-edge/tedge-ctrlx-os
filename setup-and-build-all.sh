@@ -77,16 +77,16 @@ echo "Step 4: Generate Build Info"
 echo "=============================================="
 echo "[build-info.sh] Erzeuge build-info.txt ..."
 
-VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
-BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
-BUILD_NUMBER="$(date +%Y%m%d%H%M%S)"
+VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
+COMMIT_COUNT="$(git rev-list --count HEAD 2>/dev/null || echo '0')"
+VERSION="${VERSION_BASE}.${COMMIT_COUNT}"
 BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
 BUILD_ARCH="$(uname -m)"
 BUILD_INFO_FILE="configs/build-info.txt"
 cat > "$BUILD_INFO_FILE" << EOF
-Version: ${VERSION}-${BUILD_SUFFIX}
+Version: ${VERSION}
 Build Date: ${BUILD_DATE}
 Build Host: ${BUILD_HOST}
 Build User: ${BUILD_USER}
@@ -193,13 +193,12 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 BUILD_DATE="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-BUILD_SUFFIX="$(date -u +%d%m.%H%M)"
-BUILD_NUMBER="build.$(date -u +%Y%m%d.%H%M)"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
-BASE_VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | sed 's/-.*//')
+VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
+COMMIT_COUNT="$(git rev-list --count HEAD 2>/dev/null || echo '0')"
 SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
-SNAP_VERSION="${BASE_VERSION}-${BUILD_SUFFIX}"
+SNAP_VERSION="${VERSION_BASE}.${COMMIT_COUNT}"
 VERSION="$SNAP_VERSION"
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -236,7 +235,7 @@ Upstream Commit: ${THIN_EDGE_IO_COMMIT}
 EOF
 echo "[i] Build-Info aktualisiert."
 # Snap-Version in snapcraft.yaml nach dem Build zurücksetzen
-trap 'sed -i "s/^version:.*/version: ${BASE_VERSION}/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${BASE_VERSION}"' EXIT
+trap 'sed -i "s/^version:.*/version: ${VERSION_BASE}.0/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${VERSION_BASE}.0"' EXIT
 
 # Alte Snap-Dateien löschen
 OLD_SNAPS=$(ls -1 ${SNAP_NAME}_*.snap 2>/dev/null || true)
