@@ -2377,7 +2377,7 @@ async fn ca_cert_download(
         device_name
     );
 
-    // Pass OTP via environment variable to avoid it appearing in process listing
+    // Pass OTP via environment variable only – avoids exposure in process listing (ps aux)
     let output = Command::new("sudo")
         .arg("snap")
         .arg("run")
@@ -2387,8 +2387,6 @@ async fn ca_cert_download(
         .arg("c8y")
         .arg("--device-id")
         .arg(&device_name)
-        .arg("--one-time-password")
-        .arg(&otp)
         .env("DEVICE_ONE_TIME_PASSWORD", &otp)
         .stdin(std::process::Stdio::null())
         .output();
@@ -2401,8 +2399,7 @@ async fn ca_cert_download(
             .arg("c8y")
             .arg("--device-id")
             .arg(&device_name)
-            .arg("--one-time-password")
-            .arg(&otp)
+            .env("DEVICE_ONE_TIME_PASSWORD", &otp)
             .stdin(std::process::Stdio::null())
             .output(),
         ok => ok,
