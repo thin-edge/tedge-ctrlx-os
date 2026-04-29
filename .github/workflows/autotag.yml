@@ -24,7 +24,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.ACTIONS_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Create tag if version changed
         run: |
