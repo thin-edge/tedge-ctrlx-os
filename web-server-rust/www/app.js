@@ -77,6 +77,8 @@ const I18N = {
     "device.ca_otp": "Einmalpasswort:",
     "device.ca_otp_hint": "Einmalpasswort der CA für die Geräteregistrierung",
     "device.ca_request": "Zertifikat anfordern",
+    "device.ca_waiting": "Warte auf Cloud-Freigabe…",
+    "device.ca_starting": "Zertifikatsanfrage wird gestartet…",
     "device.ca_reg_hint": "Geräteregistrierung noch nicht gestartet. Bitte zuerst das Gerät registrieren:",
     "device.ca_reg_url_missing": "(zuerst C8Y-URL konfigurieren)",
     "device.cert_status": "Zertifikatsstatus:",
@@ -162,7 +164,8 @@ const I18N = {
     "notify.no_perm_status": "Keine Berechtigung für diesen Vorgang",
     "notify.cert_cn_required": "Bitte Certificate Common Name eingeben",
     "notify.ca_otp_required": "Bitte Einmalpasswort eingeben",
-    "notify.ca_cert_requested": "Zertifikatsanforderung erfolgreich übermittelt",
+    "notify.ca_cert_requested": "Zertifikat erfolgreich heruntergeladen",
+    "notify.ca_timeout": "Zeitüberschreitung: Keine Cloud-Freigabe innerhalb von 10 Minuten",
     "notify.cert_upload_user": "Bitte Cumulocity-Benutzername eingeben",
     "notify.cert_upload_pass": "Bitte Passwort eingeben",
     "notify.uploading": "Hochladen...",
@@ -348,6 +351,8 @@ const I18N = {
     "device.ca_otp": "One-Time Password:",
     "device.ca_otp_hint": "One-time password provided by the CA for device registration",
     "device.ca_request": "Request Certificate",
+    "device.ca_waiting": "Waiting for cloud approval…",
+    "device.ca_starting": "Starting certificate request…",
     "device.ca_reg_hint": "Device registration not yet started. Please register the device first:",
     "device.ca_reg_url_missing": "(configure C8Y URL first)",
     "device.cert_status": "Certificate Status:",
@@ -422,7 +427,8 @@ const I18N = {
     "notify.no_perm_status": "Insufficient permissions for this action",
     "notify.cert_cn_required": "Please enter a Certificate Common Name",
     "notify.ca_otp_required": "Please enter the one-time password",
-    "notify.ca_cert_requested": "Certificate request submitted successfully",
+    "notify.ca_cert_requested": "Certificate downloaded successfully",
+    "notify.ca_timeout": "Timeout: No cloud approval within 10 minutes",
     "notify.cert_upload_user": "Please enter a Cumulocity username",
     "notify.cert_upload_pass": "Please enter the password",
     "notify.uploading": "Uploading...",
@@ -939,8 +945,31 @@ async function requestCaCert() {
   }
 
   const btn = document.getElementById("btn-ca-request");
-  if (btn) { btn.disabled = true; btn.textContent = t("notify.uploading"); }
+  const statusEl = document.getElementById("cert-ca-status");
 
+  function setWaiting(msg) {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML =
+        '<span class="ca-spinner" aria-hidden="true"></span> ' +
+        (msg || t("device.ca_waiting"));
+    }
+    if (statusEl) {
+      statusEl.textContent = msg || t("device.ca_waiting");
+      statusEl.className = "text-muted";
+    }
+  }
+
+  function resetBtn() {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = t("device.ca_request");
+    }
+  }
+
+  setWaiting(t("device.ca_starting"));
+
+  let jobId = null;
   try {
     const response = await fetchWithAuth("api/device-id/ca-request", {
       method: "POST",
@@ -950,18 +979,65 @@ async function requestCaCert() {
 
     if (response.status === 403) {
       showNotification(data.error || t("notify.admin_required"), "error");
-    } else if (data.success) {
-      showNotification(t("notify.ca_cert_requested"), "success");
-      if (otpInput) otpInput.value = "";
-      setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 2000);
-    } else {
-      showNotification(data.error || t("cert.create_err") || t("notify.cert_upload_fail"), "error");
+      resetBtn();
+      return;
     }
+    if (!data.success) {
+      showNotification(data.error || t("cert.create_err"), "error");
+      resetBtn();
+      return;
+    }
+
+    jobId = data.job_id;
   } catch (e) {
     showNotification(t("cert.create_err") || t("notify.cert_upload_fail"), "error");
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = t("device.ca_request"); }
+    resetBtn();
+    return;
   }
+
+  if (!jobId) {
+    // Should not happen – but treat as success for forward-compatibility
+    showNotification(t("notify.ca_cert_requested"), "success");
+    if (otpInput) otpInput.value = "";
+    resetBtn();
+    setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 2000);
+    return;
+  }
+
+  // Poll for job completion (max ~10 min, every 5 s)
+  setWaiting(t("device.ca_waiting"));
+  let attempts = 0;
+  const maxAttempts = 120; // 120 × 5 s = 600 s = 10 min
+  const pollInterval = 5000;
+
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetchWithAuth("api/device-id/ca-request/" + jobId);
+      const d = await r.json().catch(() => ({}));
+
+      if (d.status === "success") {
+        clearInterval(poll);
+        showNotification(t("notify.ca_cert_requested"), "success");
+        if (otpInput) otpInput.value = "";
+        resetBtn();
+        setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 1000);
+      } else if (d.status === "error") {
+        clearInterval(poll);
+        showNotification(d.message || t("cert.create_err"), "error");
+        resetBtn();
+        if (statusEl) { statusEl.textContent = ""; statusEl.className = ""; }
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        showNotification(t("notify.ca_timeout"), "error");
+        resetBtn();
+        if (statusEl) { statusEl.textContent = ""; statusEl.className = ""; }
+      }
+      // status === "pending" → keep polling
+    } catch (_) {
+      // network hiccup – keep polling
+    }
+  }, pollInterval);
 }
 
 // Update status badge
