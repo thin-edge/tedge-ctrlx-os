@@ -2424,10 +2424,10 @@ async fn ca_cert_download(
     let ca_jobs = data.ca_jobs.clone();
     let job_id_bg = job_id.clone();
 
-    // Read c8y URL from app config so we can ensure tedge has it configured
+    // Read c8y URL from app config – strip https:// prefix, tedge expects domain only
     let c8y_url = {
         let cfg = data.config.lock().unwrap_or_else(|e| e.into_inner());
-        cfg.c8y.url.clone().unwrap_or_default()
+        strip_url_scheme(&cfg.c8y.url.clone().unwrap_or_default()).to_string()
     };
     if c8y_url.is_empty() {
         return Ok(HttpResponse::BadRequest().json(serde_json::json!({
@@ -2443,6 +2443,38 @@ async fn ca_cert_download(
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
+        // Step 1: create private key + CSR via `tedge cert create`.
+        // Required before `cert download` can build the CSR.
+        // If a key already exists tedge will return an error – that is fine, we continue.
+        let create_out = tokio::process::Command::new("sudo")
+            .arg("snap")
+            .arg("run")
+            .arg(format!("{}.tedge", snap_name))
+            .arg("cert")
+            .arg("create")
+            .arg("--device-id")
+            .arg(&device_name)
+            .env("TEDGE_C8Y_URL", &c8y_url)
+            .stdin(Stdio::null())
+            .output()
+            .await;
+
+        match &create_out {
+            Ok(o) if o.status.success() =>
+                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg),
+            Ok(o) => {
+                let msg = String::from_utf8_lossy(&o.stderr).to_string();
+                // "already exists" is expected when re-requesting – not a fatal error
+                if msg.contains("already") || msg.contains("exists") {
+                    info!("[CA-CERT] Job {} – key already exists, skipping create", job_id_bg);
+                } else {
+                    warn!("[CA-CERT] Job {} – cert create warning: {}", job_id_bg, msg.trim());
+                }
+            }
+            Err(e) => warn!("[CA-CERT] Job {} – cert create exec error: {}", job_id_bg, e),
+        }
+
+        // Step 2: download CA-signed certificate (blocks until cloud approves).
         // Pass c8y.url via environment variable override – avoids needing write
         // access to tedge's config file (TEDGE_C8Y_URL is respected by all tedge commands).
         let output = tokio::process::Command::new("sudo")
@@ -2463,6 +2495,17 @@ async fn ca_cert_download(
         // Fallback: direct tedge binary
         let output = match output {
             Err(_) => {
+                // Fallback cert create
+                let _ = tokio::process::Command::new(&tedge_bin)
+                    .arg("cert")
+                    .arg("create")
+                    .arg("--device-id")
+                    .arg(&device_name)
+                    .env("TEDGE_C8Y_URL", &c8y_url)
+                    .stdin(Stdio::null())
+                    .output()
+                    .await;
+
                 tokio::process::Command::new(&tedge_bin)
                     .arg("cert")
                     .arg("download")
