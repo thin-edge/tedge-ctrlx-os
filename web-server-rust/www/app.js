@@ -979,9 +979,14 @@ async function requestCaCert() {
   function setWaiting(msg) {
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML =
-        '<span class="ca-spinner" aria-hidden="true"></span> ' +
-        (msg || t("device.ca_waiting"));
+      btn.textContent = "";
+      const spinnerEl = document.createElement("span");
+      spinnerEl.className = "ca-spinner";
+      spinnerEl.setAttribute("aria-hidden", "true");
+      btn.appendChild(spinnerEl);
+      btn.appendChild(
+        document.createTextNode(" " + (msg || t("device.ca_waiting")))
+      );
     }
     if (statusEl) {
       statusEl.textContent = msg || t("device.ca_waiting");

@@ -281,8 +281,10 @@ impl AppState {
             );
             let default_dl = DatalayerConfig::default();
             if let Some(parent) = datalayer_config_path.parent() {
+                // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
                 let _ = std::fs::create_dir_all(parent);
             }
+            // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
             match std::fs::write(
                 &datalayer_config_path,
                 serde_json::to_string_pretty(&default_dl).unwrap_or_default(),
@@ -303,15 +305,18 @@ impl AppState {
 
     fn save_config_static(path: &PathBuf, config: &Config) -> io::Result<()> {
         if let Some(parent) = path.parent() {
+            // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(config)?;
+        // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         fs::write(path, json)?;
         Ok(())
     }
 
     fn load_config(path: &PathBuf) -> Config {
         info!("[CONFIG-LOAD] Attempting to load config from: {:?}", path);
+        // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         if let Ok(content) = fs::read_to_string(path) {
             info!(
                 "[CONFIG-LOAD] File read successfully, size: {} bytes",
@@ -648,6 +653,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             if let Ok(entries) = std::fs::read_dir("/proc") {
                 for entry in entries.flatten() {
                     let comm_path = entry.path().join("comm");
+                    // codeql[rust/path-injection] - path is from /proc filesystem (kernel-controlled, not user input)
                     if let Ok(comm) = std::fs::read_to_string(&comm_path) {
                         if comm.trim() == name {
                             return true;
@@ -3035,6 +3041,7 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
     };
 
     if let Some(log_path) = file_log_service {
+        // codeql[rust/path-injection] - log_path is constructed from SNAP_COMMON env var (system-controlled by snapd, not user input)
         let result = web::block(move || match std::fs::read_to_string(&log_path) {
             Ok(content) => {
                 let all_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
@@ -3183,6 +3190,7 @@ async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     let mut build = String::from("-");
     let mut architecture = String::from("-");
 
+    // codeql[rust/path-injection] - build_info_path is derived from SNAP env var (system-controlled by snapd, not user input)
     if let Ok(content) = fs::read_to_string(&build_info_path) {
         for line in content.lines() {
             if let Some(val) = line.strip_prefix("Version: ") {
@@ -3234,6 +3242,7 @@ async fn get_log_level(req: HttpRequest) -> Result<HttpResponse> {
     if let Ok(entries) = std::fs::read_dir(&log_levels_dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) {
+                // codeql[rust/path-injection] - path is from read_dir of SNAP_DATA subdirectory (system-controlled, not user input)
                 if let Ok(level) = std::fs::read_to_string(entry.path()) {
                     levels.insert(name, level.trim().to_string());
                 }
@@ -3284,8 +3293,10 @@ async fn set_log_level(
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
     let log_levels_dir = format!("{}/log-levels", sanitize_snap_path(&snap_data));
+    // codeql[rust/path-injection] - log_levels_dir is derived from SNAP_DATA env var; service name is validated against allowlist above
     let _ = fs::create_dir_all(&log_levels_dir);
     let level_file = format!("{}/{}", log_levels_dir, body.service);
+    // codeql[rust/path-injection] - level_file is derived from SNAP_DATA env var; service name is validated against allowlist above
     fs::write(&level_file, &body.level)?;
     info!(
         "[LOG-LEVEL] Set {} = {} (RUST_LOG file)",
@@ -3344,6 +3355,7 @@ async fn token_login(req: HttpRequest) -> Result<HttpResponse> {
 fn read_build_info() -> Option<String> {
     if let Ok(snap) = env::var("SNAP") {
         let build_info_path = PathBuf::from(&snap).join("meta/build-info.txt");
+        // codeql[rust/path-injection] - build_info_path is derived from SNAP env var (system-controlled by snapd, not user input)
         if let Ok(content) = fs::read_to_string(&build_info_path) {
             // Extract version line (first line)
             if let Some(version_line) = content.lines().next() {
@@ -3544,6 +3556,7 @@ async fn get_raw_datalayer_config(
 
     // Wir lesen die Datei einfach nur als String und schicken sie direkt zurück,
     // OHNE sie durch den serde_json Parser zu jagen!
+    // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
     match std::fs::read_to_string(&data.datalayer_config_path) {
         Ok(content) => {
             Ok(HttpResponse::Ok()
@@ -3595,6 +3608,7 @@ async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Res
     }
 
     let has_license = std::path::Path::new(LICENSE_ID_FILE).exists()
+        // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
         && std::fs::read_to_string(LICENSE_ID_FILE)
             .map(|s| !s.trim().is_empty())
             .unwrap_or(false);
@@ -3764,6 +3778,7 @@ async fn run_license_loop(socket_path: String) {
     let mut current_id: Option<String> = None;
 
     // Beim Start: eventuell noch gehaltene ID aus /tmp laden und zuerst freigeben
+    // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
     if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
         let old_id = old_id.trim().to_string();
         if !old_id.is_empty() {
@@ -3794,6 +3809,7 @@ async fn run_license_loop(socket_path: String) {
                 if let Some(id) = acquire_license(&socket_path, license_name).await {
                     info!("[LICENSE] Acquired license '{}' id={}", license_name, id);
                     // ID in /tmp persistieren für Release bei Shutdown
+                    // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
                     let _ = std::fs::write(LICENSE_ID_FILE, &id);
                     current_id = Some(id);
                     acquired = true;
@@ -4012,6 +4028,7 @@ async fn get_inventory(req: HttpRequest) -> Result<HttpResponse> {
         }
     }
 
+    // codeql[rust/path-injection] - path is constructed from SNAP_DATA env var (system-controlled by snapd, not user input)
     match std::fs::read_to_string(&path) {
         Ok(content) => Ok(HttpResponse::Ok().json(serde_json::json!({
             "content": content,
@@ -4062,6 +4079,7 @@ async fn save_and_publish_inventory(
     let path = format!("{}/tedge/device/inventory.json", snap_data);
 
     if let Some(parent) = std::path::Path::new(&path).parent() {
+        // codeql[rust/path-injection] - path is constructed from SNAP_DATA env var (system-controlled by snapd, not user input)
         if let Err(e) = std::fs::create_dir_all(parent) {
             return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                 "success": false,
@@ -4069,6 +4087,7 @@ async fn save_and_publish_inventory(
             })));
         }
     }
+    // codeql[rust/path-injection] - path is constructed from SNAP_DATA env var (system-controlled by snapd, not user input)
     if let Err(e) = std::fs::write(&path, &content) {
         return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -4151,6 +4170,7 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
         }
     };
 
+    // codeql[rust/path-injection] - path is resolved via allowlist in resolve_snap_config_path (not direct user input)
     match std::fs::read_to_string(&path) {
         Ok(content) => Ok(HttpResponse::Ok().json(serde_json::json!({
             "file": file_name,
@@ -4161,8 +4181,10 @@ async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
             // File does not exist yet — create it with a sensible default
             let default = default_snap_config_content(&file_name);
             if let Some(parent) = std::path::Path::new(&path).parent() {
+                // codeql[rust/path-injection] - path is resolved via allowlist in resolve_snap_config_path (not direct user input)
                 let _ = std::fs::create_dir_all(parent);
             }
+            // codeql[rust/path-injection] - path is resolved via allowlist in resolve_snap_config_path (not direct user input)
             match std::fs::write(&path, &default) {
                 Ok(_) => {
                     info!("[SNAP-CONFIG] Created default file: {}", path);
@@ -4230,8 +4252,10 @@ async fn save_snap_config_file(
     };
 
     if let Some(parent) = std::path::Path::new(&path).parent() {
+        // codeql[rust/path-injection] - path is resolved via allowlist in resolve_snap_config_path (not direct user input)
         let _ = std::fs::create_dir_all(parent);
     }
+    // codeql[rust/path-injection] - path is resolved via allowlist in resolve_snap_config_path (not direct user input)
     match std::fs::write(&path, &body.content) {
         Ok(_) => {
             info!("[SNAP-CONFIG] Saved {}", body.file);
