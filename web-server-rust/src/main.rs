@@ -3704,7 +3704,8 @@ async fn unix_socket_request(
 /// Lizenznamen die geprüft werden: app-spezifische Lizenz + ctrlX COREvirtual 4H-Demo
 const LICENSE_NAMES: &[&str] = &[
     "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Hauptlizenz (Data Layer Access NRT)
-    "SWL_XCR_ENGINEERING_4H",         // ctrlX COREvirtual 4h Engineering Demo
+    "SWL_XCB_ENGINEERING_4H",          // ctrlX COREvirtual 4h Engineering Demo (Bosch)
+    "SWL_XCR_ENGINEERING_4H",          // ctrlX CORE 4h Engineering Demo (Rexroth)
 ];
 /// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
 const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
