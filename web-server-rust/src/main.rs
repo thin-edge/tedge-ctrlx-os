@@ -2443,26 +2443,8 @@ async fn ca_cert_download(
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
-        // Ensure c8y.url is set in tedge config before downloading the cert
-        let set_url_result = tokio::process::Command::new("sudo")
-            .arg("snap")
-            .arg("run")
-            .arg(format!("{}.tedge", snap_name))
-            .arg("config")
-            .arg("set")
-            .arg("c8y.url")
-            .arg(&c8y_url)
-            .stdin(Stdio::null())
-            .output()
-            .await;
-
-        if let Ok(ref out) = set_url_result {
-            if !out.status.success() {
-                let err = String::from_utf8_lossy(&out.stderr).to_string();
-                warn!("[CA-CERT] Job {} – could not set c8y.url via snap: {}", job_id_bg, err);
-            }
-        }
-
+        // Pass c8y.url via environment variable override – avoids needing write
+        // access to tedge's config file (TEDGE_C8Y_URL is respected by all tedge commands).
         let output = tokio::process::Command::new("sudo")
             .arg("snap")
             .arg("run")
@@ -2473,6 +2455,7 @@ async fn ca_cert_download(
             .arg("--device-id")
             .arg(&device_name)
             .env("DEVICE_ONE_TIME_PASSWORD", &otp)
+            .env("TEDGE_C8Y_URL", &c8y_url)
             .stdin(Stdio::null())
             .output()
             .await;
@@ -2480,16 +2463,6 @@ async fn ca_cert_download(
         // Fallback: direct tedge binary
         let output = match output {
             Err(_) => {
-                // Also try to set c8y.url via direct binary
-                let _ = tokio::process::Command::new(&tedge_bin)
-                    .arg("config")
-                    .arg("set")
-                    .arg("c8y.url")
-                    .arg(&c8y_url)
-                    .stdin(Stdio::null())
-                    .output()
-                    .await;
-
                 tokio::process::Command::new(&tedge_bin)
                     .arg("cert")
                     .arg("download")
@@ -2497,6 +2470,7 @@ async fn ca_cert_download(
                     .arg("--device-id")
                     .arg(&device_name)
                     .env("DEVICE_ONE_TIME_PASSWORD", &otp)
+                    .env("TEDGE_C8Y_URL", &c8y_url)
                     .stdin(Stdio::null())
                     .output()
                     .await
