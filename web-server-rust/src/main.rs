@@ -2452,6 +2452,19 @@ async fn ca_cert_download(
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
+        // Ensure the device-certs directory exists – tedge cert create writes the CSR there.
+        // setup-directories.sh creates this on fresh installs, but older snaps may be missing it.
+        if !tedge_config_dir.is_empty() {
+            let device_certs_dir = format!("{}/device-certs", tedge_config_dir);
+            let _ = tokio::process::Command::new("sudo")
+                .arg("mkdir")
+                .arg("-p")
+                .arg(&device_certs_dir)
+                .stdin(Stdio::null())
+                .output()
+                .await;
+        }
+
         // Step 1: `tedge cert create` – generates the CSR and (re)creates the self-signed cert.
         // Must run before `cert download` because download needs the CSR file.
         // Uses --config-dir so tedge finds the private key at the ctrlX cert store path
