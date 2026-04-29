@@ -2420,7 +2420,16 @@ async fn ca_cert_download(
     let snap_name = env::var("SNAP_INSTANCE_NAME")
         .unwrap_or_else(|_| "ctrlx-cumulocity-thin-edge-io".to_string());
     let snap = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
     let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
+    // Config dir is where manage-device-id.sh already ran `tedge config set device.key_path`
+    // pointing to the ctrlX certificate store. We pass --config-dir so tedge cert download
+    // finds the existing private key at $SNAP_COMMON/package-certificates/.../own/private/
+    let tedge_config_dir = if snap_data.is_empty() {
+        String::new()
+    } else {
+        format!("{}/tedge", snap_data)
+    };
     let ca_jobs = data.ca_jobs.clone();
     let job_id_bg = job_id.clone();
 
@@ -2437,50 +2446,23 @@ async fn ca_cert_download(
     }
 
     info!(
-        "[CA-CERT] Starting background job {} for device: {}",
-        job_id, device_name
+        "[CA-CERT] Starting background job {} for device: {} (config-dir: {})",
+        job_id, device_name, tedge_config_dir
     );
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
-        // Step 1: create private key + CSR via `tedge cert create`.
-        // Required before `cert download` can build the CSR.
-        // If a key already exists tedge will return an error – that is fine, we continue.
-        let create_out = tokio::process::Command::new("sudo")
-            .arg("snap")
+        // Build the base command with --config-dir so tedge uses the ctrlX certificate store
+        // paths already configured by manage-device-id.sh (device.key_path / device.cert_path).
+        // Without --config-dir tedge falls back to /etc/tedge which has no private key.
+        let mut cmd = tokio::process::Command::new("sudo");
+        cmd.arg("snap")
             .arg("run")
-            .arg(format!("{}.tedge", snap_name))
-            .arg("cert")
-            .arg("create")
-            .arg("--device-id")
-            .arg(&device_name)
-            .env("TEDGE_C8Y_URL", &c8y_url)
-            .stdin(Stdio::null())
-            .output()
-            .await;
-
-        match &create_out {
-            Ok(o) if o.status.success() =>
-                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg),
-            Ok(o) => {
-                let msg = String::from_utf8_lossy(&o.stderr).to_string();
-                // "already exists" is expected when re-requesting – not a fatal error
-                if msg.contains("already") || msg.contains("exists") {
-                    info!("[CA-CERT] Job {} – key already exists, skipping create", job_id_bg);
-                } else {
-                    warn!("[CA-CERT] Job {} – cert create warning: {}", job_id_bg, msg.trim());
-                }
-            }
-            Err(e) => warn!("[CA-CERT] Job {} – cert create exec error: {}", job_id_bg, e),
+            .arg(format!("{}.tedge", snap_name));
+        if !tedge_config_dir.is_empty() {
+            cmd.arg("--config-dir").arg(&tedge_config_dir);
         }
-
-        // Step 2: download CA-signed certificate (blocks until cloud approves).
-        // Pass c8y.url via environment variable override – avoids needing write
-        // access to tedge's config file (TEDGE_C8Y_URL is respected by all tedge commands).
-        let output = tokio::process::Command::new("sudo")
-            .arg("snap")
-            .arg("run")
-            .arg(format!("{}.tedge", snap_name))
+        let output = cmd
             .arg("cert")
             .arg("download")
             .arg("c8y")
@@ -2492,22 +2474,14 @@ async fn ca_cert_download(
             .output()
             .await;
 
-        // Fallback: direct tedge binary
+        // Fallback: direct tedge binary with --config-dir
         let output = match output {
             Err(_) => {
-                // Fallback cert create
-                let _ = tokio::process::Command::new(&tedge_bin)
-                    .arg("cert")
-                    .arg("create")
-                    .arg("--device-id")
-                    .arg(&device_name)
-                    .env("TEDGE_C8Y_URL", &c8y_url)
-                    .stdin(Stdio::null())
-                    .output()
-                    .await;
-
-                tokio::process::Command::new(&tedge_bin)
-                    .arg("cert")
+                let mut fb = tokio::process::Command::new(&tedge_bin);
+                if !tedge_config_dir.is_empty() {
+                    fb.arg("--config-dir").arg(&tedge_config_dir);
+                }
+                fb.arg("cert")
                     .arg("download")
                     .arg("c8y")
                     .arg("--device-id")
