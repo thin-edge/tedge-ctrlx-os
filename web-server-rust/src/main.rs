@@ -2452,9 +2452,60 @@ async fn ca_cert_download(
 
     // Run tedge cert download in background – it blocks until cloud approves
     tokio::spawn(async move {
-        // Build the base command with --config-dir so tedge uses the ctrlX certificate store
-        // paths already configured by manage-device-id.sh (device.key_path / device.cert_path).
-        // Without --config-dir tedge falls back to /etc/tedge which has no private key.
+        // Step 1: `tedge cert create` – generates the CSR and (re)creates the self-signed cert.
+        // Must run before `cert download` because download needs the CSR file.
+        // Uses --config-dir so tedge finds the private key at the ctrlX cert store path
+        // configured by manage-device-id.sh (device.key_path / device.cert_path).
+        let mut create_cmd = tokio::process::Command::new("sudo");
+        create_cmd.arg("snap").arg("run").arg(format!("{}.tedge", snap_name));
+        if !tedge_config_dir.is_empty() {
+            create_cmd.arg("--config-dir").arg(&tedge_config_dir);
+        }
+        let create_out = create_cmd
+            .arg("cert")
+            .arg("create")
+            .arg("--device-id")
+            .arg(&device_name)
+            .env("TEDGE_C8Y_URL", &c8y_url)
+            .stdin(Stdio::null())
+            .output()
+            .await;
+
+        match &create_out {
+            Ok(o) if o.status.success() =>
+                info!("[CA-CERT] Job {} – cert create succeeded", job_id_bg),
+            Ok(o) => {
+                let msg = String::from_utf8_lossy(&o.stderr).to_string();
+                // "already exists" is expected on re-request – not a fatal error
+                if msg.contains("already") || msg.contains("exists") {
+                    info!("[CA-CERT] Job {} – cert already exists, continuing", job_id_bg);
+                } else {
+                    warn!("[CA-CERT] Job {} – cert create: {}", job_id_bg, msg.trim());
+                }
+            }
+            Err(e) => warn!("[CA-CERT] Job {} – cert create exec error: {}", job_id_bg, e),
+        }
+
+        // Fallback cert create via direct binary if snap run failed
+        if matches!(create_out, Err(_)) {
+            let mut fb = tokio::process::Command::new(&tedge_bin);
+            if !tedge_config_dir.is_empty() {
+                fb.arg("--config-dir").arg(&tedge_config_dir);
+            }
+            let _ = fb
+                .arg("cert")
+                .arg("create")
+                .arg("--device-id")
+                .arg(&device_name)
+                .env("TEDGE_C8Y_URL", &c8y_url)
+                .stdin(Stdio::null())
+                .output()
+                .await;
+        }
+
+        // Step 2: download CA-signed certificate (blocks until cloud approves).
+        // Pass c8y.url via environment variable override – avoids needing write
+        // access to tedge's config file (TEDGE_C8Y_URL is respected by all tedge commands).
         let mut cmd = tokio::process::Command::new("sudo");
         cmd.arg("snap")
             .arg("run")
