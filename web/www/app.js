@@ -70,6 +70,15 @@ const I18N = {
     "device.id_hint": "Eindeutiger Bezeichner (nur Admin kann ändern)",
     "device.id_hint_ro":
       "Eindeutiger Bezeichner (nur Lesen – Admin erforderlich)",
+    "device.mode_ca": "CA-Zertifikat",
+    "device.mode_self": "Self-Signed",
+    "device.ca_name": "Gerätename:",
+    "device.ca_name_hint": "Wird als CN für das CA-signierte Gerätezertifikat verwendet",
+    "device.ca_otp": "Einmalpasswort:",
+    "device.ca_otp_hint": "Einmalpasswort der CA für die Geräteregistrierung",
+    "device.ca_request": "Zertifikat anfordern",
+    "device.ca_reg_hint": "Geräteregistrierung noch nicht gestartet. Bitte zuerst das Gerät registrieren:",
+    "device.ca_reg_url_missing": "(zuerst C8Y-URL konfigurieren)",
     "device.cert_status": "Zertifikatsstatus:",
     "device.upload_status": "Upload-Status:",
     "device.save": "Speichern",
@@ -152,6 +161,8 @@ const I18N = {
     "notify.restart_err": "Dienste konnten nicht neu gestartet werden",
     "notify.no_perm_status": "Keine Berechtigung für diesen Vorgang",
     "notify.cert_cn_required": "Bitte Certificate Common Name eingeben",
+    "notify.ca_otp_required": "Bitte Einmalpasswort eingeben",
+    "notify.ca_cert_requested": "Zertifikatsanforderung erfolgreich übermittelt",
     "notify.cert_upload_user": "Bitte Cumulocity-Benutzername eingeben",
     "notify.cert_upload_pass": "Bitte Passwort eingeben",
     "notify.uploading": "Hochladen...",
@@ -330,6 +341,15 @@ const I18N = {
     "device.id_hint": "The unique device identifier",
     "device.id_hint_ro":
       "The unique device identifier (read-only – admin only)",
+    "device.mode_ca": "CA-Certificate",
+    "device.mode_self": "Self-Signed",
+    "device.ca_name": "Device Name:",
+    "device.ca_name_hint": "Used as CN for the CA-signed device certificate",
+    "device.ca_otp": "One-Time Password:",
+    "device.ca_otp_hint": "One-time password provided by the CA for device registration",
+    "device.ca_request": "Request Certificate",
+    "device.ca_reg_hint": "Device registration not yet started. Please register the device first:",
+    "device.ca_reg_url_missing": "(configure C8Y URL first)",
     "device.cert_status": "Certificate Status:",
     "device.upload_status": "Upload Status:",
     "device.save": "Save",
@@ -401,6 +421,8 @@ const I18N = {
     "notify.restart_err": "Could not restart services",
     "notify.no_perm_status": "Insufficient permissions for this action",
     "notify.cert_cn_required": "Please enter a Certificate Common Name",
+    "notify.ca_otp_required": "Please enter the one-time password",
+    "notify.ca_cert_requested": "Certificate request submitted successfully",
     "notify.cert_upload_user": "Please enter a Cumulocity username",
     "notify.cert_upload_pass": "Please enter the password",
     "notify.uploading": "Uploading...",
@@ -840,24 +862,28 @@ function _applyCertMode(mode) {
   const caFields = document.getElementById("cert-ca-fields");
   const selfFields = document.getElementById("cert-self-fields");
   const caStatusRow = document.getElementById("cert-ca-status-row");
-  const btnCa = document.getElementById("btn-cert-mode-ca");
-  const btnSelf = document.getElementById("btn-cert-mode-self");
+  const toggle = document.getElementById("cert-mode-toggle");
+  const labelCa = document.getElementById("cert-mode-label-ca");
+  const labelSelf = document.getElementById("cert-mode-label-self");
+  const activeStyle = "font-size:13px; font-weight:600; color:var(--brand-primary);";
+  const inactiveStyle = "font-size:13px; color:var(--c8y-palette-gray-40);";
 
   if (mode === "ca") {
+    if (toggle) toggle.checked = false;
+    if (labelCa) labelCa.style.cssText = activeStyle;
+    if (labelSelf) labelSelf.style.cssText = inactiveStyle;
     if (caFields) caFields.style.display = "";
     if (selfFields) selfFields.style.display = "none";
     if (caStatusRow) caStatusRow.style.display = "";
-    if (btnCa) { btnCa.className = "btn btn-sm btn-primary"; }
-    if (btnSelf) { btnSelf.className = "btn btn-sm btn-outline-secondary"; }
-    // Sync CA status from existing cert-status element
     _syncCaStatus();
     _updateCaRegHint();
   } else {
+    if (toggle) toggle.checked = true;
+    if (labelCa) labelCa.style.cssText = inactiveStyle;
+    if (labelSelf) labelSelf.style.cssText = activeStyle;
     if (caFields) caFields.style.display = "none";
     if (selfFields) selfFields.style.display = "";
     if (caStatusRow) caStatusRow.style.display = "none";
-    if (btnCa) { btnCa.className = "btn btn-sm btn-outline-secondary"; }
-    if (btnSelf) { btnSelf.className = "btn btn-sm btn-primary"; }
   }
 }
 
@@ -904,16 +930,16 @@ async function requestCaCert() {
   const otp = (otpInput || {}).value?.trim();
 
   if (!name) {
-    showNotification(t("notify.cert_cn_required") || "Please enter a device name.", "error");
+    showNotification(t("notify.cert_cn_required"), "error");
     return;
   }
   if (!otp) {
-    showNotification(t("notify.ca_otp_required") || "Please enter the one-time password.", "error");
+    showNotification(t("notify.ca_otp_required"), "error");
     return;
   }
 
   const btn = document.getElementById("btn-ca-request");
-  if (btn) { btn.disabled = true; btn.textContent = "…"; }
+  if (btn) { btn.disabled = true; btn.textContent = t("notify.uploading"); }
 
   try {
     const response = await fetchWithAuth("api/device-id/ca-request", {
@@ -925,16 +951,16 @@ async function requestCaCert() {
     if (response.status === 403) {
       showNotification(data.error || t("notify.admin_required"), "error");
     } else if (data.success) {
-      showNotification(t("notify.ca_cert_requested") || "Certificate request submitted successfully.", "success");
+      showNotification(t("notify.ca_cert_requested"), "success");
       if (otpInput) otpInput.value = "";
       setTimeout(() => { loadDeviceIdInfo(); loadCertDetailsInline(); }, 2000);
     } else {
-      showNotification(data.error || t("cert.create_err") || "Certificate request failed.", "error");
+      showNotification(data.error || t("cert.create_err") || t("notify.cert_upload_fail"), "error");
     }
   } catch (e) {
-    showNotification(t("cert.create_err") || "Certificate request failed.", "error");
+    showNotification(t("cert.create_err") || t("notify.cert_upload_fail"), "error");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = t("device.ca_request") || "Request Certificate"; }
+    if (btn) { btn.disabled = false; btn.textContent = t("device.ca_request"); }
   }
 }
 
