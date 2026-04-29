@@ -2487,7 +2487,7 @@ async fn ca_cert_download(
         }
 
         // Fallback cert create via direct binary if snap run failed
-        if matches!(create_out, Err(_)) {
+        if create_out.is_err() {
             let mut fb = tokio::process::Command::new(&tedge_bin);
             if !tedge_config_dir.is_empty() {
                 fb.arg("--config-dir").arg(&tedge_config_dir);
