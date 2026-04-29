@@ -29,6 +29,7 @@ fi
 mkdir -p "$SNAP_DATA_PATH/tedge"
 mkdir -p "$SNAP_DATA_PATH/tedge/run"
 mkdir -p "$SNAP_DATA_PATH/tedge/device"
+mkdir -p "$SNAP_DATA_PATH/tedge/device-certs"
 mkdir -p "$SNAP_DATA_PATH/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins"
 mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins-disabled"
