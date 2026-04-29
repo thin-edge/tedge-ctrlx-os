@@ -235,7 +235,7 @@ Upstream Commit: ${THIN_EDGE_IO_COMMIT}
 EOF
 echo "[i] Build-Info aktualisiert."
 # Snap-Version in snapcraft.yaml nach dem Build zurücksetzen
-trap 'sed -i "s/^version:.*/version: ${BASE_VERSION}/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${BASE_VERSION}"' EXIT
+trap 'sed -i "s/^version:.*/version: ${VERSION_BASE}.0/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${VERSION_BASE}.0"' EXIT
 
 # Alte Snap-Dateien löschen
 OLD_SNAPS=$(ls -1 ${SNAP_NAME}_*.snap 2>/dev/null || true)
