@@ -113,12 +113,6 @@ const I18N = {
     "connect.reconnect": "Neu verbinden",
     "connect.disconnect": "Trennen",
     "connect.setup": "Setup ↗",
-    "connect.test_title": "Testnachrichten",
-    "connect.test_desc":
-      "Publiziert eine Testnachricht via tedge mqtt pub auf den lokalen Broker. Output erscheint im Log-Viewer unten.",
-    "connect.test_meas": "Test Measurement",
-    "connect.test_event": "Test Event",
-    "connect.test_alarm": "Test Alarm",
     // Logs
     "logs.service": "Dienst",
     "logs.level": "Log-Level",
@@ -392,12 +386,6 @@ const I18N = {
     "connect.reconnect": "Reconnect",
     "connect.disconnect": "Disconnect",
     "connect.setup": "Setup ↗",
-    "connect.test_title": "Test Messages",
-    "connect.test_desc":
-      "Publishes a test message via tedge mqtt pub to the local broker. Output appears in the log viewer below.",
-    "connect.test_meas": "Test Measurement",
-    "connect.test_event": "Test Event",
-    "connect.test_alarm": "Test Alarm",
     // Logs
     "logs.service": "Service",
     "logs.level": "Log Level",
@@ -944,9 +932,21 @@ function _updateCaRegHint() {
   if (name && !isActive) {
     const c8yUrl = (document.getElementById("c8y-url") || {}).value || "";
     const base = c8yUrl.replace(/\/+$/, "");
-    const regUrl = base
-      ? base + "/apps/devicemanagement/index.html#/deviceregistration"
-      : "#";
+    // Only allow https:// URLs to prevent javascript: XSS via href
+    let regUrl = "#";
+    if (base) {
+      try {
+        const normalized = base.startsWith("http") ? base : "https://" + base;
+        const parsed = new URL(normalized);
+        if (parsed.protocol === "https:") {
+          regUrl =
+            parsed.origin +
+            "/apps/devicemanagement/index.html#/deviceregistration";
+        }
+      } catch (_) {
+        // invalid URL – keep regUrl as "#"
+      }
+    }
     link.href = regUrl;
     link.textContent =
       regUrl !== "#"
@@ -985,7 +985,7 @@ async function requestCaCert() {
       spinnerEl.setAttribute("aria-hidden", "true");
       btn.appendChild(spinnerEl);
       btn.appendChild(
-        document.createTextNode(" " + (msg || t("device.ca_waiting")))
+        document.createTextNode(" " + (msg || t("device.ca_waiting"))),
       );
     }
     if (statusEl) {
@@ -1748,9 +1748,6 @@ async function loadCertDetailsInline() {
 // MQTT Port Toggle (c8y: 8883 = Core, 9883 = MQTT Service)
 async function onMqttPortToggle(checked, save = true) {
   const port = checked ? 9883 : 8883;
-  // show/hide mapping topic field
-  const wrap = document.getElementById("c8y-mapping-topic-wrap");
-  if (wrap) wrap.style.display = checked ? "block" : "none";
 
   const label8883 = document.getElementById("c8y-port-label-8883");
   const label9883 = document.getElementById("c8y-port-label-9883");
@@ -1962,53 +1959,6 @@ async function reconnectCloud(cloud) {
   } catch (error) {
     console.error("Error reconnecting cloud:", error);
     showNotification(t("notify.reconnect_error"), "error");
-  }
-}
-
-async function sendTestMessage(type) {
-  const labels = {
-    measurement: t("connect.test_meas"),
-    event: t("connect.test_event"),
-    alarm: t("connect.test_alarm"),
-  };
-  const label = labels[type] || type;
-
-  // Mapping Topic nur mitschicken wenn Port 9883 aktiv
-  const toggle = document.getElementById("c8y-mqtt-port-toggle");
-  const mappingTopic =
-    toggle && toggle.checked
-      ? document.getElementById("c8y-mapping-topic")?.value.trim() || ""
-      : "";
-
-  const viewer = document.getElementById("log-viewer");
-  if (viewer) viewer.textContent = `Sending ${label}...`;
-
-  try {
-    const body = { type };
-    if (mappingTopic) body.topic = mappingTopic;
-
-    const response = await fetchWithAuth("api/test-message", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-
-    if (viewer) {
-      viewer.textContent = data.output || data.error || "(no output)";
-      const sec = document.getElementById("sec-logs");
-      if (sec) sec.scrollIntoView({ behavior: "smooth" });
-    }
-
-    if (response.status === 403) {
-      showNotification(data.error || t("notify.admin_required"), "error");
-    } else if (data.success) {
-      showNotification(t("notify.test_sent", label), "success");
-    } else {
-      showNotification(t("notify.test_fail", label), "error");
-    }
-  } catch (error) {
-    console.error("Error sending test message:", error);
-    showNotification(t("notify.test_error"), "error");
   }
 }
 

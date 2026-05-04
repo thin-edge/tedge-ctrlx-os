@@ -1064,88 +1064,6 @@
               >
             </div>
           </div>
-          <div
-            style="
-              margin-top: 16px;
-              border-top: 1px solid var(--c8y-palette-gray-80);
-              padding-top: 14px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40, #999);
-                margin-bottom: 10px;
-              "
-              data-i18n="connect.test_title"
-            >
-              Test Messages
-            </div>
-            <p
-              style="
-                font-size: 13px;
-                color: var(--c8y-palette-gray-40, #999);
-                margin: 0 0 10px 0;
-              "
-              data-i18n="connect.test_desc"
-            >
-              Publishes a test message via tedge mqtt pub to the local broker.
-              Output appears in the log viewer.
-            </p>
-            <div class="action-buttons">
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="sendTestMessage('measurement')"
-                data-i18n="connect.test_meas"
-              >
-                Test Measurement
-              </button>
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="sendTestMessage('event')"
-                data-i18n="connect.test_event"
-              >
-                Test Event
-              </button>
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="sendTestMessage('alarm')"
-                data-i18n="connect.test_alarm"
-              >
-                Test Alarm
-              </button>
-            </div>
-            <!-- Mapping Topic (nur bei Port 9883) -->
-            <div
-              id="c8y-mapping-topic-wrap"
-              style="display: none; margin-top: 14px"
-            >
-              <div class="form-group" style="margin: 0">
-                <label
-                  for="c8y-mapping-topic"
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: var(--c8y-palette-gray-40);
-                    margin-bottom: 4px;
-                    display: block;
-                  "
-                  data-i18n="connect.mapping_topic_label"
-                  >Mapping Topic</label
-                >
-                <input
-                  type="text"
-                  id="c8y-mapping-topic"
-                  class="form-control"
-                  placeholder="z.B. c8y/mqtt/out/sensors/temperature"
-                  style="font-family: monospace; font-size: 13px"
-                />
-              </div>
-            </div>
-          </div>
         </section>
 
         <!-- Logs & Diagnostics -->
@@ -2324,36 +2242,6 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
           </div>
         </section>
 
-        <!-- System Information -->
-        <section id="sec-sysinfo" class="card">
-          <h2 data-i18n="section.sysinfo">System Information</h2>
-          <div class="info-grid">
-            <div>
-              <strong data-i18n="sysinfo.version"
-                >Thin-Edge Basis Version:</strong
-              >
-              <span id="tedge-version">-</span>
-            </div>
-            <div>
-              <strong data-i18n="sysinfo.build">App Build:</strong>
-              <span id="build-number">-</span>
-            </div>
-            <div>
-              <strong data-i18n="sysinfo.arch">Architecture:</strong>
-              <span id="arch">-</span>
-            </div>
-          </div>
-          <div style="margin-top: 12px; text-align: right">
-            <button
-              class="btn btn-sm btn-primary"
-              onclick="loadStatus()"
-              data-i18n="status.refresh"
-              title="Refresh"
-            >
-              Refresh
-            </button>
-          </div>
-        </section>
       </div>
     </main>
 
