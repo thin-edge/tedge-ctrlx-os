@@ -932,9 +932,21 @@ function _updateCaRegHint() {
   if (name && !isActive) {
     const c8yUrl = (document.getElementById("c8y-url") || {}).value || "";
     const base = c8yUrl.replace(/\/+$/, "");
-    const regUrl = base
-      ? base + "/apps/devicemanagement/index.html#/deviceregistration"
-      : "#";
+    // Only allow https:// URLs to prevent javascript: XSS via href
+    let regUrl = "#";
+    if (base) {
+      try {
+        const normalized = base.startsWith("http") ? base : "https://" + base;
+        const parsed = new URL(normalized);
+        if (parsed.protocol === "https:") {
+          regUrl =
+            parsed.origin +
+            "/apps/devicemanagement/index.html#/deviceregistration";
+        }
+      } catch (_) {
+        // invalid URL – keep regUrl as "#"
+      }
+    }
     link.href = regUrl;
     link.textContent =
       regUrl !== "#"
