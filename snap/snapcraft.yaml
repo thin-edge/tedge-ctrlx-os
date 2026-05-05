@@ -351,7 +351,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: 1cf0afa7d0c47deca7fd2ae71a08d946167f0429
+    source-commit: e7f31dcd5702b01f0400df3b899840240d6fbb26
     build-packages:
       - pkg-config
       - libssl-dev

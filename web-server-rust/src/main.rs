@@ -3497,6 +3497,53 @@ const LICENSE_NAMES: &[&str] = &[
     "SWL_XCB_ENGINEERING_4H",         // ctrlX COREvirtual 4h Engineering Demo (Bosch)
     "SWL_XCR_ENGINEERING_4H",         // ctrlX CORE 4h Engineering Demo (Rexroth)
 ];
+
+/// Engineering/Demo-Lizenzen sind device-weit gehalten und können nicht per acquire geholt werden.
+/// Sie werden nur in capabilities geprüft (count > 0, startsInSeconds <= 0, expiresInSeconds > 0).
+const ENGINEERING_LICENSE_NAMES: &[&str] = &["SWL_XCB_ENGINEERING_4H", "SWL_XCR_ENGINEERING_4H"];
+
+/// Prüft ob eine Engineering-Lizenz aktiv in den capabilities vorhanden ist.
+/// Gibt den Lizenznamen zurück wenn gefunden, sonst None.
+async fn check_engineering_license_in_capabilities(socket_path: &str) -> Option<String> {
+    match unix_socket_get(socket_path, "/license-manager/api/v1/capabilities").await {
+        Ok((200, body)) => {
+            let arr: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+            let items = arr.as_array().cloned().unwrap_or_default();
+            for item in &items {
+                let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let count = item.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
+                let starts_in = item
+                    .get("startsInSeconds")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let expires_in = item
+                    .get("expiresInSeconds")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(-1);
+                if ENGINEERING_LICENSE_NAMES.contains(&name)
+                    && count > 0
+                    && starts_in <= 0
+                    && expires_in != 0
+                {
+                    return Some(name.to_string());
+                }
+            }
+            None
+        }
+        Ok((status, body)) => {
+            warn!(
+                "[LICENSE] GET /capabilities HTTP {}: {}",
+                status,
+                &body[..body.len().min(200)]
+            );
+            None
+        }
+        Err(e) => {
+            warn!("[LICENSE] GET /capabilities socket error: {}", e);
+            None
+        }
+    }
+}
 /// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
 const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
 
@@ -3572,12 +3619,15 @@ async fn run_license_loop(socket_path: String) {
     if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
         // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
         let old_id = old_id.trim().to_string();
-        if !old_id.is_empty() {
+        if !old_id.is_empty() && !old_id.starts_with("engineering:") {
             info!(
                 "[LICENSE] Releasing stale license id={} from previous run",
                 old_id
             );
             release_license(&socket_path, &old_id).await;
+        } else if old_id.starts_with("engineering:") {
+            // Engineering license marker — nothing to release, just remove the file
+            let _ = std::fs::remove_file(LICENSE_ID_FILE);
         }
     }
 
@@ -3608,6 +3658,19 @@ async fn run_license_loop(socket_path: String) {
             }
 
             if !acquired {
+                // Engineering-Lizenzen sind device-weit gehalten (availableCount=0) und
+                // können nicht per acquire geholt werden — nur capabilities prüfen.
+                if let Some(eng_name) =
+                    check_engineering_license_in_capabilities(&socket_path).await
+                {
+                    info!("[LICENSE] Engineering license '{}' found in capabilities — device is in engineering mode", eng_name);
+                    let marker = format!("engineering:{}", eng_name);
+                    // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
+                    let _ = std::fs::write(LICENSE_ID_FILE, &marker);
+                    // Engineering licenses expire — re-check after 5 minutes
+                    tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                    continue;
+                }
                 warn!(
                     "[LICENSE] No license available! Required: {}. App continues but license is missing.",
                     LICENSE_NAMES[0]
