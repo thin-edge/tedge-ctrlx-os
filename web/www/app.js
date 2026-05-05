@@ -1741,6 +1741,28 @@ async function loadCertDetailsInline() {
         _syncCaStatus();
         _updateCaRegHint();
       }
+
+      // Derive CA download status from cert details:
+      // If cert is valid and CA-signed (issuer differs from subject), mark as downloaded.
+      // Use the "Valid from" date as the download timestamp.
+      if (data.success && data.details) {
+        const issuerMatch = data.details.match(/Issuer:\s*(.+)/i);
+        const subjectMatch = data.details.match(/Subject:\s*(.+)/i);
+        const isSelfSigned =
+          issuerMatch &&
+          subjectMatch &&
+          issuerMatch[1].trim() === subjectMatch[1].trim();
+        if (!isSelfSigned && /status:\s*(valid|expired)/i.test(data.details)) {
+          const fromMatch = data.details.match(/Valid from:\s*(.+)/i);
+          let ts = null;
+          if (fromMatch) {
+            const d = new Date(fromMatch[1].trim());
+            if (!isNaN(d.getTime()))
+              ts = String(Math.floor(d.getTime() / 1000));
+          }
+          updateCaDownloadStatusDisplay(ts || "1");
+        }
+      }
     }
   } catch (_) {}
 }
