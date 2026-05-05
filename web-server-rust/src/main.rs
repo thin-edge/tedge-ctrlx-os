@@ -3500,10 +3500,7 @@ const LICENSE_NAMES: &[&str] = &[
 
 /// Engineering/Demo-Lizenzen sind device-weit gehalten und können nicht per acquire geholt werden.
 /// Sie werden nur in capabilities geprüft (count > 0, startsInSeconds <= 0, expiresInSeconds > 0).
-const ENGINEERING_LICENSE_NAMES: &[&str] = &[
-    "SWL_XCB_ENGINEERING_4H",
-    "SWL_XCR_ENGINEERING_4H",
-];
+const ENGINEERING_LICENSE_NAMES: &[&str] = &["SWL_XCB_ENGINEERING_4H", "SWL_XCR_ENGINEERING_4H"];
 
 /// Prüft ob eine Engineering-Lizenz aktiv in den capabilities vorhanden ist.
 /// Gibt den Lizenznamen zurück wenn gefunden, sonst None.
@@ -3515,8 +3512,14 @@ async fn check_engineering_license_in_capabilities(socket_path: &str) -> Option<
             for item in &items {
                 let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
                 let count = item.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
-                let starts_in = item.get("startsInSeconds").and_then(|v| v.as_i64()).unwrap_or(0);
-                let expires_in = item.get("expiresInSeconds").and_then(|v| v.as_i64()).unwrap_or(-1);
+                let starts_in = item
+                    .get("startsInSeconds")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let expires_in = item
+                    .get("expiresInSeconds")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(-1);
                 if ENGINEERING_LICENSE_NAMES.contains(&name)
                     && count > 0
                     && starts_in <= 0
@@ -3657,10 +3660,13 @@ async fn run_license_loop(socket_path: String) {
             if !acquired {
                 // Engineering-Lizenzen sind device-weit gehalten (availableCount=0) und
                 // können nicht per acquire geholt werden — nur capabilities prüfen.
-                if let Some(eng_name) = check_engineering_license_in_capabilities(&socket_path).await {
+                if let Some(eng_name) =
+                    check_engineering_license_in_capabilities(&socket_path).await
+                {
                     info!("[LICENSE] Engineering license '{}' found in capabilities — device is in engineering mode", eng_name);
                     let marker = format!("engineering:{}", eng_name);
-                    let _ = std::fs::write(LICENSE_ID_FILE, &marker); // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
+                    // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
+                    let _ = std::fs::write(LICENSE_ID_FILE, &marker);
                     // Engineering licenses expire — re-check after 5 minutes
                     tokio::time::sleep(std::time::Duration::from_secs(300)).await;
                     continue;
