@@ -7,7 +7,7 @@
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   border: 1px solid #D4D9DE;
   border-radius: 4px;
@@ -27,7 +27,7 @@ select {
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   border: 1px solid #D4D9DE;
   border-radius: 4px;
@@ -78,7 +78,7 @@ select:focus {
   --c8y-palette-blue-80: #f1f7fd;
   --c8y-font-family-base: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   --c8y-font-family-mono: Menlo, Monaco, Consolas, 'Courier New', monospace;
-  --c8y-font-size-base: 14px;
+  --c8y-font-size-base: 13px;
   --c8y-font-weight-base: 400;
   --c8y-font-weight-headings: 500;
   --body-background-color: #f2f3f4;
@@ -265,9 +265,9 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 16px 9px 12px;
+  padding: 8px 16px 8px 12px;
   font-size: var(--navigator-font-size);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--navigator-text-color);
   text-decoration: none;
   border-left: var(--navigator-border-active) solid transparent;
@@ -460,7 +460,7 @@ main {
   gap: 6px;
   border-radius: 4px;
   padding: 6px 14px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   font-weight: 500;
   line-height: 1.57142857;
@@ -491,7 +491,7 @@ main {
   gap: 6px;
   border-radius: 4px;
   padding: 6px 14px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   font-weight: 500;
   line-height: 1.57142857;
@@ -515,7 +515,7 @@ main {
   gap: 6px;
   border-radius: 4px;
   padding: 6px 14px;
-  font-size: 14px;
+  font-size: 13px;
   font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
   font-weight: 500;
   line-height: 1.57142857;

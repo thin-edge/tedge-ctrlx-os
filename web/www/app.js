@@ -2217,7 +2217,9 @@ function initCollapsibleSections() {
       applyRoleRestrictions();
       loadCertDetailsInline();
     },
-    "sec-device": () => { /* merged into sec-cloud */ },
+    "sec-device": () => {
+      /* merged into sec-cloud */
+    },
     "sec-device-config": () => {
       loadInventoryConfig();
     },
@@ -2320,31 +2322,40 @@ function _initDatalayerUI() {
 
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
 async function loadDatalayerStatus() {
-  const dotSvc = document.getElementById("datalayer-dot-service");
   const text = document.getElementById("datalayer-status-text");
 
   const setStatus = (key) => {
-    if (text) { text.textContent = t(key); text.setAttribute("data-i18n", key); }
+    if (text) {
+      text.textContent = t(key);
+      text.setAttribute("data-i18n", key);
+    }
   };
   const setCustom = (str) => {
-    if (text) { text.textContent = str; text.removeAttribute("data-i18n"); }
+    if (text) {
+      text.textContent = str;
+      text.removeAttribute("data-i18n");
+    }
+  };
+
+  const setDot = (cssStatus) => {
+    updateStatusBadge("datalayer-dot-service", cssStatus);
   };
 
   // Start-Zustand
-  if (dotSvc) dotSvc.textContent = "⚪";
+  setDot("unknown");
   setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
     if (r.status === 401 || r.status === 403) {
-      if (dotSvc) dotSvc.textContent = "🟢";
+      setDot("running");
       setStatus("datalayer.status_noauth");
       return;
     }
 
     if (!r.ok) {
-      if (dotSvc) dotSvc.textContent = "🔴";
+      setDot("unknown");
       setStatus("status.unknown");
       return;
     }
@@ -2352,19 +2363,21 @@ async function loadDatalayerStatus() {
     const d = await r.json();
 
     if (!d.enabled) {
-      if (dotSvc) dotSvc.textContent = "⚫";
+      setDot("inactive");
       setStatus("status.inactive");
     } else {
-      if (dotSvc) dotSvc.textContent = "🟢";
-
       if (d.connected) {
-        setCustom(`${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`);
+        setDot("running");
+        setCustom(
+          `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`,
+        );
       } else {
+        setDot("stopped");
         setStatus("status.stopped");
       }
     }
   } catch (e) {
-    if (dotSvc) dotSvc.textContent = "🔴";
+    setDot("unknown");
     setStatus("status.unknown");
   }
 }
@@ -3403,8 +3416,14 @@ function showNav(sectionId, clickedEl) {
 
   // Collect all sections to show
   const toShow = pageGroup
-    ? Array.from(document.querySelectorAll(`#main-container > section[data-page="${pageGroup}"]`))
-    : (targetEl ? [targetEl] : []);
+    ? Array.from(
+        document.querySelectorAll(
+          `#main-container > section[data-page="${pageGroup}"]`,
+        ),
+      )
+    : targetEl
+      ? [targetEl]
+      : [];
 
   toShow.forEach((s) => {
     s.style.display = "block";
@@ -3412,16 +3431,17 @@ function showNav(sectionId, clickedEl) {
       s.classList.remove("collapsed");
       if (!s.dataset.sectionLoaded) {
         s.dataset.sectionLoaded = "1";
-        const loader = window._sectionLazyLoaders && window._sectionLazyLoaders[s.id];
+        const loader =
+          window._sectionLazyLoaders && window._sectionLazyLoaders[s.id];
         if (loader) loader();
       }
     }
   });
 
   // Remove active class from all nav items
-  document.querySelectorAll(".nav-item").forEach((el) =>
-    el.classList.remove("active")
-  );
+  document
+    .querySelectorAll(".nav-item")
+    .forEach((el) => el.classList.remove("active"));
 
   // Add active to clicked element
   if (clickedEl) clickedEl.classList.add("active");
@@ -3430,18 +3450,30 @@ function showNav(sectionId, clickedEl) {
   const saveBtn = document.getElementById("header-save-btn");
   const refreshBtn = document.getElementById("header-refresh-btn");
   if (refreshBtn) {
-    const showRefresh = pageGroup === "status" || pageGroup === "datalayer" || pageGroup === "licensing";
+    const showRefresh =
+      pageGroup === "status" ||
+      pageGroup === "datalayer" ||
+      pageGroup === "licensing";
     refreshBtn.style.display = showRefresh ? "" : "none";
-    if (pageGroup === "datalayer") refreshBtn.onclick = () => loadDatalayerStatus();
-    else if (pageGroup === "licensing") refreshBtn.onclick = () => loadLicenses();
+    if (pageGroup === "datalayer")
+      refreshBtn.onclick = () => loadDatalayerStatus();
+    else if (pageGroup === "licensing")
+      refreshBtn.onclick = () => loadLicenses();
     else refreshBtn.onclick = () => refreshStatus();
   }
   if (saveBtn) {
-    const showSave = pageGroup === "setup" || pageGroup === "device" || pageGroup === "snap-config" || pageGroup === "datalayer";
+    const showSave =
+      pageGroup === "setup" ||
+      pageGroup === "device" ||
+      pageGroup === "snap-config" ||
+      pageGroup === "datalayer";
     saveBtn.style.display = showSave ? "" : "none";
-    if (pageGroup === "device") saveBtn.onclick = () => saveAndPublishInventory();
-    else if (pageGroup === "snap-config") saveBtn.onclick = () => saveSnapConfigFile();
-    else if (pageGroup === "datalayer") saveBtn.onclick = () => saveDatalayerConfig();
+    if (pageGroup === "device")
+      saveBtn.onclick = () => saveAndPublishInventory();
+    else if (pageGroup === "snap-config")
+      saveBtn.onclick = () => saveSnapConfigFile();
+    else if (pageGroup === "datalayer")
+      saveBtn.onclick = () => saveDatalayerConfig();
     else saveBtn.onclick = () => saveActiveCloudTab();
   }
 
@@ -3502,7 +3534,12 @@ function _jobLogLine(text, type) {
   if (!logDiv || !entries) return;
   logDiv.style.display = "";
   const line = document.createElement("div");
-  const colors = { error: "#d9534f", success: "#5cb85c", info: "#888", default: "#212121" };
+  const colors = {
+    error: "#d9534f",
+    success: "#5cb85c",
+    info: "#888",
+    default: "#212121",
+  };
   line.style.color = colors[type] || colors.default;
   line.textContent = text;
   entries.appendChild(line);
@@ -3526,7 +3563,10 @@ function _submitJob(jobPayload) {
   return new Promise((resolve, reject) => {
     const socket = getSocket();
     if (!socket) {
-      _jobLogLine("Socket.IO not available – is the Node.js backend running?", "error");
+      _jobLogLine(
+        "Socket.IO not available – is the Node.js backend running?",
+        "error",
+      );
       reject(new Error("Socket not available"));
       return;
     }
@@ -3537,7 +3577,14 @@ function _submitJob(jobPayload) {
     function onProgress(evt) {
       const { status, text, level } = evt;
       if (text) {
-        _jobLogLine(text, level === "error" ? "error" : status === "error" ? "error" : "default");
+        _jobLogLine(
+          text,
+          level === "error"
+            ? "error"
+            : status === "error"
+              ? "error"
+              : "default",
+        );
       }
       if (status === "end" || status === "error" || status === "done") {
         socket.off("channel-job-progress", onProgress);
@@ -3577,7 +3624,10 @@ function _activeCloudProvider() {
 async function configureEdge() {
   const deviceId = document.getElementById("edge-device-id")?.value?.trim();
   if (!deviceId) {
-    notify(t("cloud.configure_edge") + ": " + "Device ID nicht gefunden", "error");
+    notify(
+      t("cloud.configure_edge") + ": " + "Device ID nicht gefunden",
+      "error",
+    );
     return;
   }
 
@@ -3677,6 +3727,7 @@ async function resetEdge() {
 // Load device id when Setup section becomes visible
 window.addEventListener("DOMContentLoaded", function () {
   // If sec-cloud is the default page, load device id immediately
-  const savedSection = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
+  const savedSection =
+    sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
   if (savedSection === "sec-cloud") loadEdgeDeviceId();
 });
