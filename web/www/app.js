@@ -14,9 +14,25 @@ const I18N = {
     "header.title": "thin-edge.io Konfigurationsoberfläche",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
+    // Nav items
+    "nav.setup": "Setup",
+    "nav.edge": "Edge",
+    "nav.status": "Status",
+    "nav.certificate": "Zertifikat",
+    "nav.connect": "Verbinden",
+    "nav.logs": "Logs",
+    "nav.tedge_config": "Tedge Config",
+    "nav.device": "Gerät",
+    "nav.snap_config": "Snap Config",
+    "nav.datalayer": "Datalayer",
+    "nav.licensing": "Lizenzierung",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
     "section.cloud": "Cloud-Konfiguration",
+    "section.cloud_col": "Cloud",
+    "section.device_col": "Gerät & Zertifikat",
+    "section.actions_col": "Aktionen",
+    "section.cert_col": "Zertifikat",
     "section.device": "Geräte Zertifikat",
     "section.device_config": "Gerätekonfiguration",
     "section.connect": "Gerät verbinden",
@@ -43,6 +59,7 @@ const I18N = {
     // Status
     "status.services": "Dienste",
     "status.mappers": "Mapper",
+    "status.connection": "Verbindung",
     "status.clouds": "Cloud-Verbindungen",
     "status.clouds": "Cloud",
     "status.mappers": "Tedge Mapper",
@@ -59,6 +76,13 @@ const I18N = {
     // Cloud config
     "cloud.save": "Speichern",
     "cloud.save_short": "Speichern",
+    "cloud.configure_edge": "Konfigurieren",
+    "cloud.download_ca_cert": "CA-Zertifikat herunterladen",
+    "cloud.upload_self_cert": "Upload Certificate",
+    "cloud.reset": "Zurücksetzen",
+    "cloud.external_device_id": "Externe Geräte-ID",
+    "cloud.job_log": "Job-Log",
+    "cloud.save_short": "Speichern",
     "cloud.c8y_mapper": "Cumulocity IoT Mapper aktivieren",
     "cloud.aws_mapper": "AWS IoT Mapper aktivieren",
     "cloud.az_mapper": "Azure IoT Mapper aktivieren",
@@ -72,7 +96,7 @@ const I18N = {
       "Eindeutiger Bezeichner (nur Lesen – Admin erforderlich)",
     "device.mode_ca": "CA-Zertifikat",
     "device.mode_self": "Self-Signed",
-    "device.ca_name": "Gerätename:",
+    "device.ca_name": "Externe Geräte-ID:",
     "device.ca_name_hint":
       "Wird als CN für das CA-signierte Gerätezertifikat verwendet",
     "device.ca_otp": "Einmalpasswort:",
@@ -231,13 +255,13 @@ const I18N = {
     "snapconfig.load_err": "Fehler beim Laden der Datei.",
     "datalayer.refresh": "Aktualisieren",
     "datalayer.connection_settings": "Verbindungseinstellungen",
-    "datalayer.enabled": "Aktiviert",
+    "datalayer.enabled": "Datalayer Bridge Connection",
     "datalayer.base_url": "Basis-URL:",
     "datalayer.poll_interval": "Poll-Intervall (ms):",
     "datalayer.username": "Benutzername:",
     "datalayer.password": "Passwort:",
     "datalayer.accept_invalid_certs": "Ungültige TLS-Zertifikate akzeptieren",
-    "datalayer.node_browser": "Knoten-Browser",
+    "datalayer.node_browser": "Datalayer Knoten-Browser",
     "datalayer.browse_placeholder": "z.B. plc/app/Application",
     "datalayer.browser_hint": 'Pfad eingeben und „Durchsuchen" klicken.',
     "datalayer.mappings_title": "Datenpunkt-Mappings",
@@ -288,9 +312,25 @@ const I18N = {
     "header.title": "thin-edge.io Configuration Interface",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
+    // Nav items
+    "nav.setup": "Setup",
+    "nav.edge": "Edge",
+    "nav.status": "Status",
+    "nav.certificate": "Certificate",
+    "nav.connect": "Connect",
+    "nav.logs": "Logs",
+    "nav.tedge_config": "Tedge Config",
+    "nav.device": "Device",
+    "nav.snap_config": "Snap Config",
+    "nav.datalayer": "Datalayer",
+    "nav.licensing": "Licensing",
     // Nav / Sections
     "section.status": "Connection Status",
     "section.cloud": "Cloud Configuration",
+    "section.cloud_col": "Cloud",
+    "section.device_col": "Device & Certificate",
+    "section.actions_col": "Actions",
+    "section.cert_col": "Certificate",
     "section.device": "Device Certificate",
     "section.device_config": "Device Configuration",
     "section.connect": "Connect Device",
@@ -317,6 +357,7 @@ const I18N = {
     // Status
     "status.services": "Services",
     "status.mappers": "Mappers",
+    "status.connection": "Connection",
     "status.clouds": "Cloud Connections",
     "status.clouds": "Cloud",
     "status.mappers": "Tedge Mapper",
@@ -333,6 +374,13 @@ const I18N = {
     // Cloud config
     "cloud.save": "Save",
     "cloud.save_short": "Save",
+    "cloud.configure_edge": "Configure",
+    "cloud.download_ca_cert": "Download CA-certificate",
+    "cloud.upload_self_cert": "Upload Certificate",
+    "cloud.reset": "Reset",
+    "cloud.external_device_id": "External device id",
+    "cloud.job_log": "Job Log",
+    "cloud.save_short": "Save",
     "cloud.c8y_mapper": "Enable Cumulocity IoT Mapper",
     "cloud.aws_mapper": "Enable AWS IoT Mapper",
     "cloud.az_mapper": "Enable Azure IoT Mapper",
@@ -345,7 +393,7 @@ const I18N = {
       "The unique device identifier (read-only – admin only)",
     "device.mode_ca": "CA-Certificate",
     "device.mode_self": "Self-Signed",
-    "device.ca_name": "Device Name:",
+    "device.ca_name": "External Device ID:",
     "device.ca_name_hint": "Used as CN for the CA-signed device certificate",
     "device.ca_otp": "One-Time Password:",
     "device.ca_otp_hint":
@@ -499,13 +547,13 @@ const I18N = {
     "snapconfig.load_err": "Error loading file.",
     "datalayer.refresh": "Refresh Status",
     "datalayer.connection_settings": "Connection Settings",
-    "datalayer.enabled": "Enabled",
+    "datalayer.enabled": "Datalayer Bridge Connection",
     "datalayer.base_url": "Base URL:",
     "datalayer.poll_interval": "Poll interval (ms):",
     "datalayer.username": "Username:",
     "datalayer.password": "Password:",
     "datalayer.accept_invalid_certs": "Accept invalid TLS certificates",
-    "datalayer.node_browser": "Node Browser",
+    "datalayer.node_browser": "Datalayer Node Browser",
     "datalayer.browse_placeholder": "e.g. plc/app/Application",
     "datalayer.browser_hint": 'Enter a path and click "Browse".',
     "datalayer.mappings_title": "Data Point Mappings",
@@ -756,17 +804,12 @@ document.querySelectorAll(".tab").forEach((tab) => {
         .forEach((t) => t.classList.remove("active"));
     if (section)
       section
-        .querySelectorAll(".cloud-config, .connect-panel")
+        .querySelectorAll(".cloud-config")
         .forEach((c) => c.classList.remove("active"));
     tab.classList.add("active");
     const cloud = tab.dataset.cloud;
-    const connect = tab.dataset.connect;
     if (cloud) {
       const el = document.getElementById(cloud + "-config");
-      if (el) el.classList.add("active");
-    }
-    if (connect) {
-      const el = document.getElementById(connect + "-connect");
       if (el) el.classList.add("active");
     }
   });
@@ -856,6 +899,12 @@ function getCertMode() {
   return localStorage.getItem(CERT_MODE_KEY) || "ca";
 }
 
+function syncCertName() {
+  const src = document.getElementById("cert-ca-name");
+  const dst = document.getElementById("cert-common-name");
+  if (src && dst) dst.value = src.value;
+}
+
 function setCertMode(mode) {
   localStorage.setItem(CERT_MODE_KEY, mode);
   _applyCertMode(mode);
@@ -865,6 +914,8 @@ function _applyCertMode(mode) {
   const caFields = document.getElementById("cert-ca-fields");
   const selfFields = document.getElementById("cert-self-fields");
   const caStatusRow = document.getElementById("cert-ca-status-row");
+  const actionsCa = document.getElementById("action-buttons-ca");
+  const actionsSelf = document.getElementById("action-buttons-self");
   const toggle = document.getElementById("cert-mode-toggle");
   const labelCa = document.getElementById("cert-mode-label-ca");
   const labelSelf = document.getElementById("cert-mode-label-self");
@@ -879,6 +930,8 @@ function _applyCertMode(mode) {
     if (caFields) caFields.style.display = "";
     if (selfFields) selfFields.style.display = "none";
     if (caStatusRow) caStatusRow.style.display = "";
+    if (actionsCa) actionsCa.style.display = "flex";
+    if (actionsSelf) actionsSelf.style.display = "none";
     _syncCaStatus();
     _updateCaRegHint();
   } else {
@@ -888,6 +941,9 @@ function _applyCertMode(mode) {
     if (caFields) caFields.style.display = "none";
     if (selfFields) selfFields.style.display = "";
     if (caStatusRow) caStatusRow.style.display = "none";
+    if (actionsCa) actionsCa.style.display = "none";
+    if (actionsSelf) actionsSelf.style.display = "flex";
+    syncCertName();
   }
 }
 
@@ -1158,7 +1214,6 @@ async function loadConfiguration() {
 
     if (config.c8y) {
       document.getElementById("c8y-url").value = config.c8y["c8y-url"] || "";
-      document.getElementById("c8y-tenant").value = config.c8y.tenant || "";
     }
 
     if (config.aws) {
@@ -1212,11 +1267,18 @@ async function loadConfiguration() {
 }
 
 // Save Cumulocity configuration
+function saveActiveCloudTab() {
+  const active = document.querySelector("#sec-cloud .tab.active");
+  const cloud = active ? active.dataset.cloud : "c8y";
+  if (cloud === "aws") saveAwsConfig();
+  else if (cloud === "az") saveAzConfig();
+  else saveC8yConfig();
+}
+
 async function saveC8yConfig() {
   const config = {
     "c8y-url": document.getElementById("c8y-url").value,
-    tenant: document.getElementById("c8y-tenant").value,
-    enabled: document.getElementById("c8y-enabled").checked,
+    enabled: !!document.getElementById("c8y-url").value.trim(),
   };
 
   try {
@@ -1240,7 +1302,7 @@ async function saveC8yConfig() {
 async function saveAwsConfig() {
   const config = {
     "aws-url": document.getElementById("aws-url").value,
-    enabled: document.getElementById("aws-enabled").checked,
+    enabled: !!document.getElementById("aws-url").value.trim(),
   };
 
   try {
@@ -1264,7 +1326,7 @@ async function saveAwsConfig() {
 async function saveAzConfig() {
   const config = {
     "azure-url": document.getElementById("az-url").value,
-    enabled: document.getElementById("az-enabled").checked,
+    enabled: !!document.getElementById("az-url").value.trim(),
   };
 
   try {
@@ -1312,6 +1374,7 @@ async function saveDeviceConfig() {
 function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
   loadStatus();
+  loadDatalayerStatus();
 }
 
 // Load logs from API
@@ -1580,6 +1643,7 @@ async function loadDeviceIdInfo() {
         ? "ctrlx-" + placeholder
         : "ctrlx-device-name";
     }
+    syncCertName();
 
     // Certificate status + button highlight + inline cert details
     window._certExists = !!data.has_certificate;
@@ -2139,26 +2203,25 @@ window.addEventListener("DOMContentLoaded", () => {
 function initCollapsibleSections() {
   // Map section IDs to their lazy-load functions.
   // Called once when the section is first opened.
-  const lazyLoaders = {
+  // Exposed globally so showNav() can trigger them too.
+  window._sectionLazyLoaders = {
     "sec-status": () => {
       loadStatus();
     },
     "sec-cloud": () => {
       loadConfiguration();
       loadC8yMqttPort();
-    },
-    "sec-device": () => {
+      loadEdgeDeviceId();
       _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
       loadCertDetailsInline();
     },
+    "sec-device": () => { /* merged into sec-cloud */ },
     "sec-device-config": () => {
       loadInventoryConfig();
     },
-    "sec-actions": () => {
-      loadC8yMqttPort();
-    },
+    "sec-actions": () => {},
     "sec-logs": () => {
       updateLogLevelDropdown();
     },
@@ -2208,7 +2271,7 @@ function initCollapsibleSections() {
       const wasCollapsed = section.classList.contains("collapsed");
       section.classList.toggle("collapsed");
       if (wasCollapsed) {
-        const loader = lazyLoaders[section.id];
+        const loader = window._sectionLazyLoaders[section.id];
         if (loader) loader();
       }
     });
@@ -2260,32 +2323,28 @@ async function loadDatalayerStatus() {
   const dotSvc = document.getElementById("datalayer-dot-service");
   const text = document.getElementById("datalayer-status-text");
 
-  if (!dotSvc || !text) return;
-
-  // Helper: sets text while keeping the language switchable
   const setStatus = (key) => {
-    text.textContent = t(key);
-    text.setAttribute("data-i18n", key);
+    if (text) { text.textContent = t(key); text.setAttribute("data-i18n", key); }
+  };
+  const setCustom = (str) => {
+    if (text) { text.textContent = str; text.removeAttribute("data-i18n"); }
   };
 
-  // Start-Zustand: ⚪ | ⚪ Loading...
-  dotSvc.textContent = "⚪";
+  // Start-Zustand
+  if (dotSvc) dotSvc.textContent = "⚪";
   setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
-    // Authentication error (service is running but login is wrong)
     if (r.status === 401 || r.status === 403) {
-      dotSvc.textContent = "🟢";
-      // Note: you may need to add 'status.noauth' ("🟡 Auth Error") to i18n!
+      if (dotSvc) dotSvc.textContent = "🟢";
       setStatus("datalayer.status_noauth");
       return;
     }
 
     if (!r.ok) {
-      // Webserver liefert Fehler: 🔴 | ⚪ Unknown
-      dotSvc.textContent = "🔴";
+      if (dotSvc) dotSvc.textContent = "🔴";
       setStatus("status.unknown");
       return;
     }
@@ -2293,25 +2352,19 @@ async function loadDatalayerStatus() {
     const d = await r.json();
 
     if (!d.enabled) {
-      // Schalter ist aus -> Verbindung ist deaktiviert
-      dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
-      setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
+      if (dotSvc) dotSvc.textContent = "⚫";
+      setStatus("status.inactive");
     } else {
-      // Service is running
-      dotSvc.textContent = "🟢";
+      if (dotSvc) dotSvc.textContent = "🟢";
 
       if (d.connected) {
-        // Verbindung zum Datalayer steht
-        text.textContent = `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`;
-        text.removeAttribute("data-i18n");
+        setCustom(`${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`);
       } else {
-        // Dienst da, aber keine Verbindung
-        setStatus("status.stopped"); // "🔴 Getrennt"
+        setStatus("status.stopped");
       }
     }
   } catch (e) {
-    // Komplettabsturz (Rust-Backend weg): 🔴 | ⚪ Unknown
-    dotSvc.textContent = "🔴";
+    if (dotSvc) dotSvc.textContent = "🔴";
     setStatus("status.unknown");
   }
 }
@@ -3331,3 +3384,299 @@ async function loadLicenses() {
     }
   }
 }
+
+// ── Navigator ────────────────────────────────────────────────────────
+/**
+ * Show a specific section and mark the corresponding nav-item as active.
+ * @param {string} sectionId  - id of the <section> to show (e.g. "sec-cloud")
+ * @param {Element|null} clickedEl - the .nav-item that was clicked
+ */
+function showNav(sectionId, clickedEl) {
+  // Hide all navigable sections
+  document.querySelectorAll("#main-container > section").forEach((s) => {
+    s.style.display = "none";
+  });
+
+  // Check if target section belongs to a page group
+  const targetEl = document.getElementById(sectionId);
+  const pageGroup = targetEl ? targetEl.dataset.page : null;
+
+  // Collect all sections to show
+  const toShow = pageGroup
+    ? Array.from(document.querySelectorAll(`#main-container > section[data-page="${pageGroup}"]`))
+    : (targetEl ? [targetEl] : []);
+
+  toShow.forEach((s) => {
+    s.style.display = "block";
+    if (s.classList.contains("collapsed")) {
+      s.classList.remove("collapsed");
+      if (!s.dataset.sectionLoaded) {
+        s.dataset.sectionLoaded = "1";
+        const loader = window._sectionLazyLoaders && window._sectionLazyLoaders[s.id];
+        if (loader) loader();
+      }
+    }
+  });
+
+  // Remove active class from all nav items
+  document.querySelectorAll(".nav-item").forEach((el) =>
+    el.classList.remove("active")
+  );
+
+  // Add active to clicked element
+  if (clickedEl) clickedEl.classList.add("active");
+
+  // Show header save button on setup and device pages
+  const saveBtn = document.getElementById("header-save-btn");
+  const refreshBtn = document.getElementById("header-refresh-btn");
+  if (refreshBtn) {
+    const showRefresh = pageGroup === "status" || pageGroup === "datalayer" || pageGroup === "licensing";
+    refreshBtn.style.display = showRefresh ? "" : "none";
+    if (pageGroup === "datalayer") refreshBtn.onclick = () => loadDatalayerStatus();
+    else if (pageGroup === "licensing") refreshBtn.onclick = () => loadLicenses();
+    else refreshBtn.onclick = () => refreshStatus();
+  }
+  if (saveBtn) {
+    const showSave = pageGroup === "setup" || pageGroup === "device" || pageGroup === "snap-config" || pageGroup === "datalayer";
+    saveBtn.style.display = showSave ? "" : "none";
+    if (pageGroup === "device") saveBtn.onclick = () => saveAndPublishInventory();
+    else if (pageGroup === "snap-config") saveBtn.onclick = () => saveSnapConfigFile();
+    else if (pageGroup === "datalayer") saveBtn.onclick = () => saveDatalayerConfig();
+    else saveBtn.onclick = () => saveActiveCloudTab();
+  }
+
+  // Persist current section
+  sessionStorage.setItem("tedge-nav-section", sectionId);
+}
+
+/**
+ * Toggle open/closed state of a nav-group.
+ * @param {Element} headerEl - the .nav-group-header that was clicked
+ */
+function toggleNavGroup(headerEl) {
+  const group = headerEl.closest(".nav-group");
+  if (group) group.classList.toggle("open");
+}
+
+// Initialise navigator on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", function () {
+  // Determine which section to show (persisted or default)
+  const saved = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
+  const navItem = document.querySelector(`.nav-item[data-target="${saved}"]`);
+  // Mark the default section as pre-loaded (data already loaded by other DOMContentLoaded handlers)
+  const defaultTarget = document.getElementById(saved);
+  if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
+  showNav(saved, navItem);
+});
+
+// ── Node.js Backend Integration (port 9080) ─────────────────────────
+
+/** Base URL for Node.js backend (always port 9080) */
+function _backendBase() {
+  return `${window.location.protocol}//${window.location.hostname}:9080`;
+}
+
+/** Socket.IO singleton */
+let _socket = null;
+
+/**
+ * Get (or lazily initialise) the Socket.IO connection to the Node.js backend.
+ * socket.io.js is loaded from the backend itself.
+ */
+function getSocket() {
+  if (_socket && _socket.connected) return _socket;
+  if (typeof io === "undefined") {
+    console.warn("socket.io client not loaded yet");
+    return null;
+  }
+  _socket = io(_backendBase(), { transports: ["websocket", "polling"] });
+  _socket.on("connect", () => console.log("Socket.IO connected"));
+  _socket.on("disconnect", () => console.log("Socket.IO disconnected"));
+  return _socket;
+}
+
+/** Append a line to the edge job log panel */
+function _jobLogLine(text, type) {
+  const logDiv = document.getElementById("edge-job-log");
+  const entries = document.getElementById("edge-job-log-entries");
+  if (!logDiv || !entries) return;
+  logDiv.style.display = "";
+  const line = document.createElement("div");
+  const colors = { error: "#d9534f", success: "#5cb85c", info: "#888", default: "#212121" };
+  line.style.color = colors[type] || colors.default;
+  line.textContent = text;
+  entries.appendChild(line);
+  entries.scrollTop = entries.scrollHeight;
+}
+
+/** Clear the job log */
+function _clearJobLog() {
+  const logDiv = document.getElementById("edge-job-log");
+  const entries = document.getElementById("edge-job-log-entries");
+  if (logDiv) logDiv.style.display = "none";
+  if (entries) entries.innerHTML = "";
+}
+
+/**
+ * Submit a job to the Node.js backend via Socket.IO.
+ * Progress events are displayed in the job log.
+ * Returns a Promise that resolves when the job ends.
+ */
+function _submitJob(jobPayload) {
+  return new Promise((resolve, reject) => {
+    const socket = getSocket();
+    if (!socket) {
+      _jobLogLine("Socket.IO not available – is the Node.js backend running?", "error");
+      reject(new Error("Socket not available"));
+      return;
+    }
+
+    _clearJobLog();
+    _jobLogLine(`▶ ${jobPayload.jobName} …`, "info");
+
+    function onProgress(evt) {
+      const { status, text, level } = evt;
+      if (text) {
+        _jobLogLine(text, level === "error" ? "error" : status === "error" ? "error" : "default");
+      }
+      if (status === "end" || status === "error" || status === "done") {
+        socket.off("channel-job-progress", onProgress);
+        if (status === "error") reject(new Error(text || "Job failed"));
+        else resolve();
+      }
+    }
+
+    socket.on("channel-job-progress", onProgress);
+    socket.emit("channel-job-submit", jobPayload);
+  });
+}
+
+/** Load device identity from Node.js backend and fill #edge-device-id */
+async function loadEdgeDeviceId() {
+  const el = document.getElementById("edge-device-id");
+  if (!el) return;
+  try {
+    const resp = await fetch(`${_backendBase()}/api/device/identity`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    el.value = data.deviceName || data.id || "";
+  } catch (e) {
+    el.value = "";
+    el.placeholder = "Backend not reachable";
+  }
+}
+
+/** Determine currently active cloud provider from tab selection */
+function _activeCloudProvider() {
+  const activeTab = document.querySelector("#sec-cloud .tab.active");
+  if (!activeTab) return "c8y";
+  return activeTab.dataset.cloud || "c8y";
+}
+
+/** Configure Edge via Socket.IO → configureTedge job */
+async function configureEdge() {
+  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
+  if (!deviceId) {
+    notify(t("cloud.configure_edge") + ": " + "Device ID nicht gefunden", "error");
+    return;
+  }
+
+  const provider = _activeCloudProvider();
+  const jobPayload = {
+    jobName: "configureTedge",
+    mode: "normal",
+    cloudProvider: provider,
+    deviceId,
+    c8yUrl: document.getElementById("c8y-url")?.value?.trim() || "",
+    awsUrl: document.getElementById("aws-url")?.value?.trim() || "",
+    azUrl: document.getElementById("az-url")?.value?.trim() || "",
+  };
+
+  try {
+    // Also save web-config to backend
+    await fetch(`${_backendBase()}/api/web-config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cloudProvider: provider,
+        c8y: { "c8y-url": jobPayload.c8yUrl },
+        aws: { "aws-url": jobPayload.awsUrl },
+        az: { "azure-url": jobPayload.azUrl },
+        device: { id: deviceId, name: deviceId },
+      }),
+    });
+    await _submitJob(jobPayload);
+    _jobLogLine("✓ Edge konfiguriert", "success");
+  } catch (e) {
+    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
+  }
+}
+
+/** Download CA-certificate from Node.js backend */
+async function downloadCACertificate() {
+  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
+  const url = `${_backendBase()}/api/backend/certificate?deviceId=${encodeURIComponent(deviceId || "")}&mode=normal`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "device-certificate.pem";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/** Upload Self-Signed Certificate via existing Rust backend endpoint */
+async function uploadSelfSignedCert() {
+  // Use existing Rust backend upload endpoint (api/cert/upload/c8y)
+  const provider = _activeCloudProvider();
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".pem,.crt,.cer";
+  input.onchange = async () => {
+    if (!input.files[0]) return;
+    const formData = new FormData();
+    formData.append("file", input.files[0]);
+    try {
+      const resp = await fetchWithAuth(`api/cert/upload/${provider}`, {
+        method: "POST",
+        headers: {},
+        body: formData,
+      });
+      if (resp.ok) {
+        notify(t("cloud.upload_self_cert") + " ✓", "success");
+      } else {
+        notify(`Upload fehlgeschlagen: HTTP ${resp.status}`, "error");
+      }
+    } catch (e) {
+      notify(`Upload Fehler: ${e.message}`, "error");
+    }
+  };
+  input.click();
+}
+
+/** Reset Edge via Socket.IO → resetTedge job */
+async function resetEdge() {
+  if (!confirm(t ? "Edge wirklich zurücksetzen?" : "Reset Edge?")) return;
+  try {
+    await _submitJob({ jobName: "resetTedge", mode: "normal" });
+    _jobLogLine("✓ Edge zurückgesetzt", "success");
+  } catch (e) {
+    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
+  }
+}
+
+// Load socket.io.js from backend dynamically
+(function loadSocketIO() {
+  if (typeof io !== "undefined") return; // already loaded
+  const base = _backendBase();
+  const script = document.createElement("script");
+  script.src = `${base}/socket.io/socket.io.js`;
+  script.onerror = () => console.warn("Could not load socket.io from backend");
+  document.head.appendChild(script);
+})();
+
+// Load device id when Setup section becomes visible
+window.addEventListener("DOMContentLoaded", function () {
+  // If sec-cloud is the default page, load device id immediately
+  const savedSection = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
+  if (savedSection === "sec-cloud") loadEdgeDeviceId();
+});
