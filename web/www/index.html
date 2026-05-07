@@ -211,6 +211,16 @@
               <li>
                 <a
                   class="nav-item nav-sub-item"
+                  data-target="sec-service-control"
+                  onclick="showNav('sec-service-control', this)"
+                >
+                  <i class="nav-icon fas fa-gears"></i>
+                  <span data-i18n="nav.service_control">Service Control</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
                   data-target="sec-logs"
                   onclick="showNav('sec-logs', this)"
                 >
@@ -1222,6 +1232,28 @@
               </div>
             </div>
           </section>
+          <!-- Service Control -->
+          <section id="sec-service-control" class="card" data-page="service-control">
+            <h2 data-i18n="section.service_control">Service Control</h2>
+
+            <table class="service-table">
+              <thead>
+                <tr>
+                  <th data-i18n="service.col.service">Service</th>
+                  <th data-i18n="service.col.status">Status</th>
+                  <th data-i18n="service.col.actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="service-control-tbody">
+                <tr>
+                  <td colspan="3" style="text-align:center; color:var(--c8y-palette-gray-40); padding:20px;">
+                    <span data-i18n="status.loading">Loading...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
           <!-- Logs & Diagnostics -->
           <section id="sec-logs" class="card" data-page="logs">
             <h2 data-i18n="section.logs">Logs &amp; Diagnostics</h2>

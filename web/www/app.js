@@ -18,6 +18,7 @@ const I18N = {
     "nav.setup": "Setup",
     "nav.edge": "Edge",
     "nav.status": "Status",
+    "nav.service_control": "Service Control",
     "nav.certificate": "Zertifikat",
     "nav.connect": "Verbinden",
     "nav.logs": "Logs",
@@ -28,6 +29,10 @@ const I18N = {
     "nav.licensing": "Lizenzierung",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Aktionen",
     "section.cloud": "Cloud-Konfiguration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Gerät & Zertifikat",
@@ -316,6 +321,7 @@ const I18N = {
     "nav.setup": "Setup",
     "nav.edge": "Edge",
     "nav.status": "Status",
+    "nav.service_control": "Service Control",
     "nav.certificate": "Certificate",
     "nav.connect": "Connect",
     "nav.logs": "Logs",
@@ -326,6 +332,10 @@ const I18N = {
     "nav.licensing": "Licensing",
     // Nav / Sections
     "section.status": "Connection Status",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Actions",
     "section.cloud": "Cloud Configuration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Device & Certificate",
@@ -853,6 +863,77 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // Load service status
+
+// ── Service Control ────────────────────────────────────────────────────────
+
+const SERVICE_CONTROL_LIST = [
+  { key: "mosquitto",          svc: "mosquitto",                label: "MQTT Broker (mosquitto)" },
+  { key: "agent",              svc: "tedge-agent",              label: "Tedge Agent" },
+  { key: "bridge",             svc: "tedge-datalayer-bridge",   label: "Datalayer Bridge" },
+  { key: "watchdog",           svc: "tedge-watchdog",           label: "Watchdog" },
+  { key: "log_upload_manager", svc: "tedge-log-upload-manager", label: "Log Manager" },
+  { key: "mapper_c8y",         svc: "tedge-mapper-c8y",         label: "Mapper C8Y" },
+  { key: "mapper_aws",         svc: "tedge-mapper-aws",         label: "Mapper AWS" },
+  { key: "mapper_az",          svc: "tedge-mapper-az",          label: "Mapper Azure" },
+];
+
+async function loadServiceControl() {
+  const tbody = document.getElementById("service-control-tbody");
+  if (!tbody) return;
+
+  try {
+    const r = await fetchWithAuth("api/status");
+    if (!r.ok) throw new Error("Status load failed");
+    const data = await r.json();
+
+    tbody.innerHTML = "";
+    SERVICE_CONTROL_LIST.forEach(({ key, svc, label }) => {
+      const status = data[key] || "unknown";
+      const isRunning = status === "running";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="padding:8px 12px; font-size:13px;">${label}</td>
+        <td style="padding:8px 12px;">
+          <span class="status ${status}" style="font-size:22px; line-height:1;">●</span>
+          <span style="font-size:12px; color:var(--c8y-palette-gray-40); margin-left:6px;">${t("status." + status) || status}</span>
+        </td>
+        <td style="padding:8px 12px;">
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('start','${svc}')"
+            ${isRunning ? "disabled" : ""} title="Start">▶</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('stop','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Stop">■</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('restart','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Restart">↺</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--c8y-brand-danger,#e74c3c);padding:16px;">${e.message}</td></tr>`;
+  }
+}
+
+async function serviceAction(action, svc) {
+  const endpointMap = { start: "start-service", stop: "stop-service", restart: "restart-service" };
+  const endpoint = endpointMap[action];
+  if (!endpoint) return;
+  try {
+    const r = await fetchWithAuth(`api/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service: svc }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      showNotification(`${action} ${svc}: OK`, "success");
+    } else {
+      showNotification(`${action} ${svc}: ${d.error || "failed"}`, "error");
+    }
+  } catch (e) {
+    showNotification(`${action} ${svc}: ${e.message}`, "error");
+  }
+  setTimeout(() => loadServiceControl(), 1500);
+}
 
 async function loadStatus() {
   try {
@@ -2208,6 +2289,9 @@ function initCollapsibleSections() {
     "sec-status": () => {
       loadStatus();
     },
+    "sec-service-control": () => {
+      loadServiceControl();
+    },
     "sec-cloud": () => {
       loadConfiguration();
       loadC8yMqttPort();
@@ -3453,12 +3537,15 @@ function showNav(sectionId, clickedEl) {
     const showRefresh =
       pageGroup === "status" ||
       pageGroup === "datalayer" ||
-      pageGroup === "licensing";
+      pageGroup === "licensing" ||
+      pageGroup === "service-control";
     refreshBtn.style.display = showRefresh ? "" : "none";
     if (pageGroup === "datalayer")
       refreshBtn.onclick = () => loadDatalayerStatus();
     else if (pageGroup === "licensing")
       refreshBtn.onclick = () => loadLicenses();
+    else if (pageGroup === "service-control")
+      refreshBtn.onclick = () => loadServiceControl();
     else refreshBtn.onclick = () => refreshStatus();
   }
   if (saveBtn) {
