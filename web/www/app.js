@@ -840,6 +840,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  loadServiceControl();
   checkLicenseStatus();
 
   // Apply persisted certificate mode (default: CA)
@@ -858,7 +859,10 @@ window.addEventListener("DOMContentLoaded", () => {
   // Auto-refresh service status every 30 seconds (only if section is open)
   setInterval(() => {
     const sec = document.getElementById("sec-status");
-    if (sec && !sec.classList.contains("collapsed")) loadStatus();
+    if (sec && !sec.classList.contains("collapsed")) {
+      loadStatus();
+      loadServiceControl();
+    }
   }, 30000);
 });
 
@@ -932,7 +936,7 @@ async function serviceAction(action, svc) {
   } catch (e) {
     showNotification(`${action} ${svc}: ${e.message}`, "error");
   }
-  setTimeout(() => loadServiceControl(), 1500);
+  setTimeout(() => { loadStatus(); loadServiceControl(); }, 1500);
 }
 
 async function loadStatus() {
@@ -1456,6 +1460,7 @@ function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
   loadStatus();
   loadDatalayerStatus();
+  loadServiceControl();
 }
 
 // Load logs from API
@@ -2288,8 +2293,6 @@ function initCollapsibleSections() {
   window._sectionLazyLoaders = {
     "sec-status": () => {
       loadStatus();
-    },
-    "sec-service-control": () => {
       loadServiceControl();
     },
     "sec-cloud": () => {
@@ -3537,15 +3540,12 @@ function showNav(sectionId, clickedEl) {
     const showRefresh =
       pageGroup === "status" ||
       pageGroup === "datalayer" ||
-      pageGroup === "licensing" ||
-      pageGroup === "service-control";
+      pageGroup === "licensing";
     refreshBtn.style.display = showRefresh ? "" : "none";
     if (pageGroup === "datalayer")
       refreshBtn.onclick = () => loadDatalayerStatus();
     else if (pageGroup === "licensing")
       refreshBtn.onclick = () => loadLicenses();
-    else if (pageGroup === "service-control")
-      refreshBtn.onclick = () => loadServiceControl();
     else refreshBtn.onclick = () => refreshStatus();
   }
   if (saveBtn) {
