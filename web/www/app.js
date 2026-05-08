@@ -73,7 +73,6 @@ const I18N = {
     "flows.editor_placeholder":
       'Flow in der Liste auswählen oder "Neu" klicken.',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
-    "flows.empty": "Keine Flows vorhanden.",
     "flows.col.name": "Dateiname",
     "flows.col.actions": "Aktionen",
     "flows.btn_view": "Anzeigen",
