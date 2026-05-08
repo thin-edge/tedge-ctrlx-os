@@ -1397,42 +1397,22 @@ struct RestartSingleServiceBody {
     service: String,
 }
 
-async fn restart_single_service(
-    req: HttpRequest,
-    body: web::Json<RestartSingleServiceBody>,
-) -> Result<HttpResponse> {
-    let (user, role, _token) = extract_user_info(&req);
-    if !role.can_execute() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
-            "success": false, "error": "Admin required"
-        })));
-    }
-    let allowed = [
-        "mosquitto",
-        "tedge-agent",
-        "tedge-datalayer-bridge",
-        "tedge-watchdog",
-        "tedge-web-config",
-        "tedge-log-upload-manager",
-        "tedge-mapper-c8y",
-        "tedge-mapper-aws",
-        "tedge-mapper-az",
-    ];
-    let svc = body.service.trim().to_string();
-    if !allowed.contains(&svc.as_str()) {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false, "error": "Unknown service"
-        })));
-    }
-    if env::var("SNAP").is_err() {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false, "error": "Only available in snap environment"
-        })));
-    }
-    info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
-    let full = snap_svc(&svc);
+const ALLOWED_SERVICES: &[&str] = &[
+    "mosquitto",
+    "tedge-agent",
+    "tedge-datalayer-bridge",
+    "tedge-watchdog",
+    "tedge-web-config",
+    "tedge-log-upload-manager",
+    "tedge-mapper-c8y",
+    "tedge-mapper-aws",
+    "tedge-mapper-az",
+];
+
+fn run_snapctl_service(action: &str, svc: &str) -> Result<HttpResponse> {
+    let full = snap_svc(svc);
     match std::process::Command::new("snapctl")
-        .args(["restart", &full])
+        .args([action, &full])
         .output()
     {
         Ok(output) if output.status.success() => {
@@ -1446,6 +1426,77 @@ async fn restart_single_service(
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"success": false, "error": format!("{}", e)}))),
     }
+}
+
+async fn start_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
+    }
+    info!("[START-SVC] Starting {} (user: {:?})", svc, user);
+    run_snapctl_service("start", &svc)
+}
+
+async fn stop_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
+    }
+    info!("[STOP-SVC] Stopping {} (user: {:?})", svc, user);
+    run_snapctl_service("stop", &svc)
+}
+
+async fn restart_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false, "error": "Admin required"
+        })));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Unknown service"
+        })));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Only available in snap environment"
+        })));
+    }
+    info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
+    run_snapctl_service("restart", &svc)
 }
 
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
@@ -4313,6 +4364,8 @@ async fn main() -> io::Result<()> {
                             .route("/config/device", web::post().to(save_device_config))
                             .route("/restart", web::post().to(restart_services))
                             .route("/restart-service", web::post().to(restart_single_service))
+                            .route("/start-service", web::post().to(start_single_service))
+                            .route("/stop-service", web::post().to(stop_single_service))
                             .route("/connect/{cloud}", web::post().to(connect_cloud))
                             .route("/disconnect/{cloud}", web::post().to(disconnect_cloud))
                             .route("/reconnect/{cloud}", web::post().to(reconnect_cloud))

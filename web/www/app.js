@@ -18,6 +18,7 @@ const I18N = {
     "nav.setup": "Setup",
     "nav.edge": "Edge",
     "nav.status": "Status",
+    "nav.service_control": "Service Control",
     "nav.certificate": "Zertifikat",
     "nav.connect": "Verbinden",
     "nav.logs": "Logs",
@@ -28,6 +29,10 @@ const I18N = {
     "nav.licensing": "Lizenzierung",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Aktionen",
     "section.cloud": "Cloud-Konfiguration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Gerät & Zertifikat",
@@ -316,6 +321,7 @@ const I18N = {
     "nav.setup": "Setup",
     "nav.edge": "Edge",
     "nav.status": "Status",
+    "nav.service_control": "Service Control",
     "nav.certificate": "Certificate",
     "nav.connect": "Connect",
     "nav.logs": "Logs",
@@ -326,6 +332,10 @@ const I18N = {
     "nav.licensing": "Licensing",
     // Nav / Sections
     "section.status": "Connection Status",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Actions",
     "section.cloud": "Cloud Configuration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Device & Certificate",
@@ -830,6 +840,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  loadServiceControl();
   checkLicenseStatus();
 
   // Apply persisted certificate mode (default: CA)
@@ -848,11 +859,96 @@ window.addEventListener("DOMContentLoaded", () => {
   // Auto-refresh service status every 30 seconds (only if section is open)
   setInterval(() => {
     const sec = document.getElementById("sec-status");
-    if (sec && !sec.classList.contains("collapsed")) loadStatus();
+    if (sec && !sec.classList.contains("collapsed")) {
+      loadStatus();
+      loadServiceControl();
+    }
   }, 30000);
 });
 
 // Load service status
+
+// ── Service Control ────────────────────────────────────────────────────────
+
+const SERVICE_CONTROL_LIST = [
+  { key: "mosquitto", svc: "mosquitto", label: "MQTT Broker (mosquitto)" },
+  { key: "agent", svc: "tedge-agent", label: "Tedge Agent" },
+  { key: "bridge", svc: "tedge-datalayer-bridge", label: "Datalayer Bridge" },
+  { key: "watchdog", svc: "tedge-watchdog", label: "Watchdog" },
+  {
+    key: "log_upload_manager",
+    svc: "tedge-log-upload-manager",
+    label: "Log Manager",
+  },
+  { key: "mapper_c8y", svc: "tedge-mapper-c8y", label: "Mapper C8Y" },
+  { key: "mapper_aws", svc: "tedge-mapper-aws", label: "Mapper AWS" },
+  { key: "mapper_az", svc: "tedge-mapper-az", label: "Mapper Azure" },
+];
+
+async function loadServiceControl() {
+  const tbody = document.getElementById("service-control-tbody");
+  if (!tbody) return;
+
+  try {
+    const r = await fetchWithAuth("api/status");
+    if (!r.ok) throw new Error("Status load failed");
+    const data = await r.json();
+
+    tbody.innerHTML = "";
+    SERVICE_CONTROL_LIST.forEach(({ key, svc, label }) => {
+      const status = data[key] || "unknown";
+      const isRunning = status === "running";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="padding:8px 12px; font-size:13px;">${label}</td>
+        <td style="padding:8px 12px;">
+          <span class="status ${status}" style="font-size:22px; line-height:1;">●</span>
+          <span style="font-size:12px; color:var(--c8y-palette-gray-40); margin-left:6px;">${t("status." + status) || status}</span>
+        </td>
+        <td style="padding:8px 12px;">
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('start','${svc}')"
+            ${isRunning ? "disabled" : ""} title="Start">▶</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('stop','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Stop">■</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('restart','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Restart">↺</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--c8y-brand-danger,#e74c3c);padding:16px;">${e.message}</td></tr>`;
+  }
+}
+
+async function serviceAction(action, svc) {
+  const endpointMap = {
+    start: "start-service",
+    stop: "stop-service",
+    restart: "restart-service",
+  };
+  const endpoint = endpointMap[action];
+  if (!endpoint) return;
+  try {
+    const r = await fetchWithAuth(`api/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service: svc }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      showNotification(`${action} ${svc}: OK`, "success");
+    } else {
+      showNotification(`${action} ${svc}: ${d.error || "failed"}`, "error");
+    }
+  } catch (e) {
+    showNotification(`${action} ${svc}: ${e.message}`, "error");
+  }
+  setTimeout(() => {
+    loadStatus();
+    loadServiceControl();
+  }, 1500);
+}
 
 async function loadStatus() {
   try {
@@ -1375,6 +1471,7 @@ function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
   loadStatus();
   loadDatalayerStatus();
+  loadServiceControl();
 }
 
 // Load logs from API
@@ -2207,6 +2304,7 @@ function initCollapsibleSections() {
   window._sectionLazyLoaders = {
     "sec-status": () => {
       loadStatus();
+      loadServiceControl();
     },
     "sec-cloud": () => {
       loadConfiguration();
@@ -3499,235 +3597,4 @@ document.addEventListener("DOMContentLoaded", function () {
   const defaultTarget = document.getElementById(saved);
   if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
   showNav(saved, navItem);
-});
-
-// ── Node.js Backend Integration (port 9080) ─────────────────────────
-
-/** Base URL for Node.js backend (always port 9080) */
-function _backendBase() {
-  return `${window.location.protocol}//${window.location.hostname}:9080`;
-}
-
-/** Socket.IO singleton */
-let _socket = null;
-
-/**
- * Get (or lazily initialise) the Socket.IO connection to the Node.js backend.
- * socket.io.js is loaded from the backend itself.
- */
-function getSocket() {
-  if (_socket && _socket.connected) return _socket;
-  if (typeof io === "undefined") {
-    console.warn("socket.io client not loaded yet");
-    return null;
-  }
-  _socket = io(_backendBase(), { transports: ["websocket", "polling"] });
-  _socket.on("connect", () => console.log("Socket.IO connected"));
-  _socket.on("disconnect", () => console.log("Socket.IO disconnected"));
-  return _socket;
-}
-
-/** Append a line to the edge job log panel */
-function _jobLogLine(text, type) {
-  const logDiv = document.getElementById("edge-job-log");
-  const entries = document.getElementById("edge-job-log-entries");
-  if (!logDiv || !entries) return;
-  logDiv.style.display = "";
-  const line = document.createElement("div");
-  const colors = {
-    error: "#d9534f",
-    success: "#5cb85c",
-    info: "#888",
-    default: "#212121",
-  };
-  line.style.color = colors[type] || colors.default;
-  line.textContent = text;
-  entries.appendChild(line);
-  entries.scrollTop = entries.scrollHeight;
-}
-
-/** Clear the job log */
-function _clearJobLog() {
-  const logDiv = document.getElementById("edge-job-log");
-  const entries = document.getElementById("edge-job-log-entries");
-  if (logDiv) logDiv.style.display = "none";
-  if (entries) entries.innerHTML = "";
-}
-
-/**
- * Submit a job to the Node.js backend via Socket.IO.
- * Progress events are displayed in the job log.
- * Returns a Promise that resolves when the job ends.
- */
-function _submitJob(jobPayload) {
-  return new Promise((resolve, reject) => {
-    const socket = getSocket();
-    if (!socket) {
-      _jobLogLine(
-        "Socket.IO not available – is the Node.js backend running?",
-        "error",
-      );
-      reject(new Error("Socket not available"));
-      return;
-    }
-
-    _clearJobLog();
-    _jobLogLine(`▶ ${jobPayload.jobName} …`, "info");
-
-    function onProgress(evt) {
-      const { status, text, level } = evt;
-      if (text) {
-        _jobLogLine(
-          text,
-          level === "error"
-            ? "error"
-            : status === "error"
-              ? "error"
-              : "default",
-        );
-      }
-      if (status === "end" || status === "error" || status === "done") {
-        socket.off("channel-job-progress", onProgress);
-        if (status === "error") reject(new Error(text || "Job failed"));
-        else resolve();
-      }
-    }
-
-    socket.on("channel-job-progress", onProgress);
-    socket.emit("channel-job-submit", jobPayload);
-  });
-}
-
-/** Load device identity from Node.js backend and fill #edge-device-id */
-async function loadEdgeDeviceId() {
-  const el = document.getElementById("edge-device-id");
-  if (!el) return;
-  try {
-    const resp = await fetch(`${_backendBase()}/api/device/identity`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    el.value = data.deviceName || data.id || "";
-  } catch (e) {
-    el.value = "";
-    el.placeholder = "Backend not reachable";
-  }
-}
-
-/** Determine currently active cloud provider from tab selection */
-function _activeCloudProvider() {
-  const activeTab = document.querySelector("#sec-cloud .tab.active");
-  if (!activeTab) return "c8y";
-  return activeTab.dataset.cloud || "c8y";
-}
-
-/** Configure Edge via Socket.IO → configureTedge job */
-async function configureEdge() {
-  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
-  if (!deviceId) {
-    notify(
-      t("cloud.configure_edge") + ": " + "Device ID nicht gefunden",
-      "error",
-    );
-    return;
-  }
-
-  const provider = _activeCloudProvider();
-  const jobPayload = {
-    jobName: "configureTedge",
-    mode: "normal",
-    cloudProvider: provider,
-    deviceId,
-    c8yUrl: document.getElementById("c8y-url")?.value?.trim() || "",
-    awsUrl: document.getElementById("aws-url")?.value?.trim() || "",
-    azUrl: document.getElementById("az-url")?.value?.trim() || "",
-  };
-
-  try {
-    // Also save web-config to backend
-    await fetch(`${_backendBase()}/api/web-config`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cloudProvider: provider,
-        c8y: { "c8y-url": jobPayload.c8yUrl },
-        aws: { "aws-url": jobPayload.awsUrl },
-        az: { "azure-url": jobPayload.azUrl },
-        device: { id: deviceId, name: deviceId },
-      }),
-    });
-    await _submitJob(jobPayload);
-    _jobLogLine("✓ Edge konfiguriert", "success");
-  } catch (e) {
-    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
-  }
-}
-
-/** Download CA-certificate from Node.js backend */
-async function downloadCACertificate() {
-  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
-  const url = `${_backendBase()}/api/backend/certificate?deviceId=${encodeURIComponent(deviceId || "")}&mode=normal`;
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "device-certificate.pem";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-/** Upload Self-Signed Certificate via existing Rust backend endpoint */
-async function uploadSelfSignedCert() {
-  // Use existing Rust backend upload endpoint (api/cert/upload/c8y)
-  const provider = _activeCloudProvider();
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".pem,.crt,.cer";
-  input.onchange = async () => {
-    if (!input.files[0]) return;
-    const formData = new FormData();
-    formData.append("file", input.files[0]);
-    try {
-      const resp = await fetchWithAuth(`api/cert/upload/${provider}`, {
-        method: "POST",
-        headers: {},
-        body: formData,
-      });
-      if (resp.ok) {
-        notify(t("cloud.upload_self_cert") + " ✓", "success");
-      } else {
-        notify(`Upload fehlgeschlagen: HTTP ${resp.status}`, "error");
-      }
-    } catch (e) {
-      notify(`Upload Fehler: ${e.message}`, "error");
-    }
-  };
-  input.click();
-}
-
-/** Reset Edge via Socket.IO → resetTedge job */
-async function resetEdge() {
-  if (!confirm(t ? "Edge wirklich zurücksetzen?" : "Reset Edge?")) return;
-  try {
-    await _submitJob({ jobName: "resetTedge", mode: "normal" });
-    _jobLogLine("✓ Edge zurückgesetzt", "success");
-  } catch (e) {
-    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
-  }
-}
-
-// Load socket.io.js from backend dynamically
-(function loadSocketIO() {
-  if (typeof io !== "undefined") return; // already loaded
-  const base = _backendBase();
-  const script = document.createElement("script");
-  script.src = `${base}/socket.io/socket.io.js`;
-  script.onerror = () => console.warn("Could not load socket.io from backend");
-  document.head.appendChild(script);
-})();
-
-// Load device id when Setup section becomes visible
-window.addEventListener("DOMContentLoaded", function () {
-  // If sec-cloud is the default page, load device id immediately
-  const savedSection =
-    sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
-  if (savedSection === "sec-cloud") loadEdgeDeviceId();
 });

@@ -3,6 +3,35 @@
   border-bottom: 2px solid var(--c8y-palette-gray-60);
   border-radius: 0;
 }
+.service-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.service-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c8y-palette-gray-40);
+  border-bottom: 2px solid var(--c8y-palette-gray-70);
+}
+.service-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c8y-palette-gray-80);
+  vertical-align: middle;
+}
+.service-table tr:last-child td {
+  border-bottom: none;
+}
+.service-table tr:hover td {
+  background: var(--c8y-palette-gray-90);
+}
+.service-table .btn + .btn {
+  margin-left: 4px;
+}
 .form-control {
   width: 100%;
   max-width: 420px;
