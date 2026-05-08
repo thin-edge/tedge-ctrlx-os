@@ -32,6 +32,7 @@ mkdir -p "$SNAP_DATA_PATH/tedge/device"
 mkdir -p "$SNAP_DATA_PATH/tedge/device-certs"
 mkdir -p "$SNAP_DATA_PATH/tedge/sm-plugins"
 mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins"
+mkdir -p "$SNAP_DATA_PATH/tedge/mappers"
 mkdir -p "$SNAP_DATA_PATH/tedge/log-plugins-disabled"
 mkdir -p "$SNAP_DATA_PATH/tedge/.agent"
 mkdir -p "$SNAP_DATA_PATH/log-levels"
@@ -46,6 +47,9 @@ mkdir -p "$SNAP_DATA_PATH/mosquitto/persistence"
 mkdir -p "$SNAP_DATA_PATH/tedge/tmp"
 mkdir -p "$SNAP_DATA_PATH/tedge/plugins"
 mkdir -p "$SNAP_COMMON_PATH/tedge/cache"
+
+# Register tedge-flows-plugin as sm-plugin
+ln -sf "$SNAP/bin/tedge-flows-plugin" "$SNAP_DATA_PATH/tedge/sm-plugins/flow"
 
 # Certificate store (ctrlX Certificate Manager integration)
 # Structure: /own/certs (certificate), /own/private (private key, 700)

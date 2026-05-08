@@ -4047,6 +4047,189 @@ async fn save_and_publish_inventory(
     })))
 }
 
+// ── Flows Management API ─────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct UploadFlowBody {
+    name: String,
+    content: String,
+}
+
+/// Validates a mapper name: only alphanumeric, dash, underscore, dot — no path traversal.
+fn validate_mapper_name(mapper: &str) -> bool {
+    !mapper.is_empty()
+        && !mapper.contains("..")
+        && mapper
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+}
+
+/// Validates a flow file name: must end with .toml, no path separator, no traversal.
+fn validate_flow_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.ends_with(".toml")
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains("..")
+}
+
+/// GET /api/flows?mapper=<name>  — lists .toml flow files for a mapper
+async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(
+            HttpResponse::Forbidden().json(serde_json::json!({"error": "Insufficient permissions"})),
+        );
+    }
+
+    let mapper = req
+        .query_string()
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper is validated via validate_mapper_name (allowlist chars only)
+    let flows_dir = format!("{}/tedge/mappers/{}/flows", snap_data, mapper);
+
+    let mut flows: Vec<serde_json::Value> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&flows_dir) {
+        // codeql[rust/path-injection] - flows_dir constructed from validated mapper name
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        // codeql[rust/path-injection] - path is inside validated flows_dir
+                        flows.push(serde_json::json!({"name": name, "content": content}));
+                    }
+                }
+            }
+        }
+    }
+    flows.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"flows": flows})))
+}
+
+/// POST /api/flows?mapper=<name>  — creates or replaces a flow file
+async fn upload_flow(req: HttpRequest, body: web::Json<UploadFlowBody>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(
+            HttpResponse::Forbidden().json(serde_json::json!({"error": "Insufficient permissions"})),
+        );
+    }
+
+    let mapper = req
+        .query_string()
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+        );
+    }
+
+    let raw_name = body.name.trim().to_string();
+    let file_name = if raw_name.ends_with(".toml") {
+        raw_name
+    } else {
+        format!("{}.toml", raw_name)
+    };
+
+    if !validate_flow_name(&file_name) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"})),
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and file_name are validated above
+    let flows_dir = format!("{}/tedge/mappers/{}/flows", snap_data, mapper);
+    let _ = std::fs::create_dir_all(&flows_dir);
+    let file_path = format!("{}/{}", flows_dir, file_name);
+
+    match std::fs::write(&file_path, &body.content) {
+        // codeql[rust/path-injection] - file_path constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Saved flow: {}/{}", mapper, file_name);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true, "name": file_name})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// DELETE /api/flows?mapper=<name>&name=<file.toml>  — deletes a flow file
+async fn delete_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(
+            HttpResponse::Forbidden().json(serde_json::json!({"error": "Insufficient permissions"})),
+        );
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let name = qs
+        .split('&')
+        .find(|s| s.starts_with("name="))
+        .and_then(|s| s.strip_prefix("name="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+        );
+    }
+    if !validate_flow_name(&name) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"})),
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and name are validated above
+    let file_path = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, name);
+
+    match std::fs::remove_file(&file_path) {
+        // codeql[rust/path-injection] - file_path constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Deleted flow: {}/{}", mapper, name);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
 /// GET /api/snapconfig?file=<name>  — reads an allowed snap config file
 async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -4396,6 +4579,10 @@ async fn main() -> io::Result<()> {
                             .route("/inventory", web::post().to(save_and_publish_inventory))
                             .route("/licenses", web::get().to(get_licenses))
                             .route("/license-status", web::get().to(get_license_status))
+                            // Flows API
+                            .route("/flows", web::get().to(list_flows))
+                            .route("/flows", web::post().to(upload_flow))
+                            .route("/flows", web::delete().to(delete_flow))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")

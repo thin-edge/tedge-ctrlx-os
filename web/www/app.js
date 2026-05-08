@@ -27,6 +27,7 @@ const I18N = {
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Lizenzierung",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
     "section.service_control": "Service Control",
@@ -61,6 +62,27 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Gültig bis",
     "licensing.col.quantity": "Anzahl",
+    // Flows
+    "section.flows": "Flows (JavaScript-Transformationen)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Aktualisieren",
+    "flows.upload_btn": "Flow hochladen (.toml)",
+    "flows.loading": "Flows werden geladen...",
+    "flows.empty": "Keine Flows vorhanden.",
+    "flows.col.name": "Dateiname",
+    "flows.col.actions": "Aktionen",
+    "flows.btn_view": "Anzeigen",
+    "flows.btn_delete": "Löschen",
+    "flows.editor_close": "Schließen",
+    "flows.editor_save": "Speichern",
+    "flows.confirm_delete": (name) => `Flow "${name}" wirklich löschen?`,
+    "flows.deleted": (name) => `Flow "${name}" gelöscht`,
+    "flows.saved": (name) => `Flow "${name}" gespeichert`,
+    "flows.upload_ok": (name) => `Flow "${name}" hochgeladen`,
+    "flows.err_load": "Fehler beim Laden der Flows",
+    "flows.err_save": "Fehler beim Speichern des Flows",
+    "flows.err_delete": "Fehler beim Löschen des Flows",
+    "flows.err_no_name": "Bitte Flow-Name eingeben",
     // Status
     "status.services": "Dienste",
     "status.mappers": "Mapper",
@@ -330,6 +352,7 @@ const I18N = {
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Licensing",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Connection Status",
     "section.service_control": "Service Control",
@@ -364,7 +387,27 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Valid Until",
     "licensing.col.quantity": "Qty",
-    // Status
+    // Flows
+    "section.flows": "Flows (JavaScript Transformations)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Refresh",
+    "flows.upload_btn": "Upload Flow (.toml)",
+    "flows.loading": "Loading flows...",
+    "flows.empty": "No flows configured.",
+    "flows.col.name": "Filename",
+    "flows.col.actions": "Actions",
+    "flows.btn_view": "View",
+    "flows.btn_delete": "Delete",
+    "flows.editor_close": "Close",
+    "flows.editor_save": "Save",
+    "flows.confirm_delete": (name) => `Delete flow "${name}"?`,
+    "flows.deleted": (name) => `Flow "${name}" deleted`,
+    "flows.saved": (name) => `Flow "${name}" saved`,
+    "flows.upload_ok": (name) => `Flow "${name}" uploaded`,
+    "flows.err_load": "Error loading flows",
+    "flows.err_save": "Error saving flow",
+    "flows.err_delete": "Error deleting flow",
+    "flows.err_no_name": "Please enter a flow name",
     "status.services": "Services",
     "status.mappers": "Mappers",
     "status.connection": "Connection",
@@ -2344,6 +2387,9 @@ function initCollapsibleSections() {
     "sec-licensing": () => {
       loadLicenses();
     },
+    "sec-flows": () => {
+      loadFlows();
+    },
   };
 
   document.querySelectorAll(".card").forEach((section, index) => {
@@ -3494,6 +3540,174 @@ async function loadLicenses() {
       errDiv.style.display = "";
     }
   }
+}
+
+}
+
+// ── Flows Management ─────────────────────────────────────────────────────────
+
+let _flowsEditorCurrentName = null;
+
+function _flowsMapper() {
+  const sel = document.getElementById("flows-mapper-select");
+  return sel ? sel.value : "c8y";
+}
+
+async function loadFlows() {
+  const loading = document.getElementById("flows-loading");
+  const table = document.getElementById("flows-table");
+  const tbody = document.getElementById("flows-table-body");
+  const empty = document.getElementById("flows-empty");
+  const errDiv = document.getElementById("flows-error");
+
+  if (loading) loading.style.display = "";
+  if (table) table.style.display = "none";
+  if (empty) empty.style.display = "none";
+  if (errDiv) errDiv.style.display = "none";
+
+  try {
+    const mapper = _flowsMapper();
+    const resp = await fetch(`/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (resp.status === 403) {
+      if (loading) loading.style.display = "none";
+      if (errDiv) { errDiv.textContent = t("notify.no_perm_status"); errDiv.style.display = ""; }
+      return;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const flows = data.flows || [];
+
+    if (loading) loading.style.display = "none";
+
+    if (flows.length === 0) {
+      if (empty) empty.style.display = "";
+      return;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = "";
+      flows.forEach((flow) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="padding:6px 8px; font-family:monospace; font-size:12px">${escHtml(flow.name)}</td>
+          <td style="padding:6px 8px; white-space:nowrap">
+            <button class="btn btn-outline-secondary btn-sm" onclick="viewFlow(${JSON.stringify(flow.name)}, ${JSON.stringify(flow.content)})">
+              <i class="fas fa-eye"></i> ${t("flows.btn_view")}
+            </button>
+            <button class="btn btn-sm" style="background:var(--c8y-brand-danger,#c0392b);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;margin-left:4px"
+              onclick="deleteFlow(${JSON.stringify(flow.name)})">
+              <i class="fas fa-trash"></i> ${t("flows.btn_delete")}
+            </button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    if (table) table.style.display = "";
+  } catch (err) {
+    if (loading) loading.style.display = "none";
+    if (errDiv) { errDiv.textContent = `${t("flows.err_load")}: ${err.message}`; errDiv.style.display = ""; }
+  }
+}
+
+function viewFlow(name, content) {
+  _flowsEditorCurrentName = name;
+  const wrap = document.getElementById("flows-editor-wrap");
+  const title = document.getElementById("flows-editor-title");
+  const editor = document.getElementById("flows-editor");
+  if (title) title.textContent = name;
+  if (editor) editor.value = content;
+  if (wrap) wrap.style.display = "";
+  if (editor) editor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function closeFlowEditor() {
+  _flowsEditorCurrentName = null;
+  const wrap = document.getElementById("flows-editor-wrap");
+  if (wrap) wrap.style.display = "none";
+}
+
+async function saveFlowFromEditor() {
+  const name = _flowsEditorCurrentName;
+  if (!name) { showToast(t("flows.err_no_name"), "danger"); return; }
+  const editor = document.getElementById("flows-editor");
+  const content = editor ? editor.value : "";
+  const mapper = _flowsMapper();
+
+  try {
+    const resp = await fetch(`/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name, content }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    showToast(typeof t("flows.saved") === "function" ? t("flows.saved")(name) : t("flows.saved"), "success");
+    loadFlows();
+  } catch (err) {
+    showToast(`${t("flows.err_save")}: ${err.message}`, "danger");
+  }
+}
+
+async function deleteFlow(name) {
+  const mapper = _flowsMapper();
+  const msg = typeof t("flows.confirm_delete") === "function"
+    ? t("flows.confirm_delete")(name)
+    : `Delete flow "${name}"?`;
+  if (!confirm(msg)) return;
+
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&name=${encodeURIComponent(name)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } }
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const msg2 = typeof t("flows.deleted") === "function" ? t("flows.deleted")(name) : t("flows.deleted");
+    showToast(msg2, "success");
+    if (_flowsEditorCurrentName === name) closeFlowEditor();
+    loadFlows();
+  } catch (err) {
+    showToast(`${t("flows.err_delete")}: ${err.message}`, "danger");
+  }
+}
+
+async function uploadFlowFile() {
+  const input = document.getElementById("flows-file-input");
+  const statusEl = document.getElementById("flows-upload-status");
+  if (!input || !input.files || input.files.length === 0) return;
+
+  const file = input.files[0];
+  const name = file.name;
+  const mapper = _flowsMapper();
+
+  if (statusEl) statusEl.textContent = "⏳ " + name;
+
+  try {
+    const content = await file.text();
+    const resp = await fetch(`/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name, content }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (statusEl) statusEl.textContent = "";
+    const msg = typeof t("flows.upload_ok") === "function" ? t("flows.upload_ok")(name) : t("flows.upload_ok");
+    showToast(msg, "success");
+    loadFlows();
+  } catch (err) {
+    if (statusEl) statusEl.textContent = "";
+    showToast(`${t("flows.err_save")}: ${err.message}`, "danger");
+  }
+  // reset file input so the same file can be re-uploaded
+  input.value = "";
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Navigator ────────────────────────────────────────────────────────

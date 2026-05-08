@@ -407,6 +407,7 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
       ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-flows-plugin
       
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
