@@ -363,6 +363,7 @@ impl AppState {
 
         match std::fs::read_to_string(&self.datalayer_config_path) {
             // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
+            Ok(content) if content.trim().is_empty() => DatalayerConfig::default(),
             Ok(content) => match serde_json::from_str::<DatalayerConfig>(&content) {
                 Ok(cfg) => {
                     info!(
@@ -4083,15 +4084,6 @@ fn validate_flow_file_name(name: &str) -> bool {
         && (name.ends_with(".js") || name.ends_with(".toml") || name.ends_with(".toml.template"))
 }
 
-/// Dummy — kept to avoid breaking old logic elsewhere (not used for flows)
-fn validate_flow_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.ends_with(".toml")
-        && !name.contains('/')
-        && !name.contains('\\')
-        && !name.contains("..")
-}
-
 /// GET /api/flows?mapper=<name>  — lists flow directories and their files
 async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -4110,7 +4102,7 @@ async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
 
     if !validate_mapper_name(&mapper) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
         );
     }
 
@@ -4208,12 +4200,12 @@ async fn save_flow_file(
 
     if !validate_mapper_name(&mapper) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
         );
     }
     if !validate_flow_dir_name(&flow) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
         );
     }
     if !validate_flow_file_name(&file) {
@@ -4232,8 +4224,10 @@ async fn save_flow_file(
         // codeql[rust/path-injection] - file_path constructed from validated components
         Ok(_) => {
             info!("[FLOWS] Saved {}/{}/{}", mapper, flow, file);
-            Ok(HttpResponse::Ok()
-                .json(serde_json::json!({"ok": true, "flow": flow, "file": file})))
+            Ok(
+                HttpResponse::Ok()
+                    .json(serde_json::json!({"ok": true, "flow": flow, "file": file})),
+            )
         }
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"error": format!("{}", e)}))),
@@ -4264,12 +4258,12 @@ async fn delete_flow_dir(req: HttpRequest) -> Result<HttpResponse> {
 
     if !validate_mapper_name(&mapper) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
         );
     }
     if !validate_flow_dir_name(&flow) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
         );
     }
 
@@ -4321,17 +4315,17 @@ async fn delete_flow_file_handler(req: HttpRequest) -> Result<HttpResponse> {
 
     if !validate_mapper_name(&mapper) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
         );
     }
     if !validate_flow_dir_name(&flow) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
         );
     }
     if !validate_flow_file_name(&file) {
         return Ok(
-            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid file name"})),
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid file name"}))
         );
     }
 
