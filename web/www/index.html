@@ -540,7 +540,14 @@
               </thead>
               <tbody id="service-control-tbody">
                 <tr>
-                  <td colspan="3" style="text-align:center; color:var(--c8y-palette-gray-40); padding:20px;">
+                  <td
+                    colspan="3"
+                    style="
+                      text-align: center;
+                      color: var(--c8y-palette-gray-40);
+                      padding: 20px;
+                    "
+                  >
                     <span data-i18n="status.loading">Loading...</span>
                   </td>
                 </tr>
@@ -1127,45 +1134,6 @@
                   >
                     Request Certificate
                   </button>
-                  <button
-                    class="btn btn-outline-danger btn-sm"
-                    onclick="resetEdge()"
-                    data-i18n="cloud.reset"
-                  >
-                    Reset
-                  </button>
-                </div>
-                <!-- Action buttons: Self-Signed mode -->
-                <div
-                  id="action-buttons-self"
-                  style="
-                    display: none;
-                    flex-wrap: wrap;
-                    gap: 6px;
-                    margin-top: 16px;
-                  "
-                >
-                  <button
-                    class="btn btn-primary btn-sm"
-                    onclick="configureEdge()"
-                    data-i18n="cloud.configure_edge"
-                  >
-                    Configure
-                  </button>
-                  <button
-                    class="btn btn-outline-secondary btn-sm"
-                    onclick="uploadSelfSignedCert()"
-                    data-i18n="cloud.upload_self_cert"
-                  >
-                    Upload Certificate
-                  </button>
-                  <button
-                    class="btn btn-outline-danger btn-sm"
-                    onclick="resetEdge()"
-                    data-i18n="cloud.reset"
-                  >
-                    Reset
-                  </button>
                 </div>
               </div>
 
@@ -1184,13 +1152,6 @@
                 >
                   Certificate
                 </div>
-                <input
-                  type="text"
-                  id="edge-device-id"
-                  readonly
-                  placeholder="Loading..."
-                  style="display: none"
-                />
                 <div id="cert-details-inline" style="display: none">
                   <div
                     style="
@@ -1221,35 +1182,7 @@
                     "
                   ></pre>
                 </div>
-                <div id="edge-job-log" style="display: none; margin-top: 16px">
-                  <div
-                    style="
-                      font-size: 11px;
-                      font-weight: 700;
-                      text-transform: uppercase;
-                      letter-spacing: 0.07em;
-                      color: var(--c8y-palette-gray-40);
-                      margin-bottom: 8px;
-                    "
-                    data-i18n="cloud.job_log"
-                  >
-                    Job Log
-                  </div>
-                  <div
-                    id="edge-job-log-entries"
-                    style="
-                      font-family: var(--c8y-font-family-mono);
-                      font-size: 12px;
-                      background: var(--c8y-palette-gray-100);
-                      border: 1px solid var(--c8y-palette-gray-70);
-                      border-radius: 4px;
-                      padding: 10px 12px;
-                      max-height: 240px;
-                      overflow-y: auto;
-                      line-height: 1.6;
-                    "
-                  ></div>
-                </div>
+
               </div>
             </div>
           </section>
