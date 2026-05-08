@@ -42,7 +42,7 @@ issues: https://github.com/thin-edge/thin-edge.io/issues
 
 base: core22
 confinement: strict
-icon: web/www/icon.png
+icon: web/www/pictures/thin-edge-avatar.png
 
 # Map hard-coded system paths used by tedge-agent binaries into snap locations.
 # IMPORTANT: log-plugins binds from $SNAP (read-only) so that
@@ -351,7 +351,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: e7f31dcd5702b01f0400df3b899840240d6fbb26
+    source-commit: 9f021a0078bd18452d2e82322773f91a007cc8f1
     build-packages:
       - pkg-config
       - libssl-dev
@@ -606,5 +606,4 @@ parts:
     override-prime: |
       craftctl default
       # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
-      cp $CRAFT_PRIME/web/www/icon.png $CRAFT_PRIME/meta/icon.png
-      cp $CRAFT_PRIME/web/www/icon.svg $CRAFT_PRIME/meta/icon.svg
+      cp $CRAFT_PRIME/web/www/pictures/thin-edge-avatar.png $CRAFT_PRIME/meta/icon.png

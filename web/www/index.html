@@ -27,8 +27,17 @@
   <body>
     <header>
       <div class="header-container">
-        <img src="icon.svg" alt="thin-edge.io" class="logo" />
-        <h1 data-i18n="header.title">thin-edge.io Configuration</h1>
+        <img
+          src="pictures/thin-edge-avatar.png"
+          alt="thin-edge.io"
+          class="header-logo header-logo-light"
+        />
+        <img
+          src="pictures/thin-edge-avatar.svg"
+          alt="thin-edge.io"
+          class="header-logo header-logo-dark"
+        />
+        <span class="header-app-name">thin-edge.io</span>
       </div>
       <div class="header-actions">
         <button
@@ -41,6 +50,33 @@
         >
           ⧉ New Tab
         </button>
+        <button
+          id="header-save-btn"
+          class="header-btn"
+          onclick="saveActiveCloudTab()"
+          style="
+            display: none;
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+          "
+          data-i18n="cloud.save"
+        >
+          Speichern
+        </button>
+        <button
+          id="header-refresh-btn"
+          class="header-btn"
+          onclick="refreshStatus()"
+          style="
+            display: none;
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+          "
+          data-i18n="status.refresh"
+        >
+          Refresh
+        </button>
+
         <div class="color-picker-wrap" id="color-picker-wrap">
           <button
             id="color-picker-btn"
@@ -139,668 +175,919 @@
       </div>
     </header>
 
-    <main>
-      <!-- License warning banner — shown when no valid license is found -->
-      <div
-        id="license-warning-banner"
-        style="
-          display: none;
-          background: #fff3cd;
-          border-left: 4px solid #f0ad4e;
-          padding: 10px 16px;
-          margin-bottom: 12px;
-          font-size: 13px;
-          color: #333;
-        "
-        role="alert"
-      ></div>
-      <div class="container">
-        <!-- Status Section -->
-        <section id="sec-status" class="card">
-          <h2 data-i18n="section.status">Connection Status</h2>
-
-          <div
-            class="status-columns"
-            style="display: flex; gap: 24px; flex-wrap: wrap"
-          >
-            <div class="status-col" style="flex: 1; min-width: 200px">
-              <div
-                style="
-                  font-size: 12px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  color: var(--c8y-palette-gray-40, #999);
-                  margin-bottom: 8px;
-                "
-                data-i18n="status.services"
-              >
-                Services
-              </div>
-              <div class="status-grid">
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('mosquitto')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="mqtt-status" class="status unknown"></span>
-                    <span class="label"> MQTT Broker:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-agent')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="agent-status" class="status unknown"></span>
-                    <span class="label"> Tedge Agent:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-datalayer-bridge')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="bridge-status" class="status unknown"></span>
-                    <span class="label"> Datalayer Bridge:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-watchdog')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="watchdog-status" class="status unknown"></span>
-                    <span class="label"> Watchdog:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-log-upload-manager')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="log-upload-status" class="status unknown"></span>
-                    <span class="label"> Log Manager:</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div
-              style="
-                width: 1px;
-                background: var(--c8y-palette-gray-80);
-                flex-shrink: 0;
-              "
-            ></div>
-
-            <div class="status-col" style="flex: 1; min-width: 200px">
-              <div
-                style="
-                  font-size: 12px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  color: var(--c8y-palette-gray-40, #999);
-                  margin-bottom: 8px;
-                "
-                data-i18n="status.mappers"
-              >
-                Mappers
-              </div>
-              <div class="status-grid">
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-mapper-c8y')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="mapper-c8y-status" class="status unknown"></span>
-                    <span class="label"> Cumulocity:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-mapper-aws')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="mapper-aws-status" class="status unknown"></span>
-                    <span class="label"> AWS IoT:</span>
-                  </a>
-                </div>
-                <div class="status-item">
-                  <a
-                    class="restart-link"
-                    onclick="restartService('tedge-mapper-az')"
-                    data-i18n-title="notify.restart_link_title"
-                  >
-                    <span id="mapper-az-status" class="status unknown"></span
-                    ><span class="label"> Azure IoT:</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div
-              style="
-                width: 1px;
-                background: var(--c8y-palette-gray-80);
-                flex-shrink: 0;
-              "
-            ></div>
-
-            <div class="status-col" style="flex: 1; min-width: 200px">
-              <div
-                style="
-                  font-size: 12px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  color: var(--c8y-palette-gray-40, #999);
-                  margin-bottom: 8px;
-                "
-                data-i18n="status.clouds"
-              >
-                Cloud Connections
-              </div>
-              <div class="status-grid">
-                <div class="status-item">
-                  <span id="c8y-status" class="status unknown"></span>
-                  <span class="label"> Cumulocity IoT:</span>
-                </div>
-                <div class="status-item">
-                  <span id="aws-status" class="status unknown"></span>
-                  <span class="label"> AWS IoT:</span>
-                </div>
-                <div class="status-item">
-                  <span id="az-status" class="status unknown"></span>
-                  <span class="label"> Azure IoT:</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div
-            class="action-buttons"
-            style="
-              margin-top: 14px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              flex-wrap: wrap;
-              gap: 8px;
-            "
-          >
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              onclick="refreshStatus()"
-              data-i18n="status.refresh"
-              data-i18n-title="status.refresh"
+    <div class="app-layout">
+      <!-- ===== Navigator Sidebar ===== -->
+      <aside class="app-sidebar" id="app-sidebar">
+        <ul class="nav-list">
+          <!-- Setup (Cloud-Config, Default) -->
+          <li>
+            <a
+              class="nav-item active"
+              data-target="sec-cloud"
+              onclick="showNav('sec-cloud', this)"
             >
-              Refresh Status
-            </button>
-            <!-- Legende -->
-            <div
-              style="
-                display: flex;
-                gap: 10px;
-                font-size: 11px;
-                color: var(--c8y-palette-gray-40);
-              "
-            >
-              <span
-                ><span class="status running" style="font-size: 13px"
-                  >&#9679;</span
+              <i class="nav-icon fas fa-cloud"></i>
+              <span data-i18n="nav.setup">Setup</span>
+            </a>
+          </li>
+          <!-- Edge group -->
+          <li class="nav-group open">
+            <div class="nav-group-header" onclick="toggleNavGroup(this)">
+              <i class="nav-icon fas fa-server"></i>
+              <span data-i18n="nav.edge">Edge</span>
+              <i class="nav-group-arrow fas fa-chevron-down"></i>
+            </div>
+            <ul class="nav-sublist">
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-status"
+                  onclick="showNav('sec-status', this)"
                 >
-                <span data-i18n="status.legend.running">Läuft</span></span
-              >
-              <span
-                ><span class="status stopped" style="font-size: 13px"
-                  >&#9679;</span
+                  <i class="nav-icon fas fa-circle-dot"></i>
+                  <span data-i18n="nav.status">Status</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-logs"
+                  onclick="showNav('sec-logs', this)"
                 >
-                <span data-i18n="status.legend.stopped">Gestoppt</span></span
-              >
-              <span
-                ><span class="status inactive" style="font-size: 13px"
-                  >&#9679;</span
+                  <i class="nav-icon fas fa-scroll"></i>
+                  <span data-i18n="nav.logs">Logs</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-tedge-config"
+                  onclick="showNav('sec-tedge-config', this)"
                 >
-                <span data-i18n="status.legend.inactive">Inaktiv</span></span
-              >
-              <span
-                ><span class="status unknown" style="font-size: 13px"
-                  >&#9679;</span
+                  <i class="nav-icon fas fa-sliders"></i>
+                  <span data-i18n="nav.tedge_config">Tedge Config</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-device-config"
+                  onclick="showNav('sec-device-config', this)"
                 >
-                <span data-i18n="status.legend.unknown">Unbekannt</span></span
-              >
+                  <i class="nav-icon fas fa-desktop"></i>
+                  <span data-i18n="nav.device">Device</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <!-- ctrlX group -->
+          <li class="nav-group">
+            <div class="nav-group-header" onclick="toggleNavGroup(this)">
+              <i class="nav-icon fas fa-microchip"></i>
+              <span>ctrlX</span>
+              <i class="nav-group-arrow fas fa-chevron-down"></i>
             </div>
-          </div>
-        </section>
+            <ul class="nav-sublist">
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-snap-config"
+                  onclick="showNav('sec-snap-config', this)"
+                >
+                  <i class="nav-icon fas fa-file-code"></i>
+                  <span data-i18n="nav.snap_config">Snap Config</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-datalayer"
+                  onclick="showNav('sec-datalayer', this)"
+                >
+                  <i class="nav-icon fas fa-layer-group"></i>
+                  <span data-i18n="nav.datalayer">Datalayer</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-licensing"
+                  onclick="showNav('sec-licensing', this)"
+                >
+                  <i class="nav-icon fas fa-id-card"></i>
+                  <span data-i18n="nav.licensing">Licensing</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </aside>
+      <!-- ===== Main Content ===== -->
+      <main>
+        <!-- License warning banner — shown when no valid license is found -->
+        <div
+          id="license-warning-banner"
+          style="
+            display: none;
+            background: #fff3cd;
+            border-left: 4px solid #f0ad4e;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #333;
+          "
+          role="alert"
+        ></div>
+        <div class="container" id="main-container">
+          <!-- Status Section -->
+          <section id="sec-status" class="card" data-page="status">
+            <h2 data-i18n="section.status">Connection Status</h2>
 
-        <!-- Cloud Configuration Section -->
-        <section id="sec-cloud" class="card">
-          <h2 data-i18n="section.cloud">Cloud Configuration</h2>
-          <div class="tabs">
-            <button class="tab active" data-cloud="c8y">Cumulocity IoT</button>
-            <button class="tab" data-cloud="aws">AWS IoT</button>
-            <button class="tab" data-cloud="az">Azure IoT</button>
-          </div>
-
-          <div id="c8y-config" class="cloud-config active">
-            <div class="form-group">
-              <label for="c8y-url">C8Y URL:</label>
-              <input
-                type="text"
-                id="c8y-url"
-                placeholder="https://your-tenant.cumulocity.com"
-              />
-              <small>Example: https://your-tenant.cumulocity.com</small>
-            </div>
-            <div class="form-group">
-              <label for="c8y-tenant">Tenant ID:</label>
-              <input type="text" id="c8y-tenant" placeholder="t12345678" />
-              <small>Example: t12345678</small>
-            </div>
-            <div class="tedge-switch-group">
-              <label class="tedge-switch" for="c8y-enabled">
-                <input type="checkbox" id="c8y-enabled" />
-                <span class="tedge-switch-slider"></span>
-              </label>
-              <span class="tedge-switch-label" data-i18n="cloud.c8y_mapper"
-                >Enable Cumulocity IoT Mapper</span
-              >
-            </div>
             <div
-              style="display: flex; justify-content: flex-end; margin-top: 16px"
+              class="status-columns"
+              style="display: flex; gap: 24px; flex-wrap: wrap"
             >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="saveC8yConfig()"
-                data-i18n="cloud.save"
-              >
-                Save Configuration
-              </button>
-            </div>
-          </div>
-
-          <div id="aws-config" class="cloud-config">
-            <div class="form-group">
-              <label for="aws-url">AWS IoT Endpoint URL:</label>
-              <input
-                type="text"
-                id="aws-url"
-                placeholder="xxxxxxxxxx.iot.us-east-1.amazonaws.com"
-              />
-              <small>Example: xxxxxxxxxx.iot.us-east-1.amazonaws.com</small>
-            </div>
-            <div class="tedge-switch-group">
-              <label class="tedge-switch" for="aws-enabled">
-                <input type="checkbox" id="aws-enabled" />
-                <span class="tedge-switch-slider"></span>
-              </label>
-              <span class="tedge-switch-label" data-i18n="cloud.aws_mapper"
-                >Enable AWS IoT Mapper</span
-              >
-            </div>
-            <div
-              style="display: flex; justify-content: flex-end; margin-top: 16px"
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="saveAwsConfig()"
-                data-i18n="cloud.save_short"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-
-          <div id="az-config" class="cloud-config">
-            <div class="form-group">
-              <label for="az-url">Azure IoT Hub URL:</label>
-              <input
-                type="text"
-                id="az-url"
-                placeholder="your-iot-hub.azure-devices.net"
-              />
-              <small>Example: your-iot-hub.azure-devices.net</small>
-            </div>
-            <div class="tedge-switch-group">
-              <label class="tedge-switch" for="az-enabled">
-                <input type="checkbox" id="az-enabled" />
-                <span class="tedge-switch-slider"></span>
-              </label>
-              <span class="tedge-switch-label" data-i18n="cloud.az_mapper"
-                >Enable Azure IoT Mapper</span
-              >
-            </div>
-            <div
-              style="display: flex; justify-content: flex-end; margin-top: 16px"
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="saveAzConfig()"
-                data-i18n="cloud.save"
-              >
-                Save Configuration
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Device Certificate Management -->
-        <section id="sec-device" class="card">
-          <h2 data-i18n="section.device">Device Certificate</h2>
-
-          <!-- Certificate mode toggle -->
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              margin-bottom: 18px;
-            "
-          >
-            <span
-              id="cert-mode-label-ca"
-              style="
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--brand-primary);
-              "
-              data-i18n="device.mode_ca"
-              >CA-Certificate</span
-            >
-            <label
-              class="tedge-switch"
-              for="cert-mode-toggle"
-              style="margin: 0"
-            >
-              <input
-                type="checkbox"
-                id="cert-mode-toggle"
-                onchange="setCertMode(this.checked ? 'self' : 'ca')"
-              />
-              <span class="tedge-switch-slider"></span>
-            </label>
-            <span
-              id="cert-mode-label-self"
-              style="font-size: 13px; color: var(--c8y-palette-gray-40)"
-              data-i18n="device.mode_self"
-              >Self-Signed</span
-            >
-          </div>
-
-          <div style="display: flex; gap: 24px; flex-wrap: wrap">
-            <div style="flex: 1; min-width: 260px">
-              <div class="form-group">
-                <label for="device-id" data-i18n="device.id">Device ID:</label>
-                <input
-                  type="text"
-                  id="device-id"
-                  placeholder="Loading..."
-                  readonly
+              <div class="status-col" style="flex: 1; min-width: 200px">
+                <div
                   style="
-                    background: var(--c8y-palette-gray-90, #2a2a3e);
-                    cursor: not-allowed;
-                    opacity: 0.7;
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--c8y-palette-gray-40, #999);
+                    margin-bottom: 8px;
                   "
-                />
-                <small id="device-id-hint" data-i18n="device.id_hint"
-                  >The unique device identifier (only admin can change)</small
+                  data-i18n="status.services"
                 >
+                  Services
+                </div>
+                <div class="status-grid">
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('mosquitto')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span id="mqtt-status" class="status unknown"></span>
+                      <span class="label"> MQTT Broker:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-agent')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span id="agent-status" class="status unknown"></span>
+                      <span class="label"> Tedge Agent:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-datalayer-bridge')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span id="bridge-status" class="status unknown"></span>
+                      <span class="label"> Datalayer Bridge:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-watchdog')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span id="watchdog-status" class="status unknown"></span>
+                      <span class="label"> Watchdog:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-log-upload-manager')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span
+                        id="log-upload-status"
+                        class="status unknown"
+                      ></span>
+                      <span class="label"> Log Manager:</span>
+                    </a>
+                  </div>
+                </div>
               </div>
 
-              <!-- CA-Certificate mode fields -->
-              <div id="cert-ca-fields">
+              <div
+                style="
+                  width: 1px;
+                  background: var(--c8y-palette-gray-80);
+                  flex-shrink: 0;
+                "
+              ></div>
+
+              <!-- Connection column: ctrlX Datalayer -->
+              <div class="status-col" style="flex: 1; min-width: 200px">
+                <div
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--c8y-palette-gray-40, #999);
+                    margin-bottom: 8px;
+                  "
+                  data-i18n="status.connection"
+                >
+                  Connection
+                </div>
+                <div class="status-grid">
+                  <div class="status-item">
+                    <span
+                      id="datalayer-dot-service"
+                      class="status unknown"
+                    ></span>
+                    <span class="label"> ctrlX Datalayer:</span>
+                    <span
+                      id="datalayer-status-text"
+                      style="
+                        font-size: 11px;
+                        color: var(--c8y-palette-gray-40);
+                        margin-left: 4px;
+                      "
+                    ></span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style="
+                  width: 1px;
+                  background: var(--c8y-palette-gray-80);
+                  flex-shrink: 0;
+                "
+              ></div>
+
+              <div class="status-col" style="flex: 1; min-width: 200px">
+                <div
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--c8y-palette-gray-40, #999);
+                    margin-bottom: 8px;
+                  "
+                  data-i18n="status.mappers"
+                >
+                  Mappers
+                </div>
+                <div class="status-grid">
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-mapper-c8y')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span
+                        id="mapper-c8y-status"
+                        class="status unknown"
+                      ></span>
+                      <span class="label"> Cumulocity:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-mapper-aws')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span
+                        id="mapper-aws-status"
+                        class="status unknown"
+                      ></span>
+                      <span class="label"> AWS IoT:</span>
+                    </a>
+                  </div>
+                  <div class="status-item">
+                    <a
+                      class="restart-link"
+                      onclick="restartService('tedge-mapper-az')"
+                      data-i18n-title="notify.restart_link_title"
+                    >
+                      <span id="mapper-az-status" class="status unknown"></span
+                      ><span class="label"> Azure IoT:</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style="
+                  width: 1px;
+                  background: var(--c8y-palette-gray-80);
+                  flex-shrink: 0;
+                "
+              ></div>
+
+              <div class="status-col" style="flex: 1; min-width: 200px">
+                <div
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--c8y-palette-gray-40, #999);
+                    margin-bottom: 8px;
+                  "
+                  data-i18n="status.clouds"
+                >
+                  Cloud Connections
+                </div>
+                <div class="status-grid">
+                  <div class="status-item">
+                    <span id="c8y-status" class="status unknown"></span>
+                    <span class="label"> Cumulocity IoT:</span>
+                  </div>
+                  <div class="status-item">
+                    <span id="aws-status" class="status unknown"></span>
+                    <span class="label"> AWS IoT:</span>
+                  </div>
+                  <div class="status-item">
+                    <span id="az-status" class="status unknown"></span>
+                    <span class="label"> Azure IoT:</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="action-buttons"
+              style="
+                margin-top: 14px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+              "
+            >
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="refreshStatus()"
+                data-i18n="status.refresh"
+                data-i18n-title="status.refresh"
+                style="display: none"
+              >
+                Refresh Status
+              </button>
+              <!-- Legende -->
+              <div
+                style="
+                  display: flex;
+                  gap: 10px;
+                  font-size: 11px;
+                  color: var(--c8y-palette-gray-40);
+                "
+              >
+                <span
+                  ><span class="status running" style="font-size: 13px"
+                    >&#9679;</span
+                  >
+                  <span data-i18n="status.legend.running">Läuft</span></span
+                >
+                <span
+                  ><span class="status stopped" style="font-size: 13px"
+                    >&#9679;</span
+                  >
+                  <span data-i18n="status.legend.stopped">Gestoppt</span></span
+                >
+                <span
+                  ><span class="status inactive" style="font-size: 13px"
+                    >&#9679;</span
+                  >
+                  <span data-i18n="status.legend.inactive">Inaktiv</span></span
+                >
+                <span
+                  ><span class="status unknown" style="font-size: 13px"
+                    >&#9679;</span
+                  >
+                  <span data-i18n="status.legend.unknown">Unbekannt</span></span
+                >
+              </div>
+            </div>
+          </section>
+
+          <!-- Setup: Cloud + Certificate + Actions (3 columns) -->
+          <section id="sec-cloud" class="card" data-page="setup">
+            <h2 data-i18n="section.cloud">Cloud Configuration</h2>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 28px;
+                align-items: start;
+              "
+            >
+              <!-- ── Column 1: Cloud Connection ── -->
+              <div>
+                <div
+                  style="
+                    font-size: 11px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.07em;
+                    color: var(--c8y-palette-gray-40);
+                    margin-bottom: 10px;
+                  "
+                  data-i18n="section.cloud_col"
+                >
+                  Cloud
+                </div>
+                <div class="tabs">
+                  <button class="tab active" data-cloud="c8y">
+                    Cumulocity IoT
+                  </button>
+                  <button class="tab" data-cloud="aws">AWS IoT</button>
+                  <button class="tab" data-cloud="az">Azure IoT</button>
+                </div>
+                <div id="c8y-config" class="cloud-config active">
+                  <div class="form-group">
+                    <label for="c8y-url">C8Y URL:</label>
+                    <input
+                      type="text"
+                      id="c8y-url"
+                      placeholder="https://your-tenant.cumulocity.com"
+                    />
+                    <small>Example: https://your-tenant.cumulocity.com</small>
+                  </div>
+                  <input type="checkbox" id="c8y-enabled" hidden />
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      margin-top: 12px;
+                      padding: 8px 12px;
+                      border: 1px solid var(--c8y-palette-gray-70);
+                      border-radius: 6px;
+                      background: var(--c8y-palette-gray-90);
+                    "
+                  >
+                    <span
+                      id="c8y-port-label-8883"
+                      style="
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: var(--brand-primary);
+                      "
+                      data-i18n="connect.port_core"
+                      >Core MQTT (8883)</span
+                    >
+                    <label
+                      class="tedge-switch"
+                      for="c8y-mqtt-port-toggle"
+                      style="margin: 0"
+                    >
+                      <input
+                        type="checkbox"
+                        id="c8y-mqtt-port-toggle"
+                        onchange="onMqttPortToggle(this.checked)"
+                      />
+                      <span class="tedge-switch-slider"></span>
+                    </label>
+                    <span
+                      id="c8y-port-label-9883"
+                      style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+                      data-i18n="connect.port_service"
+                      >MQTT Service (9883)</span
+                    >
+                    <span
+                      id="c8y-port-status"
+                      style="
+                        font-size: 11px;
+                        color: var(--c8y-palette-gray-50);
+                        margin-left: auto;
+                      "
+                    ></span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      flex-wrap: wrap;
+                      gap: 6px;
+                      margin-top: 12px;
+                    "
+                  >
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="connectCloud('c8y')"
+                      data-i18n="connect.btn"
+                    >
+                      Connect
+                    </button>
+                    <button
+                      class="btn btn-outline-warning btn-sm"
+                      onclick="reconnectCloud('c8y')"
+                      data-i18n="connect.reconnect"
+                    >
+                      Reconnect
+                    </button>
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      onclick="disconnectCloud('c8y')"
+                      data-i18n="connect.disconnect"
+                    >
+                      Disconnect
+                    </button>
+                    <a
+                      href="https://thin-edge.github.io/thin-edge.io/start/connect-c8y/#configure-the-device"
+                      target="_blank"
+                      rel="noopener"
+                      class="btn btn-outline-secondary btn-sm"
+                      data-i18n="connect.setup"
+                      >Setup ↗</a
+                    >
+                  </div>
+                </div>
+                <div id="aws-config" class="cloud-config">
+                  <div class="form-group">
+                    <label for="aws-url">AWS IoT Endpoint URL:</label>
+                    <input
+                      type="text"
+                      id="aws-url"
+                      placeholder="xxxxxxxxxx.iot.us-east-1.amazonaws.com"
+                    />
+                    <small
+                      >Example: xxxxxxxxxx.iot.us-east-1.amazonaws.com</small
+                    >
+                  </div>
+                  <input type="checkbox" id="aws-enabled" hidden />
+                  <div
+                    style="
+                      display: flex;
+                      flex-wrap: wrap;
+                      gap: 6px;
+                      margin-top: 12px;
+                    "
+                  >
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="connectCloud('aws')"
+                      data-i18n="connect.btn"
+                    >
+                      Connect
+                    </button>
+                    <button
+                      class="btn btn-outline-warning btn-sm"
+                      onclick="reconnectCloud('aws')"
+                      data-i18n="connect.reconnect"
+                    >
+                      Reconnect
+                    </button>
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      onclick="disconnectCloud('aws')"
+                      data-i18n="connect.disconnect"
+                    >
+                      Disconnect
+                    </button>
+                    <a
+                      href="https://thin-edge.github.io/thin-edge.io/start/connect-aws/#register"
+                      target="_blank"
+                      rel="noopener"
+                      class="btn btn-outline-secondary btn-sm"
+                      data-i18n="connect.setup"
+                      >Setup ↗</a
+                    >
+                  </div>
+                </div>
+                <div id="az-config" class="cloud-config">
+                  <div class="form-group">
+                    <label for="az-url">Azure IoT Hub URL:</label>
+                    <input
+                      type="text"
+                      id="az-url"
+                      placeholder="your-iot-hub.azure-devices.net"
+                    />
+                    <small>Example: your-iot-hub.azure-devices.net</small>
+                  </div>
+                  <input type="checkbox" id="az-enabled" hidden />
+                  <div
+                    style="
+                      display: flex;
+                      flex-wrap: wrap;
+                      gap: 6px;
+                      margin-top: 12px;
+                    "
+                  >
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="connectCloud('az')"
+                      data-i18n="connect.btn"
+                    >
+                      Connect
+                    </button>
+                    <button
+                      class="btn btn-outline-warning btn-sm"
+                      onclick="reconnectCloud('az')"
+                      data-i18n="connect.reconnect"
+                    >
+                      Reconnect
+                    </button>
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      onclick="disconnectCloud('az')"
+                      data-i18n="connect.disconnect"
+                    >
+                      Disconnect
+                    </button>
+                    <a
+                      href="https://thin-edge.github.io/thin-edge.io/start/connect-azure/#register"
+                      target="_blank"
+                      rel="noopener"
+                      class="btn btn-outline-secondary btn-sm"
+                      data-i18n="connect.setup"
+                      >Setup ↗</a
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Column 2: Device Certificate ── -->
+              <div id="sec-device">
+                <div
+                  style="
+                    font-size: 11px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.07em;
+                    color: var(--c8y-palette-gray-40);
+                    margin-bottom: 10px;
+                  "
+                  data-i18n="section.device_col"
+                >
+                  Device Certificate
+                </div>
+                <!-- Mode toggle -->
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 14px;
+                  "
+                >
+                  <span
+                    id="cert-mode-label-ca"
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: var(--brand-primary);
+                    "
+                    data-i18n="device.mode_ca"
+                    >CA-Certificate</span
+                  >
+                  <label
+                    class="tedge-switch"
+                    for="cert-mode-toggle"
+                    style="margin: 0"
+                  >
+                    <input
+                      type="checkbox"
+                      id="cert-mode-toggle"
+                      onchange="setCertMode(this.checked ? 'self' : 'ca')"
+                    />
+                    <span class="tedge-switch-slider"></span>
+                  </label>
+                  <span
+                    id="cert-mode-label-self"
+                    style="font-size: 13px; color: var(--c8y-palette-gray-40)"
+                    data-i18n="device.mode_self"
+                    >Self-Signed</span
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="device-id" data-i18n="device.id"
+                    >Device ID:</label
+                  >
+                  <input
+                    type="text"
+                    id="device-id"
+                    placeholder="Loading..."
+                    readonly
+                    style="
+                      background: var(--c8y-palette-gray-90, #2a2a3e);
+                      cursor: not-allowed;
+                      opacity: 0.7;
+                    "
+                  />
+                  <small id="device-id-hint" data-i18n="device.id_hint"
+                    >The unique device identifier (only admin can change)</small
+                  >
+                </div>
                 <div class="form-group">
                   <label for="cert-ca-name" data-i18n="device.ca_name"
-                    >Device Name:</label
+                    >External Device ID:</label
                   >
                   <input
                     type="text"
                     id="cert-ca-name"
                     placeholder="ctrlx-device-name"
                     autocomplete="off"
-                    oninput="onCaNameInput()"
+                    oninput="
+                      onCaNameInput();
+                      syncCertName();
+                    "
                   />
                   <small data-i18n="device.ca_name_hint"
                     >Used as CN for the CA-signed device certificate</small
                   >
                 </div>
-
-                <div class="form-group">
-                  <label for="cert-ca-otp" data-i18n="device.ca_otp"
-                    >One-Time Password:</label
-                  >
-                  <input
-                    type="password"
-                    id="cert-ca-otp"
-                    placeholder="••••••••"
-                    autocomplete="one-time-code"
-                    oninput="onCaNameInput()"
-                  />
-                  <small data-i18n="device.ca_otp_hint"
-                    >One-time password provided by the CA for device
-                    registration</small
-                  >
-                </div>
-
-                <!-- Registration hint -->
-                <div
-                  id="cert-ca-reg-hint"
-                  style="
-                    display: none;
-                    margin-bottom: 14px;
-                    padding: 10px 14px;
-                    border-radius: 6px;
-                    background: rgba(255, 200, 0, 0.08);
-                    border: 1px solid rgba(255, 200, 0, 0.3);
-                    font-size: 13px;
-                  "
-                >
-                  <span style="color: #f0ad4e">⚠</span>
-                  <span data-i18n="device.ca_reg_hint"
-                    >Device registration not yet started. Please register the
-                    device first:</span
-                  >
-                  <a
-                    id="cert-ca-reg-link"
-                    href="#"
-                    target="_blank"
-                    rel="noopener"
+                <!-- CA fields -->
+                <div id="cert-ca-fields">
+                  <div class="form-group">
+                    <label for="cert-ca-otp" data-i18n="device.ca_otp"
+                      >One-Time Password:</label
+                    >
+                    <input
+                      type="password"
+                      id="cert-ca-otp"
+                      placeholder="••••••••"
+                      autocomplete="one-time-code"
+                      oninput="onCaNameInput()"
+                    />
+                    <small data-i18n="device.ca_otp_hint"
+                      >One-time password provided by the CA</small
+                    >
+                  </div>
+                  <div
+                    id="cert-ca-reg-hint"
                     style="
-                      display: block;
-                      margin-top: 4px;
-                      font-size: 12px;
-                      word-break: break-all;
+                      display: none;
+                      margin-bottom: 14px;
+                      padding: 10px 14px;
+                      border-radius: 6px;
+                      background: rgba(255, 200, 0, 0.08);
+                      border: 1px solid rgba(255, 200, 0, 0.3);
+                      font-size: 13px;
                     "
-                  ></a>
-                </div>
-              </div>
-
-              <!-- Self-Signed mode fields -->
-              <div id="cert-self-fields" style="display: none">
-                <div class="form-group">
-                  <label for="cert-common-name" data-i18n="device.name"
-                    >Device Name:</label
                   >
-                  <input
-                    type="text"
-                    id="cert-common-name"
-                    placeholder="e.g. ctrlx-001"
-                    autocomplete="off"
-                  />
-                  <small data-i18n="device.name_hint"
-                    >Used as CN when creating the device certificate</small
-                  >
-                </div>
-                <div
-                  style="
-                    margin: 0 0 16px 0;
-                    display: flex;
-                    gap: 24px;
-                    flex-wrap: wrap;
-                  "
-                >
-                  <span
-                    ><strong data-i18n="device.cert_status"
-                      >Certificate Status:</strong
+                    <span style="color: #f0ad4e">⚠</span>
+                    <span data-i18n="device.ca_reg_hint"
+                      >Device registration not yet started.</span
                     >
-                    <span
-                      id="cert-status"
-                      class="cert-status"
-                      data-i18n="device.cert_unknown"
-                      >⚪ Unknown</span
-                    ></span
-                  >
-                  <span
-                    ><strong data-i18n="device.upload_status"
-                      >Upload Status:</strong
-                    >
-                    <span id="cert-upload-status" class="cert-status"
-                      >⚪ Not yet uploaded</span
-                    ></span
-                  >
+                    <a
+                      id="cert-ca-reg-link"
+                      href="#"
+                      target="_blank"
+                      rel="noopener"
+                      style="
+                        display: block;
+                        margin-top: 4px;
+                        font-size: 12px;
+                        word-break: break-all;
+                      "
+                    ></a>
+                  </div>
                 </div>
-                <div class="action-buttons">
-                  <button
-                    class="btn btn-outline-secondary btn-sm"
-                    id="btn-save-device"
-                    onclick="saveDeviceConfig()"
-                    disabled
-                    data-i18n="device.save"
-                  >
-                    Save
-                  </button>
-                  <button
-                    class="btn btn-warning btn-sm"
-                    id="btn-set-device-id"
-                    onclick="manageCertificate()"
-                    disabled
-                    data-i18n="device.renew_cert"
-                  >
-                    Renew Certificate
-                  </button>
-                  <button
-                    class="btn btn-outline-secondary btn-sm"
-                    id="btn-upload-cert"
-                    onclick="toggleCertUploadForm()"
-                    data-i18n="device.upload_cert"
-                  >
-                    Upload Certificate
-                  </button>
-                </div>
-                <div
-                  id="cert-upload-form"
-                  style="
-                    display: none;
-                    margin-top: 14px;
-                    padding: 14px;
-                    border: 1px solid var(--c8y-palette-gray-70);
-                    border-radius: 6px;
-                    background: var(--c8y-palette-gray-90);
-                  "
-                >
+                <!-- Self-signed fields -->
+                <div id="cert-self-fields" style="display: none">
+                  <input type="hidden" id="cert-common-name" />
                   <div
                     style="
-                      font-size: 12px;
-                      font-weight: 600;
-                      text-transform: uppercase;
-                      color: var(--c8y-palette-gray-40, #999);
-                      margin-bottom: 10px;
+                      margin: 0 0 14px;
+                      display: flex;
+                      flex-direction: column;
+                      gap: 4px;
                     "
-                    data-i18n="device.creds_title"
                   >
-                    Cumulocity Credentials
-                  </div>
-                  <form id="c8y-upload-form" onsubmit="return false;">
-                    <div class="form-group" style="margin-bottom: 10px">
-                      <label
-                        for="c8y-upload-user"
-                        style="font-size: 13px"
-                        data-i18n="device.c8y_user"
-                        >Cumulocity Username:</label
+                    <span
+                      ><strong data-i18n="device.cert_status"
+                        >Certificate Status:</strong
                       >
-                      <input
-                        type="text"
-                        id="c8y-upload-user"
-                        placeholder="admin"
-                        autocomplete="username"
-                        style="margin-top: 4px"
-                      />
-                    </div>
-                    <div class="form-group" style="margin-bottom: 12px">
-                      <label
-                        for="c8y-upload-pass"
-                        style="font-size: 13px"
-                        data-i18n="device.c8y_pass"
-                        >Password:</label
-                      >
-                      <input
-                        type="password"
-                        id="c8y-upload-pass"
-                        placeholder="••••••••"
-                        autocomplete="current-password"
-                        form="c8y-upload-form"
-                        style="margin-top: 4px"
-                      />
-                    </div>
-                    <div class="action-buttons">
-                      <button
-                        class="btn btn-primary btn-sm"
-                        onclick="submitCertUpload()"
-                        data-i18n="device.upload_btn"
-                      >
-                        Upload Certificate
-                      </button>
-                      <button
-                        class="btn btn-outline-secondary btn-sm"
-                        onclick="toggleCertUploadForm()"
-                        data-i18n="device.cancel"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-
-              <!-- CA cert status (shown in CA mode) -->
-              <div
-                id="cert-ca-status-row"
-                style="display: none; margin-top: 8px"
-              >
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: column;
-                    gap: 6px;
-                    flex-wrap: wrap;
-                  "
-                >
-                  <span
-                    ><strong data-i18n="device.cert_status"
-                      >Certificate Status:</strong
+                      <span
+                        id="cert-status"
+                        class="cert-status"
+                        data-i18n="device.cert_unknown"
+                        >⚪ Unknown</span
+                      ></span
                     >
                     <span
-                      id="cert-ca-status"
-                      class="cert-status"
-                      data-i18n="device.cert_unknown"
-                      >⚪ Unknown</span
-                    ></span
-                  >
-                  <span
-                    ><strong data-i18n="device.download_status"
-                      >Download Status:</strong
+                      ><strong data-i18n="device.upload_status"
+                        >Upload Status:</strong
+                      >
+                      <span id="cert-upload-status" class="cert-status"
+                        >⚪ Not yet uploaded</span
+                      ></span
                     >
-                    <span id="cert-ca-download-status" class="cert-status"
-                      >⚪ Not yet downloaded</span
-                    ></span
+                  </div>
+                  <div
+                    id="cert-upload-form"
+                    style="
+                      display: none;
+                      margin-top: 14px;
+                      padding: 14px;
+                      border: 1px solid var(--c8y-palette-gray-70);
+                      border-radius: 6px;
+                      background: var(--c8y-palette-gray-90);
+                    "
                   >
+                    <div
+                      style="
+                        font-size: 12px;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        color: var(--c8y-palette-gray-40);
+                        margin-bottom: 10px;
+                      "
+                      data-i18n="device.creds_title"
+                    >
+                      Cumulocity Credentials
+                    </div>
+                    <form id="c8y-upload-form" onsubmit="return false;">
+                      <div class="form-group" style="margin-bottom: 10px">
+                        <label
+                          for="c8y-upload-user"
+                          style="font-size: 13px"
+                          data-i18n="device.c8y_user"
+                          >Cumulocity Username:</label
+                        >
+                        <input
+                          type="text"
+                          id="c8y-upload-user"
+                          placeholder="admin"
+                          autocomplete="username"
+                          style="margin-top: 4px"
+                        />
+                      </div>
+                      <div class="form-group" style="margin-bottom: 12px">
+                        <label
+                          for="c8y-upload-pass"
+                          style="font-size: 13px"
+                          data-i18n="device.c8y_pass"
+                          >Password:</label
+                        >
+                        <input
+                          type="password"
+                          id="c8y-upload-pass"
+                          placeholder="••••••••"
+                          autocomplete="current-password"
+                          form="c8y-upload-form"
+                          style="margin-top: 4px"
+                        />
+                      </div>
+                      <div class="action-buttons">
+                        <button
+                          class="btn btn-primary btn-sm"
+                          onclick="submitCertUpload()"
+                          data-i18n="device.upload_btn"
+                        >
+                          Upload Certificate
+                        </button>
+                        <button
+                          class="btn btn-outline-secondary btn-sm"
+                          onclick="toggleCertUploadForm()"
+                          data-i18n="device.cancel"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
-                <div class="action-buttons" style="margin-top: 8px">
+                <!-- CA status row -->
+                <div
+                  id="cert-ca-status-row"
+                  style="display: none; margin-top: 8px"
+                >
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <span
+                      ><strong data-i18n="device.cert_status"
+                        >Certificate Status:</strong
+                      >
+                      <span
+                        id="cert-ca-status"
+                        class="cert-status"
+                        data-i18n="device.cert_unknown"
+                        >⚪ Unknown</span
+                      ></span
+                    >
+                    <span
+                      ><strong data-i18n="device.download_status"
+                        >Download Status:</strong
+                      >
+                      <span id="cert-ca-download-status" class="cert-status"
+                        >⚪ Not yet downloaded</span
+                      ></span
+                    >
+                  </div>
+                </div>
+                <!-- Action buttons: CA mode -->
+                <div
+                  id="action-buttons-ca"
+                  style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    margin-top: 16px;
+                  "
+                >
                   <button
                     class="btn btn-primary btn-sm"
                     id="btn-ca-request"
@@ -809,1440 +1096,1255 @@
                   >
                     Request Certificate
                   </button>
+                  <button
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="resetEdge()"
+                    data-i18n="cloud.reset"
+                  >
+                    Reset
+                  </button>
+                </div>
+                <!-- Action buttons: Self-Signed mode -->
+                <div
+                  id="action-buttons-self"
+                  style="
+                    display: none;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    margin-top: 16px;
+                  "
+                >
+                  <button
+                    class="btn btn-primary btn-sm"
+                    onclick="configureEdge()"
+                    data-i18n="cloud.configure_edge"
+                  >
+                    Configure
+                  </button>
+                  <button
+                    class="btn btn-outline-secondary btn-sm"
+                    onclick="uploadSelfSignedCert()"
+                    data-i18n="cloud.upload_self_cert"
+                  >
+                    Upload Certificate
+                  </button>
+                  <button
+                    class="btn btn-outline-danger btn-sm"
+                    onclick="resetEdge()"
+                    data-i18n="cloud.reset"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <!-- ── Column 3: Certificate Details ── -->
+              <div>
+                <div
+                  style="
+                    font-size: 11px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.07em;
+                    color: var(--c8y-palette-gray-40);
+                    margin-bottom: 10px;
+                  "
+                  data-i18n="section.cert_col"
+                >
+                  Certificate
+                </div>
+                <input
+                  type="text"
+                  id="edge-device-id"
+                  readonly
+                  placeholder="Loading..."
+                  style="display: none"
+                />
+                <div id="cert-details-inline" style="display: none">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      text-transform: uppercase;
+                      letter-spacing: 0.07em;
+                      color: var(--c8y-palette-gray-40);
+                      margin-bottom: 6px;
+                    "
+                    data-i18n="device.cert_details"
+                  >
+                    Certificate Details
+                  </div>
+                  <pre
+                    id="cert-details-pre"
+                    style="
+                      background: var(--c8y-palette-gray-90);
+                      border: 1px solid var(--c8y-palette-gray-70);
+                      border-radius: 4px;
+                      padding: 10px;
+                      font-size: 11px;
+                      font-family: monospace;
+                      white-space: pre-wrap;
+                      word-break: break-all;
+                      color: var(--c8y-palette-gray-20);
+                      margin: 0;
+                    "
+                  ></pre>
+                </div>
+                <div id="edge-job-log" style="display: none; margin-top: 16px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      text-transform: uppercase;
+                      letter-spacing: 0.07em;
+                      color: var(--c8y-palette-gray-40);
+                      margin-bottom: 8px;
+                    "
+                    data-i18n="cloud.job_log"
+                  >
+                    Job Log
+                  </div>
+                  <div
+                    id="edge-job-log-entries"
+                    style="
+                      font-family: var(--c8y-font-family-mono);
+                      font-size: 12px;
+                      background: var(--c8y-palette-gray-100);
+                      border: 1px solid var(--c8y-palette-gray-70);
+                      border-radius: 4px;
+                      padding: 10px 12px;
+                      max-height: 240px;
+                      overflow-y: auto;
+                      line-height: 1.6;
+                    "
+                  ></div>
                 </div>
               </div>
             </div>
+          </section>
+          <!-- Logs & Diagnostics -->
+          <section id="sec-logs" class="card" data-page="logs">
+            <h2 data-i18n="section.logs">Logs &amp; Diagnostics</h2>
             <div
-              id="cert-details-inline"
-              style="display: none; flex: 1; min-width: 220px"
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: flex-end;
+                margin-bottom: 14px;
+              "
+            >
+              <div class="form-group" style="margin: 0">
+                <label for="log-service-select" data-i18n="logs.service"
+                  >Service</label
+                >
+                <select
+                  id="log-service-select"
+                  onchange="updateLogLevelDropdown()"
+                  style="
+                    padding: 6px 10px;
+                    border: 1px solid var(--c8y-palette-gray-60);
+                    border-radius: 4px;
+                    font-size: 14px;
+                    background: var(--c8y-palette-high);
+                    color: var(--c8y-palette-gray-10);
+                    font-family: var(--c8y-font-family-base);
+                  "
+                >
+                  <option value="tedge-agent">tedge-agent</option>
+                  <option value="tedge-mapper">tedge-mapper</option>
+                  <option value="tedge-datalayer-bridge">tedge-bridge</option>
+                  <option value="tedge-log-upload-manager">log-upload</option>
+                  <option value="mosquitto">mosquitto</option>
+                  <option value="webserver">webserver</option>
+                  <option value="snap-hooks">snap-hooks</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0">
+                <label for="log-level-select" data-i18n="logs.level"
+                  >Log Level</label
+                >
+                <select
+                  id="log-level-select"
+                  style="
+                    padding: 6px 10px;
+                    border: 1px solid var(--c8y-palette-gray-60);
+                    border-radius: 4px;
+                    font-size: 14px;
+                    background: var(--c8y-palette-high);
+                    color: var(--c8y-palette-gray-10);
+                    font-family: var(--c8y-font-family-base);
+                  "
+                >
+                  <option value="error">error</option>
+                  <option value="warn">warn</option>
+                  <option value="info" selected>info</option>
+                  <option value="debug">debug</option>
+                  <option value="trace">trace</option>
+                </select>
+              </div>
+              <div class="action-buttons" style="margin: 0">
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  onclick="applyLogLevel()"
+                  data-i18n="logs.apply"
+                >
+                  Apply Level
+                </button>
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="loadLogs()"
+                  data-i18n="logs.load"
+                >
+                  Load Logs
+                </button>
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  onclick="copyLogs()"
+                  data-i18n="logs.copy"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+            <pre
+              id="log-viewer"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70, #444);
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 12px;
+                font-family: monospace;
+                height: calc(100vh - 260px);
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
+                color: var(--c8y-palette-gray-20, #ccc);
+                margin: 0;
+              "
+              data-i18n="logs.placeholder"
+            >
+Click "Load Logs" to load the latest entries.</pre
+            >
+          </section>
+
+          <!-- Device Configuration (Inventory) -->
+          <section id="sec-device-config" class="card" data-page="device">
+            <h2 data-i18n="section.device_config">Device Configuration</h2>
+
+            <span
+              id="inventory-status"
+              style="
+                font-size: 12px;
+                color: var(--c8y-palette-gray-40);
+                display: block;
+                margin-bottom: 16px;
+              "
+            ></span>
+
+            <!-- c8y_Hardware -->
+            <div
+              style="
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 6px;
+                padding: 14px;
+                margin-bottom: 12px;
+              "
             >
               <div
                 style="
                   font-size: 12px;
                   font-weight: 600;
                   text-transform: uppercase;
-                  color: var(--c8y-palette-gray-40, #999);
-                  margin-bottom: 8px;
-                "
-                data-i18n="device.cert_details"
-              >
-                Certificate Details
-              </div>
-              <pre
-                id="cert-details-pre"
-                style="
-                  background: var(--c8y-palette-gray-90);
-                  border: 1px solid var(--c8y-palette-gray-70);
-                  border-radius: 4px;
-                  padding: 10px;
-                  font-size: 11px;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 10px;
                   font-family: monospace;
-                  white-space: pre-wrap;
-                  word-break: break-all;
-                  color: var(--c8y-palette-gray-20);
-                  margin: 0;
                 "
-              ></pre>
+              >
+                c8y_Hardware
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 12px;
+                  flex-wrap: wrap;
+                "
+              >
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-hw-model" style="font-size: 12px"
+                    >Model</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-hw-model"
+                    placeholder="Bosch ctrlX CORE"
+                  />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-hw-serial" style="font-size: 12px"
+                    >Serial Number</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-hw-serial"
+                    placeholder="auto-detected"
+                  />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-hw-revision" style="font-size: 12px"
+                    >Revision</label
+                  >
+                  <input type="text" id="inv-hw-revision" placeholder="1.0" />
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
-        <!-- Connect Device -->
-        <section id="sec-actions" class="card">
-          <h2 data-i18n="section.connect">Connect Device</h2>
-          <div class="tabs">
-            <button class="tab active" data-connect="c8y">
-              Cumulocity IoT
-            </button>
-            <button class="tab" data-connect="aws">AWS IoT</button>
-            <button class="tab" data-connect="az">Azure IoT</button>
-          </div>
 
-          <div id="c8y-connect" class="connect-panel active">
-            <p
-              style="
-                font-size: 13px;
-                color: var(--c8y-palette-gray-40, #999);
-                margin: 0 0 12px 0;
-              "
-              data-i18n="connect.desc_c8y"
-            >
-              Connects the device to Cumulocity IoT. Output appears in the log
-              viewer below.
-            </p>
-            <!-- MQTT Port Toggle -->
+            <!-- c8y_Firmware -->
             <div
               style="
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                margin-bottom: 14px;
-                padding: 10px 14px;
                 border: 1px solid var(--c8y-palette-gray-70);
                 border-radius: 6px;
-                background: var(--c8y-palette-gray-90, #1e1e30);
+                padding: 14px;
+                margin-bottom: 12px;
               "
             >
-              <div style="display: flex; align-items: center; gap: 8px">
-                <span
-                  id="c8y-port-label-8883"
-                  style="
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: var(--brand-primary);
-                  "
-                  data-i18n="connect.port_core"
-                  >Core MQTT (8883)</span
-                >
-                <label
-                  class="tedge-switch"
-                  for="c8y-mqtt-port-toggle"
-                  style="margin: 0"
-                >
+              <div
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 10px;
+                  font-family: monospace;
+                "
+              >
+                c8y_Firmware
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 12px;
+                "
+              >
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-fw-name" style="font-size: 12px">Name</label>
+                  <input type="text" id="inv-fw-name" placeholder="Linux" />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-fw-version" style="font-size: 12px"
+                    >Version</label
+                  >
                   <input
-                    type="checkbox"
-                    id="c8y-mqtt-port-toggle"
-                    onchange="onMqttPortToggle(this.checked)"
+                    type="text"
+                    id="inv-fw-version"
+                    placeholder="Ubuntu Core 22"
                   />
-                  <span class="tedge-switch-slider"></span>
-                </label>
-                <span
-                  id="c8y-port-label-9883"
-                  style="font-size: 13px; color: var(--c8y-palette-gray-40)"
-                  data-i18n="connect.port_service"
-                  >MQTT Service (9883)</span
-                >
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-fw-url" style="font-size: 12px">URL</label>
+                  <input type="text" id="inv-fw-url" placeholder="http://" />
+                </div>
               </div>
-              <span
-                id="c8y-port-status"
-                style="
-                  font-size: 11px;
-                  color: var(--c8y-palette-gray-50);
-                  margin-left: auto;
-                "
-              ></span>
             </div>
-            <div
-              style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                align-items: center;
-              "
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="connectCloud('c8y')"
-                data-i18n="connect.btn"
-              >
-                Connect
-              </button>
-              <button
-                class="btn btn-outline-warning btn-sm"
-                onclick="reconnectCloud('c8y')"
-                data-i18n="connect.reconnect"
-              >
-                Reconnect
-              </button>
-              <button
-                class="btn btn-outline-danger btn-sm"
-                onclick="disconnectCloud('c8y')"
-                data-i18n="connect.disconnect"
-              >
-                Disconnect
-              </button>
-              <a
-                href="https://thin-edge.github.io/thin-edge.io/start/connect-c8y/#configure-the-device"
-                target="_blank"
-                rel="noopener"
-                class="btn btn-outline-secondary btn-sm"
-                data-i18n="connect.setup"
-                >Setup ↗</a
-              >
-            </div>
-          </div>
 
-          <div id="aws-connect" class="connect-panel">
-            <p
-              style="
-                font-size: 13px;
-                color: var(--c8y-palette-gray-40, #999);
-                margin: 0 0 12px 0;
-              "
-              data-i18n="connect.desc_aws"
-            >
-              Connects the device to AWS IoT. Output appears in the log viewer
-              below.
-            </p>
+            <!-- c8y_Position -->
             <div
               style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                align-items: center;
-              "
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="connectCloud('aws')"
-                data-i18n="connect.btn"
-              >
-                Connect
-              </button>
-              <button
-                class="btn btn-outline-warning btn-sm"
-                onclick="reconnectCloud('aws')"
-                data-i18n="connect.reconnect"
-              >
-                Reconnect
-              </button>
-              <button
-                class="btn btn-outline-danger btn-sm"
-                onclick="disconnectCloud('aws')"
-                data-i18n="connect.disconnect"
-              >
-                Disconnect
-              </button>
-              <a
-                href="https://thin-edge.github.io/thin-edge.io/start/connect-aws/#register"
-                target="_blank"
-                rel="noopener"
-                class="btn btn-outline-secondary btn-sm"
-                data-i18n="connect.setup"
-                >Setup ↗</a
-              >
-            </div>
-          </div>
-
-          <div id="az-connect" class="connect-panel">
-            <p
-              style="
-                font-size: 13px;
-                color: var(--c8y-palette-gray-40, #999);
-                margin: 0 0 12px 0;
-              "
-              data-i18n="connect.desc_az"
-            >
-              Connects the device to Azure IoT Hub. Output appears in the log
-              viewer below.
-            </p>
-            <div
-              style="
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                align-items: center;
-              "
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="connectCloud('az')"
-                data-i18n="connect.btn"
-              >
-                Connect
-              </button>
-              <button
-                class="btn btn-outline-warning btn-sm"
-                onclick="reconnectCloud('az')"
-                data-i18n="connect.reconnect"
-              >
-                Reconnect
-              </button>
-              <button
-                class="btn btn-outline-danger btn-sm"
-                onclick="disconnectCloud('az')"
-                data-i18n="connect.disconnect"
-              >
-                Disconnect
-              </button>
-              <a
-                href="https://thin-edge.github.io/thin-edge.io/start/connect-azure/#register"
-                target="_blank"
-                rel="noopener"
-                class="btn btn-outline-secondary btn-sm"
-                data-i18n="connect.setup"
-                >Setup ↗</a
-              >
-            </div>
-          </div>
-        </section>
-
-        <!-- Logs & Diagnostics -->
-        <section id="sec-logs" class="card">
-          <h2 data-i18n="section.logs">Logs &amp; Diagnostics</h2>
-          <div
-            style="
-              display: flex;
-              flex-wrap: wrap;
-              gap: 12px;
-              align-items: flex-end;
-              margin-bottom: 14px;
-            "
-          >
-            <div class="form-group" style="margin: 0">
-              <label for="log-service-select" data-i18n="logs.service"
-                >Service</label
-              >
-              <select
-                id="log-service-select"
-                onchange="updateLogLevelDropdown()"
-                style="
-                  padding: 6px 10px;
-                  border: 1px solid var(--c8y-palette-gray-60);
-                  border-radius: 4px;
-                  font-size: 14px;
-                  background: var(--c8y-palette-high);
-                  color: var(--c8y-palette-gray-10);
-                  font-family: var(--c8y-font-family-base);
-                "
-              >
-                <option value="tedge-agent">tedge-agent</option>
-                <option value="tedge-mapper">tedge-mapper</option>
-                <option value="tedge-datalayer-bridge">tedge-bridge</option>
-                <option value="tedge-log-upload-manager">log-upload</option>
-                <option value="mosquitto">mosquitto</option>
-                <option value="webserver">webserver</option>
-                <option value="snap-hooks">snap-hooks</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin: 0">
-              <label for="log-level-select" data-i18n="logs.level"
-                >Log Level</label
-              >
-              <select
-                id="log-level-select"
-                style="
-                  padding: 6px 10px;
-                  border: 1px solid var(--c8y-palette-gray-60);
-                  border-radius: 4px;
-                  font-size: 14px;
-                  background: var(--c8y-palette-high);
-                  color: var(--c8y-palette-gray-10);
-                  font-family: var(--c8y-font-family-base);
-                "
-              >
-                <option value="error">error</option>
-                <option value="warn">warn</option>
-                <option value="info" selected>info</option>
-                <option value="debug">debug</option>
-                <option value="trace">trace</option>
-              </select>
-            </div>
-            <div class="action-buttons" style="margin: 0">
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="applyLogLevel()"
-                data-i18n="logs.apply"
-              >
-                Apply Level
-              </button>
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="loadLogs()"
-                data-i18n="logs.load"
-              >
-                Load Logs
-              </button>
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="copyLogs()"
-                data-i18n="logs.copy"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-          <pre
-            id="log-viewer"
-            style="
-              background: var(--c8y-palette-gray-100, #1a1a2e);
-              border: 1px solid var(--c8y-palette-gray-70, #444);
-              border-radius: 4px;
-              padding: 12px;
-              font-size: 12px;
-              font-family: monospace;
-              height: 320px;
-              overflow-y: auto;
-              white-space: pre-wrap;
-              word-break: break-all;
-              color: var(--c8y-palette-gray-20, #ccc);
-              margin: 0;
-            "
-            data-i18n="logs.placeholder"
-          >
-Click "Load Logs" to load the latest entries.</pre
-          >
-        </section>
-
-        <!-- Device Configuration (Inventory) -->
-        <section id="sec-device-config" class="card">
-          <h2 data-i18n="section.device_config">Device Configuration</h2>
-
-          <div
-            style="
-              display: flex;
-              justify-content: flex-end;
-              align-items: center;
-              margin-bottom: 16px;
-              gap: 8px;
-            "
-          >
-            <span
-              id="inventory-status"
-              style="font-size: 12px; color: var(--c8y-palette-gray-40)"
-            ></span>
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="saveAndPublishInventory()"
-              data-i18n="device.save"
-            >
-              Speichern
-            </button>
-          </div>
-
-          <!-- c8y_Hardware -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Hardware
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-                flex-wrap: wrap;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-model" style="font-size: 12px">Model</label>
-                <input
-                  type="text"
-                  id="inv-hw-model"
-                  placeholder="Bosch ctrlX CORE"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-serial" style="font-size: 12px"
-                  >Serial Number</label
-                >
-                <input
-                  type="text"
-                  id="inv-hw-serial"
-                  placeholder="auto-detected"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-hw-revision" style="font-size: 12px"
-                  >Revision</label
-                >
-                <input type="text" id="inv-hw-revision" placeholder="1.0" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Firmware -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Firmware
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-name" style="font-size: 12px">Name</label>
-                <input type="text" id="inv-fw-name" placeholder="Linux" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-version" style="font-size: 12px"
-                  >Version</label
-                >
-                <input
-                  type="text"
-                  id="inv-fw-version"
-                  placeholder="Ubuntu Core 22"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-fw-url" style="font-size: 12px">URL</label>
-                <input type="text" id="inv-fw-url" placeholder="http://" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Position -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Position
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-lat" style="font-size: 12px"
-                  >Latitude</label
-                >
-                <input type="text" id="inv-pos-lat" placeholder="51.151977" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-lng" style="font-size: 12px"
-                  >Longitude</label
-                >
-                <input type="text" id="inv-pos-lng" placeholder="6.95173" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-pos-alt" style="font-size: 12px"
-                  >Altitude</label
-                >
-                <input type="text" id="inv-pos-alt" placeholder="67" />
-              </div>
-            </div>
-          </div>
-
-          <!-- c8y_Network -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              c8y_Network
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-iface" style="font-size: 12px"
-                  >Interface</label
-                >
-                <input type="text" id="inv-net-iface" placeholder="eth0" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-ip" style="font-size: 12px"
-                  >IP Address</label
-                >
-                <input type="text" id="inv-net-ip" placeholder="192.168.1.1" />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-net-mac" style="font-size: 12px"
-                  >MAC Address</label
-                >
-                <input
-                  type="text"
-                  id="inv-net-mac"
-                  placeholder="00:00:00:00:00:00"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- ctrlX_Info -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-              margin-bottom: 12px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 10px;
-                font-family: monospace;
-              "
-            >
-              ctrlX_Info
-            </div>
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 12px;
-              "
-            >
-              <div class="form-group" style="margin: 0">
-                <label for="inv-ctrlx-type" style="font-size: 12px"
-                  >Device Type</label
-                >
-                <input
-                  type="text"
-                  id="inv-ctrlx-type"
-                  placeholder="PLC / Edge Controller"
-                />
-              </div>
-              <div class="form-group" style="margin: 0">
-                <label for="inv-ctrlx-mfr" style="font-size: 12px"
-                  >Manufacturer</label
-                >
-                <input
-                  type="text"
-                  id="inv-ctrlx-mfr"
-                  placeholder="Bosch Rexroth"
-                />
-              </div>
-              <div></div>
-            </div>
-          </div>
-
-          <!-- c8y_SoftwareList (read-only) -->
-          <div
-            style="
-              border: 1px solid var(--c8y-palette-gray-70);
-              border-radius: 6px;
-              padding: 14px;
-            "
-          >
-            <div
-              style="
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-                margin-bottom: 8px;
-                font-family: monospace;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-              "
-            >
-              c8y_SoftwareList
-              <span
-                style="
-                  font-size: 10px;
-                  font-weight: 400;
-                  text-transform: none;
-                  color: var(--c8y-palette-gray-50);
-                "
-                >(auto-populated from snap list)</span
-              >
-            </div>
-            <pre
-              id="inv-software-list"
-              style="
-                background: var(--c8y-palette-gray-100, #1a1a2e);
                 border: 1px solid var(--c8y-palette-gray-70);
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 11px;
-                font-family: monospace;
-                margin: 0;
-                max-height: 120px;
-                overflow-y: auto;
-                color: var(--c8y-palette-gray-40);
-                white-space: pre-wrap;
+                border-radius: 6px;
+                padding: 14px;
+                margin-bottom: 12px;
               "
             >
-—</pre
-            >
-          </div>
-        </section>
-
-        <!-- Tedge Configuration -->
-        <section id="sec-tedge-config" class="card">
-          <h2 data-i18n="section.tedgeconfig">Tedge Configuration</h2>
-          <div
-            style="
-              display: flex;
-              gap: 8px;
-              align-items: center;
-              margin-bottom: 14px;
-            "
-          >
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="loadTedgeConfig()"
-              data-i18n="tedgeconfig.load"
-            >
-              Konfiguration laden
-            </button>
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              onclick="copyTedgeConfig()"
-              data-i18n="tedgeconfig.copy"
-            >
-              Kopieren
-            </button>
-          </div>
-          <pre
-            id="tedge-config-viewer"
-            style="
-              background: var(--c8y-palette-gray-100, #1a1a2e);
-              border: 1px solid var(--c8y-palette-gray-70, #444);
-              border-radius: 4px;
-              padding: 12px;
-              font-size: 12px;
-              font-family: monospace;
-              height: 400px;
-              overflow-y: auto;
-              white-space: pre-wrap;
-              word-break: break-all;
-              color: var(--c8y-palette-gray-20, #ccc);
-              margin: 0;
-            "
-            data-i18n="tedgeconfig.placeholder"
-          >
-Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
-          >
-        </section>
-
-        <!-- Snap Config Editor -->
-        <section id="sec-snap-config" class="card">
-          <h2 data-i18n="section.snapconfig">Konfigurationsdateien</h2>
-          <div
-            style="
-              display: flex;
-              flex-wrap: wrap;
-              gap: 12px;
-              align-items: flex-end;
-              margin-bottom: 14px;
-            "
-          >
-            <div class="form-group" style="margin: 0">
-              <label for="snapconfig-file-select" data-i18n="snapconfig.file"
-                >Datei</label
-              >
-              <select
-                id="snapconfig-file-select"
+              <div
                 style="
-                  padding: 6px 10px;
-                  border: 1px solid var(--c8y-palette-gray-60);
-                  border-radius: 4px;
-                  font-size: 14px;
-                  background: var(--c8y-palette-high);
-                  color: var(--c8y-palette-gray-10);
-                  font-family: var(--c8y-font-family-base);
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 10px;
+                  font-family: monospace;
                 "
               >
-                <option value="datalayer-mappings.json">
-                  datalayer-mappings.json
-                </option>
-                <option value="inventory.json">inventory.json</option>
-                <option value="snap-inventory.json">snap-inventory.json</option>
-                <option value="tedge-web-config.json">
-                  tedge-web-config.json
-                </option>
-                <option value="tedge.toml">tedge.toml</option>
-                <option value="tedge-log-plugin.toml">
-                  tedge-log-plugin.toml
-                </option>
-                <option value="tedge-configuration-plugin.toml">
-                  tedge-configuration-plugin.toml
-                </option>
-              </select>
+                c8y_Position
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 12px;
+                "
+              >
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-pos-lat" style="font-size: 12px"
+                    >Latitude</label
+                  >
+                  <input type="text" id="inv-pos-lat" placeholder="51.151977" />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-pos-lng" style="font-size: 12px"
+                    >Longitude</label
+                  >
+                  <input type="text" id="inv-pos-lng" placeholder="6.95173" />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-pos-alt" style="font-size: 12px"
+                    >Altitude</label
+                  >
+                  <input type="text" id="inv-pos-alt" placeholder="67" />
+                </div>
+              </div>
             </div>
-            <div class="action-buttons" style="margin: 0">
+
+            <!-- c8y_Network -->
+            <div
+              style="
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 6px;
+                padding: 14px;
+                margin-bottom: 12px;
+              "
+            >
+              <div
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 10px;
+                  font-family: monospace;
+                "
+              >
+                c8y_Network
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 12px;
+                "
+              >
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-net-iface" style="font-size: 12px"
+                    >Interface</label
+                  >
+                  <input type="text" id="inv-net-iface" placeholder="eth0" />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-net-ip" style="font-size: 12px"
+                    >IP Address</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-net-ip"
+                    placeholder="192.168.1.1"
+                  />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-net-mac" style="font-size: 12px"
+                    >MAC Address</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-net-mac"
+                    placeholder="00:00:00:00:00:00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- ctrlX_Info -->
+            <div
+              style="
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 6px;
+                padding: 14px;
+                margin-bottom: 12px;
+              "
+            >
+              <div
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 10px;
+                  font-family: monospace;
+                "
+              >
+                ctrlX_Info
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 12px;
+                "
+              >
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-ctrlx-type" style="font-size: 12px"
+                    >Device Type</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-ctrlx-type"
+                    placeholder="PLC / Edge Controller"
+                  />
+                </div>
+                <div class="form-group" style="margin: 0">
+                  <label for="inv-ctrlx-mfr" style="font-size: 12px"
+                    >Manufacturer</label
+                  >
+                  <input
+                    type="text"
+                    id="inv-ctrlx-mfr"
+                    placeholder="Bosch Rexroth"
+                  />
+                </div>
+                <div></div>
+              </div>
+            </div>
+
+            <!-- c8y_SoftwareList (read-only) -->
+            <div
+              style="
+                border: 1px solid var(--c8y-palette-gray-70);
+                border-radius: 6px;
+                padding: 14px;
+              "
+            >
+              <div
+                style="
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  color: var(--c8y-palette-gray-40);
+                  margin-bottom: 8px;
+                  font-family: monospace;
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                "
+              >
+                c8y_SoftwareList
+                <span
+                  style="
+                    font-size: 10px;
+                    font-weight: 400;
+                    text-transform: none;
+                    color: var(--c8y-palette-gray-50);
+                  "
+                  >(auto-populated from snap list)</span
+                >
+              </div>
+              <pre
+                id="inv-software-list"
+                style="
+                  background: var(--c8y-palette-gray-100, #1a1a2e);
+                  border: 1px solid var(--c8y-palette-gray-70);
+                  border-radius: 4px;
+                  padding: 8px;
+                  font-size: 11px;
+                  font-family: monospace;
+                  margin: 0;
+                  max-height: 120px;
+                  overflow-y: auto;
+                  color: var(--c8y-palette-gray-40);
+                  white-space: pre-wrap;
+                "
+              >
+—</pre
+              >
+            </div>
+          </section>
+
+          <!-- Tedge Configuration -->
+          <section id="sec-tedge-config" class="card" data-page="tedge-config">
+            <h2 data-i18n="section.tedgeconfig">Tedge Configuration</h2>
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 14px;
+              "
+            >
               <button
                 class="btn btn-primary btn-sm"
-                onclick="loadSnapConfigFile()"
-                data-i18n="snapconfig.load"
+                onclick="loadTedgeConfig()"
+                data-i18n="tedgeconfig.load"
               >
-                Laden
+                Konfiguration laden
               </button>
               <button
                 class="btn btn-outline-secondary btn-sm"
-                onclick="saveSnapConfigFile()"
-                data-i18n="snapconfig.save"
-              >
-                Speichern
-              </button>
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="copySnapConfigContent()"
-                data-i18n="snapconfig.copy"
+                onclick="copyTedgeConfig()"
+                data-i18n="tedgeconfig.copy"
               >
                 Kopieren
               </button>
             </div>
-          </div>
-          <div
-            id="snapconfig-path-hint"
-            style="
-              font-size: 11px;
-              color: var(--c8y-palette-gray-40, #999);
-              margin-bottom: 8px;
-              font-family: monospace;
-            "
-          ></div>
-          <textarea
-            id="snapconfig-editor"
-            spellcheck="false"
-            style="
-              background: var(--c8y-palette-gray-100, #1a1a2e);
-              border: 1px solid var(--c8y-palette-gray-70, #444);
-              border-radius: 4px;
-              padding: 12px;
-              font-size: 12px;
-              font-family: monospace;
-              height: 320px;
-              width: 100%;
-              box-sizing: border-box;
-              overflow-y: auto;
-              white-space: pre;
-              color: var(--c8y-palette-gray-20, #ccc);
-              margin: 0;
-              resize: vertical;
-            "
-            data-i18n-placeholder="snapconfig.placeholder"
-            placeholder='Datei auswählen und „Laden" klicken.'
-          ></textarea>
-        </section>
+            <pre
+              id="tedge-config-viewer"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70, #444);
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 12px;
+                font-family: monospace;
+                height: calc(100vh - 220px);
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
+                color: var(--c8y-palette-gray-20, #ccc);
+                margin: 0;
+              "
+              data-i18n="tedgeconfig.placeholder"
+            >
+Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
+            >
+          </section>
 
-        <!-- ctrlX Datalayer -->
-
-        <section id="sec-datalayer" class="card">
-          <h2 data-i18n="section.datalayer">ctrlX Datenpunkte (Datalayer)</h2>
-
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              margin-bottom: 16px;
-              flex-wrap: wrap;
-              gap: 16px;
-            "
-          >
+          <!-- Snap Config Editor -->
+          <section id="sec-snap-config" class="card" data-page="snap-config">
+            <h2 data-i18n="section.snapconfig">Konfigurationsdateien</h2>
             <div
               style="
-                font-weight: 600;
-                display: inline-flex;
-                align-items: center;
-                gap: 16px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: flex-end;
+                margin-bottom: 14px;
               "
             >
-              <span style="display: inline-flex; align-items: center; gap: 4px">
-                <span id="datalayer-dot-service">⚪</span>
-                <span data-i18n="status.services">Dienste</span>
-              </span>
-
-              <span style="display: inline-flex; align-items: center; gap: 4px">
-                <span id="datalayer-status-text" data-i18n="status.loading"
-                  >⚪ Lädt...</span
+              <div class="form-group" style="margin: 0">
+                <label for="snapconfig-file-select" data-i18n="snapconfig.file"
+                  >Datei</label
                 >
-              </span>
-            </div>
-
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="loadDatalayerStatus()"
-              data-i18n="datalayer.refresh"
-            >
-              Aktualisieren
-            </button>
-          </div>
-
-          <details class="node-browser-container" open>
-            <summary data-i18n="datalayer.connection_settings">
-              Connection Settings
-            </summary>
-            <div class="card-inner-block">
-              <div class="status-columns" style="margin-bottom: 15px">
-                <div class="status-col" style="flex: 2">
-                  <div class="form-group">
-                    <label data-i18n="datalayer.token_static"
-                      >Static Token (Optional)</label
-                    >
-                    <input
-                      type="text"
-                      id="datalayer-token"
-                      class="form-control"
-                      data-i18n-placeholder="datalayer.token_hint"
-                    />
-                  </div>
-                </div>
-                <div
-                  class="status-col"
+                <select
+                  id="snapconfig-file-select"
                   style="
-                    flex: 1;
-                    display: flex;
-                    align-items: center;
-                    padding-top: 20px;
+                    padding: 6px 10px;
+                    border: 1px solid var(--c8y-palette-gray-60);
+                    border-radius: 4px;
+                    font-size: 14px;
+                    background: var(--c8y-palette-high);
+                    color: var(--c8y-palette-gray-10);
+                    font-family: var(--c8y-font-family-base);
                   "
                 >
-                  <div class="tedge-switch-group" style="margin-bottom: 0">
-                    <label class="tedge-switch">
-                      <input type="checkbox" id="datalayer-enabled" />
-                      <span class="tedge-switch-slider"></span>
-                    </label>
-                    <span
-                      class="tedge-switch-label"
-                      data-i18n="datalayer.enabled"
-                      >Enabled</span
-                    >
-                  </div>
+                  <option value="datalayer-mappings.json">
+                    datalayer-mappings.json
+                  </option>
+                  <option value="inventory.json">inventory.json</option>
+                  <option value="snap-inventory.json">
+                    snap-inventory.json
+                  </option>
+                  <option value="tedge-web-config.json">
+                    tedge-web-config.json
+                  </option>
+                  <option value="tedge.toml">tedge.toml</option>
+                  <option value="tedge-log-plugin.toml">
+                    tedge-log-plugin.toml
+                  </option>
+                  <option value="tedge-configuration-plugin.toml">
+                    tedge-configuration-plugin.toml
+                  </option>
+                </select>
+              </div>
+              <div class="action-buttons" style="margin: 0">
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="loadSnapConfigFile()"
+                  data-i18n="snapconfig.load"
+                >
+                  Laden
+                </button>
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  onclick="copySnapConfigContent()"
+                  data-i18n="snapconfig.copy"
+                >
+                  Kopieren
+                </button>
+              </div>
+            </div>
+            <div
+              id="snapconfig-path-hint"
+              style="
+                font-size: 11px;
+                color: var(--c8y-palette-gray-40, #999);
+                margin-bottom: 8px;
+                font-family: monospace;
+              "
+            ></div>
+            <textarea
+              id="snapconfig-editor"
+              spellcheck="false"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70, #444);
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 12px;
+                font-family: monospace;
+                height: calc(100vh - 290px);
+                width: 100%;
+                box-sizing: border-box;
+                overflow-y: auto;
+                white-space: pre;
+                color: var(--c8y-palette-gray-20, #ccc);
+                margin: 0;
+                resize: vertical;
+              "
+              data-i18n-placeholder="snapconfig.placeholder"
+              placeholder='Datei auswählen und „Laden" klicken.'
+            ></textarea>
+          </section>
+
+          <!-- ctrlX Datalayer -->
+
+          <section id="sec-datalayer" class="card" data-page="datalayer">
+            <h2 data-i18n="section.datalayer">ctrlX Datenpunkte (Datalayer)</h2>
+
+            <div
+              style="
+                display: flex;
+                gap: 24px;
+                align-items: flex-start;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+              "
+            >
+              <!-- LEFT: Datalayer Bridge Connection toggle + Connection Settings -->
+              <div style="flex: 1; min-width: 280px">
+                <div class="tedge-switch-group" style="margin-bottom: 12px">
+                  <label class="tedge-switch">
+                    <input type="checkbox" id="datalayer-enabled" />
+                    <span class="tedge-switch-slider"></span>
+                  </label>
+                  <span class="tedge-switch-label" data-i18n="datalayer.enabled"
+                    >Datalayer Bridge Connection</span
+                  >
                 </div>
+
+                <details class="node-browser-container" open>
+                  <summary data-i18n="datalayer.connection_settings">
+                    Connection Settings
+                  </summary>
+                  <div class="card-inner-block">
+                    <div class="status-columns" style="margin-bottom: 15px">
+                      <div class="status-col" style="flex: 2">
+                        <div class="form-group">
+                          <label data-i18n="datalayer.token_static"
+                            >Static Token (Optional)</label
+                          >
+                          <input
+                            type="text"
+                            id="datalayer-token"
+                            class="form-control"
+                            data-i18n-placeholder="datalayer.token_hint"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="status-columns">
+                      <div class="status-col">
+                        <div class="form-group">
+                          <label
+                            for="datalayer-base-url"
+                            data-i18n="datalayer.base_url"
+                            >Base URL</label
+                          >
+                          <input
+                            type="text"
+                            id="datalayer-base-url"
+                            class="form-control"
+                            placeholder="https://localhost"
+                          />
+                        </div>
+                        <div class="form-group">
+                          <label
+                            for="datalayer-password"
+                            data-i18n="datalayer.password"
+                            >Password</label
+                          >
+                          <input
+                            type="password"
+                            id="datalayer-password"
+                            class="form-control"
+                            autocomplete="new-password"
+                            data-i18n-placeholder="datalayer.password_hint"
+                          />
+                        </div>
+                        <div class="tedge-switch-group">
+                          <label
+                            class="tedge-switch"
+                            for="datalayer-accept-invalid-certs"
+                          >
+                            <input
+                              type="checkbox"
+                              id="datalayer-accept-invalid-certs"
+                            />
+                            <span class="tedge-switch-slider"></span>
+                          </label>
+                          <span
+                            class="tedge-switch-label"
+                            data-i18n="datalayer.accept_invalid_certs"
+                            >Accept invalid TLS certificates</span
+                          >
+                        </div>
+                      </div>
+                      <div class="status-col">
+                        <div class="form-group">
+                          <label
+                            for="datalayer-username"
+                            data-i18n="datalayer.username"
+                            >Username</label
+                          >
+                          <input
+                            type="text"
+                            id="datalayer-username"
+                            class="form-control"
+                            placeholder="boschrexroth"
+                          />
+                        </div>
+                        <div class="form-group">
+                          <label data-i18n="datalayer.poll_interval"
+                            >Poll interval (ms)</label
+                          >
+                          <input
+                            type="text"
+                            id="datalayer-poll-interval"
+                            class="form-control"
+                            value="5000"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <!-- RIGHT: Datalayer Node Browser -->
+              <div style="flex: 1; min-width: 280px">
+                <details
+                  id="datalayer-browser-details"
+                  class="node-browser-container"
+                  open
+                >
+                  <summary data-i18n="datalayer.node_browser">
+                    Datalayer Node Browser
+                  </summary>
+                  <div class="node-controls">
+                    <input
+                      type="text"
+                      id="datalayer-browse-path"
+                      class="form-control form-control-sm"
+                      placeholder="/ (Root)"
+                      data-i18n-placeholder="datalayer.browse_placeholder"
+                    />
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      onclick="browseDatalayer()"
+                    >
+                      Browse
+                    </button>
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      onclick="datalayerUp()"
+                    >
+                      ↑ Up
+                    </button>
+                  </div>
+                  <div id="datalayer-node-list" class="node-list-box">
+                    <div
+                      class="node-empty-hint"
+                      data-i18n="datalayer.browser_hint"
+                    >
+                      Pfad eingeben und „Browse" klicken.
+                    </div>
+                  </div>
+                  <div id="datalayer-node-value"></div>
+                </details>
+              </div>
+            </div>
+
+            <div
+              id="datalayer-mapping-section"
+              class="card-inner-block"
+              style="
+                display: none;
+                border-radius: 6px;
+                padding: 20px;
+                margin-top: 20px;
+                background: rgba(83, 205, 97, 0.03);
+              "
+            >
+              <input type="hidden" id="datalayer-mapping-id" value="" />
+
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  margin-bottom: 15px;
+                  color: var(--brand-primary);
+                "
+              >
+                <span style="font-size: 18px">⊕</span>
+                <strong
+                  id="mapping-form-title"
+                  data-i18n="datalayer.add_mapping_title"
+                  style="
+                    text-transform: uppercase;
+                    font-size: 12px;
+                    letter-spacing: 1px;
+                  "
+                  >Mapping hinzufügen</strong
+                >
               </div>
 
               <div class="status-columns">
                 <div class="status-col">
                   <div class="form-group">
                     <label
-                      for="datalayer-base-url"
-                      data-i18n="datalayer.base_url"
-                      >Base URL</label
+                      for="datalayer-mapping-path"
+                      data-i18n="datalayer.path"
+                      >Datalayer Path</label
                     >
                     <input
                       type="text"
-                      id="datalayer-base-url"
+                      id="datalayer-mapping-path"
                       class="form-control"
-                      placeholder="https://localhost"
+                      placeholder="z.B. /framework/metrics/system/memfree-mb"
+                      oninput="
+                        updateTopicPrefix();
+                        showMappingPayloadPreview();
+                      "
+                    />
+                  </div>
+                  <!-- Direction hidden, always dl_to_tedge -->
+                  <select
+                    id="datalayer-mapping-direction"
+                    style="display: none"
+                    aria-hidden="true"
+                  >
+                    <option value="dl_to_tedge" selected>
+                      Datalayer ➔ tedge (Read)
+                    </option>
+                    <option value="tedge_to_dl">
+                      tedge ➔ Datalayer (Write)
+                    </option>
+                  </select>
+                  <div class="form-group">
+                    <label
+                      for="datalayer-mapping-field"
+                      data-i18n="datalayer.field"
+                      >Field Name</label
+                    >
+                    <input
+                      type="text"
+                      id="datalayer-mapping-field"
+                      class="form-control"
+                      data-i18n-placeholder="datalayer.auto_hint"
+                      oninput="showMappingPayloadPreview()"
                     />
                   </div>
                   <div class="form-group">
-                    <label
-                      for="datalayer-password"
-                      data-i18n="datalayer.password"
-                      >Password</label
+                    <label data-i18n="datalayer.payload_preview"
+                      >Cloud Payload Preview</label
                     >
-                    <input
-                      type="password"
-                      id="datalayer-password"
-                      class="form-control"
-                      autocomplete="new-password"
-                      data-i18n-placeholder="datalayer.password_hint"
-                    />
-                  </div>
-                  <div class="tedge-switch-group">
-                    <label
-                      class="tedge-switch"
-                      for="datalayer-accept-invalid-certs"
-                    >
-                      <input
-                        type="checkbox"
-                        id="datalayer-accept-invalid-certs"
-                      />
-                      <span class="tedge-switch-slider"></span>
-                    </label>
-                    <span
-                      class="tedge-switch-label"
-                      data-i18n="datalayer.accept_invalid_certs"
-                      >Accept invalid TLS certificates</span
-                    >
+                    <pre
+                      id="datalayer-payload-preview"
+                      style="
+                        background: var(--c8y-palette-gray-90, #f5f5f5);
+                        border: 1px solid var(--c8y-palette-gray-70, #ddd);
+                        border-radius: 4px;
+                        padding: 8px;
+                        font-size: 11px;
+                        min-height: 72px;
+                        white-space: pre-wrap;
+                        word-break: break-all;
+                        color: var(--c8y-palette-gray-20, #333);
+                        margin: 0;
+                      "
+                    ></pre>
                   </div>
                 </div>
                 <div class="status-col">
                   <div class="form-group">
                     <label
-                      for="datalayer-username"
-                      data-i18n="datalayer.username"
-                      >Username</label
+                      for="datalayer-mapping-topic"
+                      data-i18n="datalayer.topic"
+                      >tedge MQTT Topic</label
                     >
                     <input
                       type="text"
-                      id="datalayer-username"
+                      id="datalayer-mapping-topic"
                       class="form-control"
-                      placeholder="boschrexroth"
+                      placeholder=""
                     />
                   </div>
                   <div class="form-group">
-                    <label data-i18n="datalayer.poll_interval"
-                      >Poll interval (ms)</label
+                    <label
+                      for="datalayer-mapping-transform"
+                      data-i18n="datalayer.transform"
+                      >Transform</label
+                    >
+                    <select
+                      id="datalayer-mapping-transform"
+                      class="form-control"
+                      onchange="
+                        updateTopicPrefix();
+                        showMappingPayloadPreview();
+                      "
+                    >
+                      <option value="raw">Raw</option>
+                      <option value="measurement">Measurement</option>
+                      <option value="event">Event</option>
+                      <option value="alarm">Alarm</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label
+                      for="datalayer-mapping-unit"
+                      data-i18n="datalayer.unit"
+                      >Unit (optional)</label
                     >
                     <input
                       type="text"
-                      id="datalayer-poll-interval"
+                      id="datalayer-mapping-unit"
                       class="form-control"
-                      value="5000"
+                      placeholder="°C, bar, ..."
+                      oninput="showMappingPayloadPreview()"
                     />
                   </div>
-
                   <div
+                    class="action-buttons"
                     style="
+                      margin-top: 32px;
                       display: flex;
+                      gap: 10px;
                       justify-content: flex-end;
-                      margin-top: 16px;
                     "
                   >
-                    <button
-                      class="btn btn-primary btn-sm"
-                      onclick="saveDatalayerConfig()"
-                      data-i18n="device.save"
+                    <div
+                      style="
+                        display: flex;
+                        justify-content: flex-end;
+                        margin-top: 16px;
+                        gap: 10px;
+                      "
                     >
-                      Save Connection
-                    </button>
+                      <button
+                        class="btn btn-outline-secondary"
+                        onclick="cancelMapping()"
+                        data-i18n="device.cancel"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        class="btn btn-outline-danger"
+                        id="delete-mapping-btn"
+                        style="display: none"
+                        onclick="deleteCurrentMapping()"
+                        data-i18n="common.delete"
+                      >
+                        Löschen
+                      </button>
+                      <button
+                        class="btn btn-primary btn-sm"
+                        onclick="saveNewMapping()"
+                        data-i18n="device.save"
+                      >
+                        Speichern
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </details>
-
-          <details
-            id="datalayer-browser-details"
-            class="node-browser-container"
-          >
-            <summary data-i18n="datalayer.node_browser">Knoten-Browser</summary>
-            <div class="node-controls">
-              <input
-                type="text"
-                id="datalayer-browse-path"
-                class="form-control form-control-sm"
-                placeholder="/ (Root)"
-                data-i18n-placeholder="datalayer.browse_placeholder"
-              />
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="browseDatalayer()"
-              >
-                Browse
-              </button>
-              <button
-                class="btn btn-outline-secondary btn-sm"
-                onclick="datalayerUp()"
-              >
-                ↑ Up
-              </button>
-            </div>
-            <div id="datalayer-node-list" class="node-list-box">
-              <div class="node-empty-hint" data-i18n="datalayer.browser_hint">
-                Pfad eingeben und „Browse" klicken.
-              </div>
-            </div>
-            <div id="datalayer-node-value"></div>
-          </details>
-
-          <div
-            id="datalayer-mapping-section"
-            class="card-inner-block"
-            style="
-              display: none;
-              border-radius: 6px;
-              padding: 20px;
-              margin-top: 20px;
-              background: rgba(83, 205, 97, 0.03);
-            "
-          >
-            <input type="hidden" id="datalayer-mapping-id" value="" />
 
             <div
               style="
                 display: flex;
+                justify-content: space-between;
                 align-items: center;
-                gap: 8px;
-                margin-bottom: 15px;
-                color: var(--brand-primary);
+                margin-top: 32px;
+                border-top: 1px solid var(--c8y-palette-gray-80);
+                padding-top: 24px;
               "
             >
-              <span style="font-size: 18px">⊕</span>
-              <strong
-                id="mapping-form-title"
-                data-i18n="datalayer.add_mapping_title"
+              <h3
                 style="
+                  margin: 0;
+                  font-size: 13px;
+                  font-weight: 600;
                   text-transform: uppercase;
-                  font-size: 12px;
-                  letter-spacing: 1px;
+                  color: var(--c8y-palette-gray-40);
                 "
-                >Mapping hinzufügen</strong
+                data-i18n="datalayer.mappings_title"
               >
-            </div>
-
-            <div class="status-columns">
-              <div class="status-col">
-                <div class="form-group">
-                  <label for="datalayer-mapping-path" data-i18n="datalayer.path"
-                    >Datalayer Path</label
-                  >
-                  <input
-                    type="text"
-                    id="datalayer-mapping-path"
-                    class="form-control"
-                    placeholder="z.B. /framework/metrics/system/memfree-mb"
-                    oninput="
-                      updateTopicPrefix();
-                      showMappingPayloadPreview();
-                    "
-                  />
-                </div>
-                <!-- Direction hidden, always dl_to_tedge -->
-                <select
-                  id="datalayer-mapping-direction"
-                  style="display: none"
-                  aria-hidden="true"
-                >
-                  <option value="dl_to_tedge" selected>
-                    Datalayer ➔ tedge (Read)
-                  </option>
-                  <option value="tedge_to_dl">tedge ➔ Datalayer (Write)</option>
-                </select>
-                <div class="form-group">
-                  <label
-                    for="datalayer-mapping-field"
-                    data-i18n="datalayer.field"
-                    >Field Name</label
-                  >
-                  <input
-                    type="text"
-                    id="datalayer-mapping-field"
-                    class="form-control"
-                    data-i18n-placeholder="datalayer.auto_hint"
-                    oninput="showMappingPayloadPreview()"
-                  />
-                </div>
-                <div class="form-group">
-                  <label data-i18n="datalayer.payload_preview"
-                    >Cloud Payload Preview</label
-                  >
-                  <pre
-                    id="datalayer-payload-preview"
-                    style="
-                      background: var(--c8y-palette-gray-90, #f5f5f5);
-                      border: 1px solid var(--c8y-palette-gray-70, #ddd);
-                      border-radius: 4px;
-                      padding: 8px;
-                      font-size: 11px;
-                      min-height: 72px;
-                      white-space: pre-wrap;
-                      word-break: break-all;
-                      color: var(--c8y-palette-gray-20, #333);
-                      margin: 0;
-                    "
-                  ></pre>
-                </div>
-              </div>
-              <div class="status-col">
-                <div class="form-group">
-                  <label
-                    for="datalayer-mapping-topic"
-                    data-i18n="datalayer.topic"
-                    >tedge MQTT Topic</label
-                  >
-                  <input
-                    type="text"
-                    id="datalayer-mapping-topic"
-                    class="form-control"
-                    placeholder=""
-                  />
-                </div>
-                <div class="form-group">
-                  <label
-                    for="datalayer-mapping-transform"
-                    data-i18n="datalayer.transform"
-                    >Transform</label
-                  >
-                  <select
-                    id="datalayer-mapping-transform"
-                    class="form-control"
-                    onchange="
-                      updateTopicPrefix();
-                      showMappingPayloadPreview();
-                    "
-                  >
-                    <option value="raw">Raw</option>
-                    <option value="measurement">Measurement</option>
-                    <option value="event">Event</option>
-                    <option value="alarm">Alarm</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="datalayer-mapping-unit" data-i18n="datalayer.unit"
-                    >Unit (optional)</label
-                  >
-                  <input
-                    type="text"
-                    id="datalayer-mapping-unit"
-                    class="form-control"
-                    placeholder="°C, bar, ..."
-                    oninput="showMappingPayloadPreview()"
-                  />
-                </div>
-                <div
-                  class="action-buttons"
-                  style="
-                    margin-top: 32px;
-                    display: flex;
-                    gap: 10px;
-                    justify-content: flex-end;
-                  "
-                >
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: flex-end;
-                      margin-top: 16px;
-                      gap: 10px;
-                    "
-                  >
-                    <button
-                      class="btn btn-outline-secondary"
-                      onclick="cancelMapping()"
-                      data-i18n="device.cancel"
-                    >
-                      Abbrechen
-                    </button>
-                    <button
-                      class="btn btn-outline-danger"
-                      id="delete-mapping-btn"
-                      style="display: none"
-                      onclick="deleteCurrentMapping()"
-                      data-i18n="common.delete"
-                    >
-                      Löschen
-                    </button>
-                    <button
-                      class="btn btn-primary btn-sm"
-                      onclick="saveNewMapping()"
-                      data-i18n="device.save"
-                    >
-                      Speichern
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-top: 32px;
-              border-top: 1px solid var(--c8y-palette-gray-80);
-              padding-top: 24px;
-            "
-          >
-            <h3
-              style="
-                margin: 0;
-                font-size: 13px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: var(--c8y-palette-gray-40);
-              "
-              data-i18n="datalayer.mappings_title"
-            >
-              Gespeicherte Mappings
-            </h3>
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              onclick="
-                document.getElementById(
-                  'datalayer-mapping-section',
-                ).style.display = 'block';
-                applyI18n();
-              "
-              data-i18n="datalayer.add_mapping_btn"
-            >
-              + Mapping
-            </button>
-          </div>
-
-          <div class="table-responsive" style="margin-top: 10px">
-            <div
-              style="
-                height: 2px;
-                background: var(--c8y-palette-gray-60);
-                margin-bottom: -2px;
-              "
-            ></div>
-            <table class="table table-striped table-hover c8y-table">
-              <thead>
-                <tr>
-                  <th data-i18n="datalayer.path">Pfad</th>
-                  <th data-i18n="datalayer.topic">Topic</th>
-                  <th
-                    class="text-center"
-                    style="width: 32px"
-                    data-i18n="datalayer.direction"
-                  >
-                    Richtung
-                  </th>
-                  <th>Typ · Feld</th>
-                  <th
-                    class="text-center"
-                    style="width: 52px"
-                    data-i18n="datalayer.enabled"
-                  >
-                    Aktiv
-                  </th>
-                  <th class="text-right" style="width: 36px"></th>
-                </tr>
-              </thead>
-              <tbody id="datalayer-mapping-table-body"></tbody>
-            </table>
-            <div
-              style="
-                height: 2px;
-                background: var(--c8y-palette-gray-60);
-                margin-top: -2px;
-              "
-            ></div>
-          </div>
-        </section>
-
-        <!-- ctrlX Licensing -->
-        <section id="sec-licensing" class="card">
-          <h2 data-i18n="section.licensing">ctrlX Licensing</h2>
-          <div id="licensing-status-area" style="margin-bottom: 14px">
-            <div
-              id="licensing-loading"
-              style="color: var(--c8y-palette-gray-40, #999); font-size: 13px"
-            >
-              <span data-i18n="licensing.loading"
-                >Loading license information...</span
+                Gespeicherte Mappings
+              </h3>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="
+                  document.getElementById(
+                    'datalayer-mapping-section',
+                  ).style.display = 'block';
+                  applyI18n();
+                "
+                data-i18n="datalayer.add_mapping_btn"
               >
+                + Mapping
+              </button>
             </div>
-            <table
-              id="licensing-table"
-              style="
-                display: none;
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 13px;
-              "
-            >
-              <thead>
-                <tr
-                  style="
-                    border-bottom: 1px solid var(--c8y-palette-gray-70, #444);
-                  "
+
+            <div class="table-responsive" style="margin-top: 10px">
+              <div
+                style="
+                  height: 2px;
+                  background: var(--c8y-palette-gray-60);
+                  margin-bottom: -2px;
+                "
+              ></div>
+              <table class="table table-striped table-hover c8y-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="datalayer.path">Pfad</th>
+                    <th data-i18n="datalayer.topic">Topic</th>
+                    <th
+                      class="text-center"
+                      style="width: 32px"
+                      data-i18n="datalayer.direction"
+                    >
+                      Richtung
+                    </th>
+                    <th>Typ · Feld</th>
+                    <th
+                      class="text-center"
+                      style="width: 52px"
+                      data-i18n="datalayer.enabled"
+                    >
+                      Aktiv
+                    </th>
+                    <th class="text-right" style="width: 36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="datalayer-mapping-table-body"></tbody>
+              </table>
+              <div
+                style="
+                  height: 2px;
+                  background: var(--c8y-palette-gray-60);
+                  margin-top: -2px;
+                "
+              ></div>
+            </div>
+          </section>
+
+          <!-- ctrlX Licensing -->
+          <section id="sec-licensing" class="card" data-page="licensing">
+            <h2 data-i18n="section.licensing">ctrlX Licensing</h2>
+            <div id="licensing-status-area" style="margin-bottom: 14px">
+              <div
+                id="licensing-loading"
+                style="color: var(--c8y-palette-gray-40, #999); font-size: 13px"
+              >
+                <span data-i18n="licensing.loading"
+                  >Loading license information...</span
                 >
-                  <th
+              </div>
+              <table
+                id="licensing-table"
+                style="
+                  display: none;
+                  width: 100%;
+                  border-collapse: collapse;
+                  font-size: 13px;
+                "
+              >
+                <thead>
+                  <tr
                     style="
-                      text-align: left;
-                      padding: 6px 8px;
-                      color: var(--c8y-palette-gray-30, #aaa);
+                      border-bottom: 1px solid var(--c8y-palette-gray-70, #444);
                     "
-                    data-i18n="licensing.col.name"
                   >
-                    Name
-                  </th>
-                  <th
-                    style="
-                      text-align: left;
-                      padding: 6px 8px;
-                      color: var(--c8y-palette-gray-30, #aaa);
-                    "
-                    data-i18n="licensing.col.status"
-                  >
-                    Status
-                  </th>
-                  <th
-                    style="
-                      text-align: left;
-                      padding: 6px 8px;
-                      color: var(--c8y-palette-gray-30, #aaa);
-                    "
-                    data-i18n="licensing.col.validUntil"
-                  >
-                    Valid Until
-                  </th>
-                  <th
-                    style="
-                      text-align: left;
-                      padding: 6px 8px;
-                      color: var(--c8y-palette-gray-30, #aaa);
-                    "
-                    data-i18n="licensing.col.quantity"
-                  >
-                    Qty
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="licensing-table-body"></tbody>
-            </table>
-            <div
-              id="licensing-error"
-              style="
-                display: none;
-                color: var(--c8y-brand-danger, #e74c3c);
-                font-size: 13px;
-              "
-            ></div>
-          </div>
-          <div class="action-buttons">
-            <button
-              class="btn btn-primary btn-sm"
-              onclick="loadLicenses()"
-              data-i18n="licensing.refresh"
-            >
-              Refresh
-            </button>
-            <a
-              href="/license-manager"
-              target="_blank"
-              class="btn btn-outline-secondary btn-sm"
-              data-i18n="licensing.manage"
-            >
-              Manage Licenses
-            </a>
-          </div>
-        </section>
-      </div>
-    </main>
+                    <th
+                      style="
+                        text-align: left;
+                        padding: 6px 8px;
+                        color: var(--c8y-palette-gray-30, #aaa);
+                      "
+                      data-i18n="licensing.col.name"
+                    >
+                      Name
+                    </th>
+                    <th
+                      style="
+                        text-align: left;
+                        padding: 6px 8px;
+                        color: var(--c8y-palette-gray-30, #aaa);
+                      "
+                      data-i18n="licensing.col.status"
+                    >
+                      Status
+                    </th>
+                    <th
+                      style="
+                        text-align: left;
+                        padding: 6px 8px;
+                        color: var(--c8y-palette-gray-30, #aaa);
+                      "
+                      data-i18n="licensing.col.validUntil"
+                    >
+                      Valid Until
+                    </th>
+                    <th
+                      style="
+                        text-align: left;
+                        padding: 6px 8px;
+                        color: var(--c8y-palette-gray-30, #aaa);
+                      "
+                      data-i18n="licensing.col.quantity"
+                    >
+                      Qty
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="licensing-table-body"></tbody>
+              </table>
+              <div
+                id="licensing-error"
+                style="
+                  display: none;
+                  color: var(--c8y-brand-danger, #e74c3c);
+                  font-size: 13px;
+                "
+              ></div>
+            </div>
+            <div style="margin-top: 12px">
+              <a
+                href="/license-manager"
+                target="_blank"
+                class="btn btn-outline-secondary btn-sm"
+                data-i18n="licensing.manage"
+              >
+                Manage Licenses
+              </a>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <!-- /.app-layout -->
 
     <footer>
       <p>
