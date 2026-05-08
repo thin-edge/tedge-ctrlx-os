@@ -2319,102 +2319,110 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
           <section id="sec-flows" class="card" data-page="flows">
             <h2 data-i18n="section.flows">Flows</h2>
 
-            <!-- Mapper selector + Refresh -->
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap">
+            <!-- Toolbar -->
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap">
               <label style="font-size:13px; font-weight:600">
                 <span data-i18n="flows.mapper_label">Mapper:</span>
               </label>
-              <select id="flows-mapper-select" class="input-field" style="width:160px; padding:4px 8px" onchange="loadFlows()">
+              <select id="flows-mapper-select" class="input-field" style="width:160px; padding:5px 8px" onchange="loadFlows()">
                 <option value="c8y">Cumulocity (c8y)</option>
                 <option value="aws">AWS IoT (aws)</option>
                 <option value="az">Azure IoT (az)</option>
               </select>
+              <button class="btn btn-primary btn-sm" onclick="showNewFlowForm()">
+                <i class="fas fa-folder-plus"></i>
+                <span data-i18n="flows.new_btn">Neuer Flow</span>
+              </button>
               <button class="btn btn-outline-secondary btn-sm" onclick="loadFlows()">
                 <i class="fas fa-sync-alt"></i>
-                <span data-i18n="flows.refresh">Refresh</span>
+                <span data-i18n="flows.refresh">Aktualisieren</span>
               </button>
             </div>
 
-            <!-- Upload new flow -->
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap">
-              <input
-                type="file"
-                id="flows-file-input"
-                accept=".toml"
-                style="display:none"
-                onchange="uploadFlowFile()"
-              />
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="document.getElementById('flows-file-input').click()"
-              >
-                <i class="fas fa-upload"></i>
-                <span data-i18n="flows.upload_btn">Flow hochladen (.toml)</span>
-              </button>
-              <span id="flows-upload-status" style="font-size:12px; color:var(--c8y-palette-gray-40,#999)"></span>
+            <!-- New Flow inline form -->
+            <div id="flows-new-flow-form" style="display:none; margin-bottom:10px">
+              <div style="display:flex; gap:8px; align-items:center">
+                <i class="fas fa-folder" style="color:var(--c8y-palette-gray-40,#999); font-size:13px"></i>
+                <input id="flows-new-flow-name" type="text" placeholder="flow-name"
+                  style="font-family:monospace; font-size:13px; padding:4px 8px; border:1px solid var(--c8y-palette-gray-60,#555); border-radius:4px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10,#e0e0e0); width:160px"
+                  onkeydown="if(event.key==='Enter')confirmNewFlow(); if(event.key==='Escape')cancelNewFlow()"
+                />
+                <button class="btn btn-primary btn-sm" onclick="confirmNewFlow()" data-i18n="flows.create_btn">Erstellen</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="cancelNewFlow()" data-i18n="flows.cancel_btn">Abbrechen</button>
+              </div>
             </div>
 
-            <!-- Flow list table -->
-            <div id="flows-table-wrap">
-              <div id="flows-loading" style="font-size:13px; color:var(--c8y-palette-gray-40,#999)">
-                <span data-i18n="flows.loading">Flows werden geladen...</span>
-              </div>
-              <table
-                id="flows-table"
-                class="service-table"
-                style="display:none; width:100%"
-              >
-                <thead>
-                  <tr>
-                    <th data-i18n="flows.col.name">Name</th>
-                    <th data-i18n="flows.col.actions">Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody id="flows-table-body"></tbody>
-              </table>
-              <div
-                id="flows-empty"
-                style="display:none; font-size:13px; color:var(--c8y-palette-gray-40,#999)"
-              >
-                <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
-              </div>
-              <div
-                id="flows-error"
-                style="display:none; font-size:13px; color:var(--c8y-brand-danger,#e74c3c)"
-              ></div>
-            </div>
+            <!-- Split layout: tree left, editor right -->
+            <div style="display:flex; gap:14px; align-items:flex-start; min-height:340px">
 
-            <!-- Flow editor / viewer -->
-            <div id="flows-editor-wrap" style="display:none; margin-top:16px">
-              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px">
-                <span id="flows-editor-title" style="font-size:13px; font-weight:600"></span>
-                <button class="btn btn-outline-secondary btn-sm" onclick="closeFlowEditor()">
-                  <i class="fas fa-times"></i>
-                  <span data-i18n="flows.editor_close">Schließen</span>
-                </button>
+              <!-- LEFT: Flow tree -->
+              <div style="width:240px; flex-shrink:0">
+                <div id="flows-loading" style="font-size:13px; color:var(--c8y-palette-gray-40,#999); padding:4px 0">
+                  <span data-i18n="flows.loading">Wird geladen...</span>
+                </div>
+                <div id="flows-empty" style="display:none; font-size:13px; color:var(--c8y-palette-gray-40,#999); padding:4px 0">
+                  <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+                </div>
+                <div id="flows-error" style="display:none; font-size:12px; color:var(--c8y-brand-danger,#e74c3c); padding:4px 0"></div>
+                <div id="flows-tree" style="display:none; border:1px solid var(--c8y-palette-gray-70,#333); border-radius:4px; overflow:hidden"></div>
               </div>
-              <textarea
-                id="flows-editor"
-                spellcheck="false"
-                style="
-                  width: 100%;
-                  min-height: 260px;
-                  font-family: monospace;
-                  font-size: 12px;
-                  background: var(--c8y-palette-gray-80, #1e1e1e);
-                  color: var(--c8y-palette-gray-10, #e0e0e0);
-                  border: 1px solid var(--c8y-palette-gray-60, #555);
-                  border-radius: 4px;
-                  padding: 10px;
-                  resize: vertical;
-                  box-sizing: border-box;
-                "
-              ></textarea>
-              <div style="display:flex; gap:8px; margin-top:8px">
-                <button class="btn btn-primary btn-sm" onclick="saveFlowFromEditor()">
-                  <i class="fas fa-save"></i>
-                  <span data-i18n="flows.editor_save">Speichern</span>
-                </button>
+
+              <!-- RIGHT: Editor area (three exclusive states) -->
+              <div style="flex:1; min-width:0">
+
+                <!-- State 1: nothing selected -->
+                <div id="flows-editor-placeholder" style="font-size:13px; color:var(--c8y-palette-gray-40,#999); padding:8px 0">
+                  <span data-i18n="flows.editor_placeholder">Flow auswählen oder „Neuer Flow" klicken.</span>
+                </div>
+
+                <!-- State 2: add-file form -->
+                <div id="flows-new-file-form" style="display:none">
+                  <p style="font-size:13px; margin:0 0 8px">
+                    <span data-i18n="flows.new_file_for">Neue Datei in</span>
+                    <strong id="flows-new-file-flow-label" style="font-family:monospace"></strong>:
+                  </p>
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+                    <input id="flows-new-file-name" type="text" placeholder="main.js"
+                      style="font-family:monospace; font-size:13px; padding:4px 8px; border:1px solid var(--c8y-palette-gray-60,#555); border-radius:4px; background:var(--c8y-palette-high); color:var(--c8y-palette-gray-10,#e0e0e0); width:200px"
+                      onkeydown="if(event.key==='Enter')confirmAddFile(); if(event.key==='Escape')cancelAddFile()"
+                    />
+                    <button class="btn btn-primary btn-sm" onclick="confirmAddFile()" data-i18n="flows.create_btn">Erstellen</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="cancelAddFile()" data-i18n="flows.cancel_btn">Abbrechen</button>
+                  </div>
+                  <p style="font-size:11px; color:var(--c8y-palette-gray-40,#999); margin:6px 0 0" data-i18n="flows.new_file_hint">
+                    Erlaubte Endungen: .js · .toml · .toml.template
+                  </p>
+                </div>
+
+                <!-- State 3: file editor -->
+                <div id="flows-editor-wrap" style="display:none">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap">
+                    <span id="flows-editor-breadcrumb" style="font-family:monospace; font-size:13px; font-weight:600; flex:1; color:var(--c8y-palette-gray-20,#ccc)"></span>
+                    <button class="btn btn-primary btn-sm" onclick="saveCurrentFile()">
+                      <i class="fas fa-save"></i>
+                      <span data-i18n="flows.editor_save">Speichern</span>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteCurrentFile()">
+                      <i class="fas fa-trash"></i>
+                      <span data-i18n="flows.delete_file_btn">Datei löschen</span>
+                    </button>
+                  </div>
+                  <textarea id="flows-editor" spellcheck="false" style="
+                    width:100%;
+                    height:calc(100vh - 360px);
+                    min-height:240px;
+                    font-family:monospace;
+                    font-size:12px;
+                    background:var(--c8y-palette-gray-100,#1a1a2e);
+                    color:var(--c8y-palette-gray-20,#ccc);
+                    border:1px solid var(--c8y-palette-gray-70,#444);
+                    border-radius:4px;
+                    padding:12px;
+                    resize:vertical;
+                    box-sizing:border-box;
+                  " placeholder="# TOML / JavaScript"></textarea>
+                </div>
+
               </div>
             </div>
           </section>

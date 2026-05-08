@@ -698,6 +698,19 @@ main {
   }
 }
 
+.btn-danger {
+  .btn-base();
+  background:   var(--c8y-brand-danger, #c0392b);
+  color:        #fff;
+  border:       1px solid var(--c8y-brand-danger, #c0392b);
+  transition:   background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background:   #a93226;
+    border-color: #a93226;
+  }
+}
+
 // ── Tabs ──────────────────────────────────────────────────────
 .tabs {
   display:       flex;
