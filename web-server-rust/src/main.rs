@@ -363,6 +363,7 @@ impl AppState {
 
         match std::fs::read_to_string(&self.datalayer_config_path) {
             // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
+            Ok(content) if content.trim().is_empty() => DatalayerConfig::default(),
             Ok(content) => match serde_json::from_str::<DatalayerConfig>(&content) {
                 Ok(cfg) => {
                     info!(
@@ -1397,42 +1398,22 @@ struct RestartSingleServiceBody {
     service: String,
 }
 
-async fn restart_single_service(
-    req: HttpRequest,
-    body: web::Json<RestartSingleServiceBody>,
-) -> Result<HttpResponse> {
-    let (user, role, _token) = extract_user_info(&req);
-    if !role.can_execute() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
-            "success": false, "error": "Admin required"
-        })));
-    }
-    let allowed = [
-        "mosquitto",
-        "tedge-agent",
-        "tedge-datalayer-bridge",
-        "tedge-watchdog",
-        "tedge-web-config",
-        "tedge-log-upload-manager",
-        "tedge-mapper-c8y",
-        "tedge-mapper-aws",
-        "tedge-mapper-az",
-    ];
-    let svc = body.service.trim().to_string();
-    if !allowed.contains(&svc.as_str()) {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false, "error": "Unknown service"
-        })));
-    }
-    if env::var("SNAP").is_err() {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false, "error": "Only available in snap environment"
-        })));
-    }
-    info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
-    let full = snap_svc(&svc);
+const ALLOWED_SERVICES: &[&str] = &[
+    "mosquitto",
+    "tedge-agent",
+    "tedge-datalayer-bridge",
+    "tedge-watchdog",
+    "tedge-web-config",
+    "tedge-log-upload-manager",
+    "tedge-mapper-c8y",
+    "tedge-mapper-aws",
+    "tedge-mapper-az",
+];
+
+fn run_snapctl_service(action: &str, svc: &str) -> Result<HttpResponse> {
+    let full = snap_svc(svc);
     match std::process::Command::new("snapctl")
-        .args(["restart", &full])
+        .args([action, &full])
         .output()
     {
         Ok(output) if output.status.success() => {
@@ -1446,6 +1427,77 @@ async fn restart_single_service(
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"success": false, "error": format!("{}", e)}))),
     }
+}
+
+async fn start_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
+    }
+    info!("[START-SVC] Starting {} (user: {:?})", svc, user);
+    run_snapctl_service("start", &svc)
+}
+
+async fn stop_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
+    }
+    info!("[STOP-SVC] Stopping {} (user: {:?})", svc, user);
+    run_snapctl_service("stop", &svc)
+}
+
+async fn restart_single_service(
+    req: HttpRequest,
+    body: web::Json<RestartSingleServiceBody>,
+) -> Result<HttpResponse> {
+    let (user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false, "error": "Admin required"
+        })));
+    }
+    let svc = body.service.trim().to_string();
+    if !ALLOWED_SERVICES.contains(&svc.as_str()) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Unknown service"
+        })));
+    }
+    if env::var("SNAP").is_err() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false, "error": "Only available in snap environment"
+        })));
+    }
+    info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
+    run_snapctl_service("restart", &svc)
 }
 
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
@@ -3996,6 +4048,308 @@ async fn save_and_publish_inventory(
     })))
 }
 
+// ── Flows Management API ─────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct SaveFlowFileBody {
+    content: String,
+}
+
+/// Validates a mapper name: only alphanumeric, dash, underscore, dot — no path traversal.
+fn validate_mapper_name(mapper: &str) -> bool {
+    !mapper.is_empty()
+        && !mapper.contains("..")
+        && mapper
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+}
+
+/// Validates a flow directory name: only alphanumeric, dash, underscore — no dots or path separators.
+fn validate_flow_dir_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains("..")
+        && !name.contains('/')
+        && !name.contains('\\')
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Validates a flow file name: must be *.js, *.toml, or *.toml.template — no path separators.
+fn validate_flow_file_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains("..")
+        && (name.ends_with(".js") || name.ends_with(".toml") || name.ends_with(".toml.template"))
+}
+
+/// GET /api/flows?mapper=<name>  — lists flow directories and their files
+async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let mapper = req
+        .query_string()
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper is validated via validate_mapper_name
+    let flows_dir = format!("{}/tedge/mappers/{}/flows", snap_data, mapper);
+
+    let mut flows: Vec<serde_json::Value> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&flows_dir) {
+        // codeql[rust/path-injection] - flows_dir constructed from validated mapper name
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let flow_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) if validate_flow_dir_name(n) => n.to_string(),
+                _ => continue,
+            };
+            let mut files: Vec<serde_json::Value> = Vec::new();
+            if let Ok(file_entries) = std::fs::read_dir(&path) {
+                // codeql[rust/path-injection] - path is inside validated flows_dir
+                for fentry in file_entries.flatten() {
+                    let fpath = fentry.path();
+                    if !fpath.is_file() {
+                        continue;
+                    }
+                    let fname = match fpath.file_name().and_then(|n| n.to_str()) {
+                        Some(n) if validate_flow_file_name(n) => n.to_string(),
+                        _ => continue,
+                    };
+                    if let Ok(content) = std::fs::read_to_string(&fpath) {
+                        // codeql[rust/path-injection] - fpath is inside validated flow dir
+                        files.push(serde_json::json!({"name": fname, "content": content}));
+                    }
+                }
+            }
+            files.sort_by(|a, b| {
+                let rank = |n: &str| -> u8 {
+                    match n {
+                        "flow.toml" => 0,
+                        "params.toml" => 1,
+                        n if n.ends_with(".toml") => 2,
+                        n if n.ends_with(".js") => 3,
+                        _ => 4,
+                    }
+                };
+                let an = a["name"].as_str().unwrap_or("");
+                let bn = b["name"].as_str().unwrap_or("");
+                rank(an).cmp(&rank(bn)).then(an.cmp(bn))
+            });
+            flows.push(serde_json::json!({"name": flow_name, "files": files}));
+        }
+    }
+    flows.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"flows": flows})))
+}
+
+/// POST /api/flows/file?mapper=<m>&flow=<f>&file=<n>  — saves a file within a flow directory
+async fn save_flow_file(
+    req: HttpRequest,
+    body: web::Json<SaveFlowFileBody>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+    let file = qs
+        .split('&')
+        .find(|s| s.starts_with("file="))
+        .and_then(|s| s.strip_prefix("file="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+    if !validate_flow_file_name(&file) {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Invalid file name. Allowed: *.js, *.toml, *.toml.template"
+        })));
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper, flow, file are all validated above
+    let flow_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+    let _ = std::fs::create_dir_all(&flow_dir);
+    let file_path = format!("{}/{}", flow_dir, file);
+
+    match std::fs::write(&file_path, &body.content) {
+        // codeql[rust/path-injection] - file_path constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Saved {}/{}/{}", mapper, flow, file);
+            Ok(
+                HttpResponse::Ok()
+                    .json(serde_json::json!({"ok": true, "flow": flow, "file": file})),
+            )
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// DELETE /api/flows?mapper=<m>&flow=<f>  — deletes an entire flow directory
+async fn delete_flow_dir(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let flow_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+
+    match std::fs::remove_dir_all(&flow_dir) {
+        // codeql[rust/path-injection] - flow_dir constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Deleted flow directory: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// DELETE /api/flows/file?mapper=<m>&flow=<f>&file=<n>  — deletes a single file from a flow
+async fn delete_flow_file_handler(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+    let file = qs
+        .split('&')
+        .find(|s| s.starts_with("file="))
+        .and_then(|s| s.strip_prefix("file="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+    if !validate_flow_file_name(&file) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid file name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper, flow, file are all validated above
+    let file_path = format!(
+        "{}/tedge/mappers/{}/flows/{}/{}",
+        snap_data, mapper, flow, file
+    );
+
+    match std::fs::remove_file(&file_path) {
+        // codeql[rust/path-injection] - file_path constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Deleted file: {}/{}/{}", mapper, flow, file);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "File not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
 /// GET /api/snapconfig?file=<name>  — reads an allowed snap config file
 async fn get_snap_config_file(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
@@ -4313,6 +4667,8 @@ async fn main() -> io::Result<()> {
                             .route("/config/device", web::post().to(save_device_config))
                             .route("/restart", web::post().to(restart_services))
                             .route("/restart-service", web::post().to(restart_single_service))
+                            .route("/start-service", web::post().to(start_single_service))
+                            .route("/stop-service", web::post().to(stop_single_service))
                             .route("/connect/{cloud}", web::post().to(connect_cloud))
                             .route("/disconnect/{cloud}", web::post().to(disconnect_cloud))
                             .route("/reconnect/{cloud}", web::post().to(reconnect_cloud))
@@ -4343,6 +4699,11 @@ async fn main() -> io::Result<()> {
                             .route("/inventory", web::post().to(save_and_publish_inventory))
                             .route("/licenses", web::get().to(get_licenses))
                             .route("/license-status", web::get().to(get_license_status))
+                            // Flows API
+                            .route("/flows", web::get().to(list_flows))
+                            .route("/flows", web::delete().to(delete_flow_dir))
+                            .route("/flows/file", web::post().to(save_flow_file))
+                            .route("/flows/file", web::delete().to(delete_flow_file_handler))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")
@@ -4406,8 +4767,9 @@ async fn main() -> io::Result<()> {
 
         bound_server.run().await
     } else {
-        let bind = "0.0.0.0:8888";
+        let port = std::env::var("WEB_PORT").unwrap_or_else(|_| "8888".to_string());
+        let bind = format!("0.0.0.0:{}", port);
         info!("Starte Server auf http://{}", bind);
-        server.bind(bind)?.run().await
+        server.bind(&bind)?.run().await
     }
 }

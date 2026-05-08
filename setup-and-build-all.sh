@@ -77,9 +77,7 @@ echo "Step 4: Generate Build Info"
 echo "=============================================="
 echo "[build-info.sh] Erzeuge build-info.txt ..."
 
-VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
-COMMIT_COUNT="$(git rev-list --count HEAD 2>/dev/null || echo '0')"
-VERSION="${VERSION_BASE}.${COMMIT_COUNT}"
+VERSION="$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')"
 BUILD_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
@@ -195,12 +193,17 @@ NC='\033[0m'
 BUILD_DATE="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 BUILD_HOST="$(hostname)"
 BUILD_USER="$(whoami)"
-VERSION_BASE=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"' | cut -d. -f1,2)
-COMMIT_COUNT="$(git rev-list --count HEAD 2>/dev/null || echo '0')"
 SNAP_NAME=$(grep "^name:" snap/snapcraft.yaml | awk '{print $2}')
-SNAP_VERSION="${VERSION_BASE}.${COMMIT_COUNT}"
-VERSION="$SNAP_VERSION"
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Read current version from snapcraft.yaml and increment the patch number
+CURRENT_VERSION=$(grep "^version:" snap/snapcraft.yaml | awk '{print $2}' | tr -d '"')
+VERSION_MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+VERSION_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+VERSION_PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+VERSION_PATCH=$(( VERSION_PATCH + 1 ))
+SNAP_VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
+VERSION="$SNAP_VERSION"
 
 # --- NEU: thin-edge.io HEAD Commit holen und snapcraft.yaml aktualisieren ---
 THIN_EDGE_IO_REPO="https://github.com/thin-edge/thin-edge.io.git"
@@ -234,8 +237,6 @@ Git Commit: ${GIT_COMMIT}
 Upstream Commit: ${THIN_EDGE_IO_COMMIT}
 EOF
 echo "[i] Build-Info aktualisiert."
-# Snap-Version in snapcraft.yaml nach dem Build zurücksetzen
-trap 'sed -i "s/^version:.*/version: ${VERSION_BASE}.0/" snap/snapcraft.yaml && echo "[i] Snap-Version in snapcraft.yaml zurückgesetzt auf ${VERSION_BASE}.0"' EXIT
 
 # Alte Snap-Dateien löschen
 OLD_SNAPS=$(ls -1 ${SNAP_NAME}_*.snap 2>/dev/null || true)

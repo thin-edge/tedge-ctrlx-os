@@ -238,6 +238,16 @@
                   <span data-i18n="nav.device">Device</span>
                 </a>
               </li>
+              <li>
+                <a
+                  class="nav-item nav-sub-item"
+                  data-target="sec-flows"
+                  onclick="showNav('sec-flows', this)"
+                >
+                  <i class="nav-icon fas fa-diagram-project"></i>
+                  <span data-i18n="nav.flows">Flows</span>
+                </a>
+              </li>
             </ul>
           </li>
           <!-- ctrlX group -->
@@ -303,219 +313,108 @@
           <section id="sec-status" class="card" data-page="status">
             <h2 data-i18n="section.status">Connection Status</h2>
 
-            <div
-              class="status-columns"
-              style="display: flex; gap: 24px; flex-wrap: wrap"
-            >
-              <div class="status-col" style="flex: 1; min-width: 200px">
-                <div
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: var(--c8y-palette-gray-40, #999);
-                    margin-bottom: 8px;
-                  "
-                  data-i18n="status.services"
-                >
-                  Services
-                </div>
-                <div class="status-grid">
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('mosquitto')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span id="mqtt-status" class="status unknown"></span>
-                      <span class="label"> MQTT Broker:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-agent')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span id="agent-status" class="status unknown"></span>
-                      <span class="label"> Tedge Agent:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-datalayer-bridge')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span id="bridge-status" class="status unknown"></span>
-                      <span class="label"> Datalayer Bridge:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-watchdog')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span id="watchdog-status" class="status unknown"></span>
-                      <span class="label"> Watchdog:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-log-upload-manager')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span
-                        id="log-upload-status"
-                        class="status unknown"
-                      ></span>
-                      <span class="label"> Log Manager:</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style="
-                  width: 1px;
-                  background: var(--c8y-palette-gray-80);
-                  flex-shrink: 0;
-                "
-              ></div>
-
-              <!-- Connection column: ctrlX Datalayer -->
-              <div class="status-col" style="flex: 1; min-width: 200px">
-                <div
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: var(--c8y-palette-gray-40, #999);
-                    margin-bottom: 8px;
-                  "
-                  data-i18n="status.connection"
-                >
-                  Connection
-                </div>
-                <div class="status-grid">
-                  <div class="status-item">
-                    <span
-                      id="datalayer-dot-service"
-                      class="status unknown"
-                    ></span>
-                    <span class="label"> ctrlX Datalayer:</span>
+            <!-- Service Control Table -->
+            <table class="service-table">
+              <thead>
+                <tr>
+                  <th data-i18n="service.col.service">Service</th>
+                  <th data-i18n="service.col.status">Status</th>
+                  <th data-i18n="service.col.actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="service-control-tbody">
+                <tr>
+                  <td
+                    colspan="3"
+                    style="
+                      text-align: center;
+                      color: var(--c8y-palette-gray-40);
+                      padding: 20px;
+                    "
+                  >
+                    <span data-i18n="status.loading">Loading...</span>
+                  </td>
+                </tr>
+              </tbody>
+              <!-- Static rows: Connection + Cloud (not cleared by loadServiceControl) -->
+              <tbody id="service-status-extra-tbody">
+                <tr style="background: var(--c8y-palette-gray-90, #1a1a2a)">
+                  <td
+                    style="
+                      padding: 8px 12px;
+                      font-size: 11px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      font-weight: 600;
+                      text-transform: uppercase;
+                    "
+                    colspan="3"
+                    data-i18n="status.connection"
+                  >
+                    Connection
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; font-size: 13px">
+                    ctrlX Datalayer
+                  </td>
+                  <td style="padding: 8px 12px">
                     <span
                       id="datalayer-status-text"
-                      style="
-                        font-size: 11px;
-                        color: var(--c8y-palette-gray-40);
-                        margin-left: 4px;
-                      "
+                      style="font-size: 12px; color: var(--c8y-palette-gray-40)"
                     ></span>
-                  </div>
-                </div>
-              </div>
+                  </td>
+                  <td style="padding: 8px 12px"></td>
+                </tr>
+                <tr style="background: var(--c8y-palette-gray-90, #1a1a2a)">
+                  <td
+                    style="
+                      padding: 8px 12px;
+                      font-size: 11px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      font-weight: 600;
+                      text-transform: uppercase;
+                    "
+                    colspan="3"
+                    data-i18n="status.clouds"
+                  >
+                    Cloud Connections
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; font-size: 13px">
+                    Cumulocity IoT
+                  </td>
+                  <td style="padding: 8px 12px">
+                    <span
+                      style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+                      id="c8y-status-text"
+                    ></span>
+                  </td>
+                  <td style="padding: 8px 12px"></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; font-size: 13px">AWS IoT</td>
+                  <td style="padding: 8px 12px">
+                    <span
+                      style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+                      id="aws-status-text"
+                    ></span>
+                  </td>
+                  <td style="padding: 8px 12px"></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; font-size: 13px">Azure IoT</td>
+                  <td style="padding: 8px 12px">
+                    <span
+                      style="font-size: 12px; color: var(--c8y-palette-gray-40)"
+                      id="az-status-text"
+                    ></span>
+                  </td>
+                  <td style="padding: 8px 12px"></td>
+                </tr>
+              </tbody>
+            </table>
 
-              <div
-                style="
-                  width: 1px;
-                  background: var(--c8y-palette-gray-80);
-                  flex-shrink: 0;
-                "
-              ></div>
-
-              <div class="status-col" style="flex: 1; min-width: 200px">
-                <div
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: var(--c8y-palette-gray-40, #999);
-                    margin-bottom: 8px;
-                  "
-                  data-i18n="status.mappers"
-                >
-                  Mappers
-                </div>
-                <div class="status-grid">
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-mapper-c8y')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span
-                        id="mapper-c8y-status"
-                        class="status unknown"
-                      ></span>
-                      <span class="label"> Cumulocity:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-mapper-aws')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span
-                        id="mapper-aws-status"
-                        class="status unknown"
-                      ></span>
-                      <span class="label"> AWS IoT:</span>
-                    </a>
-                  </div>
-                  <div class="status-item">
-                    <a
-                      class="restart-link"
-                      onclick="restartService('tedge-mapper-az')"
-                      data-i18n-title="notify.restart_link_title"
-                    >
-                      <span id="mapper-az-status" class="status unknown"></span
-                      ><span class="label"> Azure IoT:</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                style="
-                  width: 1px;
-                  background: var(--c8y-palette-gray-80);
-                  flex-shrink: 0;
-                "
-              ></div>
-
-              <div class="status-col" style="flex: 1; min-width: 200px">
-                <div
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    color: var(--c8y-palette-gray-40, #999);
-                    margin-bottom: 8px;
-                  "
-                  data-i18n="status.clouds"
-                >
-                  Cloud Connections
-                </div>
-                <div class="status-grid">
-                  <div class="status-item">
-                    <span id="c8y-status" class="status unknown"></span>
-                    <span class="label"> Cumulocity IoT:</span>
-                  </div>
-                  <div class="status-item">
-                    <span id="aws-status" class="status unknown"></span>
-                    <span class="label"> AWS IoT:</span>
-                  </div>
-                  <div class="status-item">
-                    <span id="az-status" class="status unknown"></span>
-                    <span class="label"> Azure IoT:</span>
-                  </div>
-                </div>
-              </div>
-            </div>
             <div
               class="action-buttons"
               style="
@@ -536,40 +435,6 @@
               >
                 Refresh Status
               </button>
-              <!-- Legende -->
-              <div
-                style="
-                  display: flex;
-                  gap: 10px;
-                  font-size: 11px;
-                  color: var(--c8y-palette-gray-40);
-                "
-              >
-                <span
-                  ><span class="status running" style="font-size: 13px"
-                    >&#9679;</span
-                  >
-                  <span data-i18n="status.legend.running">Läuft</span></span
-                >
-                <span
-                  ><span class="status stopped" style="font-size: 13px"
-                    >&#9679;</span
-                  >
-                  <span data-i18n="status.legend.stopped">Gestoppt</span></span
-                >
-                <span
-                  ><span class="status inactive" style="font-size: 13px"
-                    >&#9679;</span
-                  >
-                  <span data-i18n="status.legend.inactive">Inaktiv</span></span
-                >
-                <span
-                  ><span class="status unknown" style="font-size: 13px"
-                    >&#9679;</span
-                  >
-                  <span data-i18n="status.legend.unknown">Unbekannt</span></span
-                >
-              </div>
             </div>
           </section>
 
@@ -1096,45 +961,6 @@
                   >
                     Request Certificate
                   </button>
-                  <button
-                    class="btn btn-outline-danger btn-sm"
-                    onclick="resetEdge()"
-                    data-i18n="cloud.reset"
-                  >
-                    Reset
-                  </button>
-                </div>
-                <!-- Action buttons: Self-Signed mode -->
-                <div
-                  id="action-buttons-self"
-                  style="
-                    display: none;
-                    flex-wrap: wrap;
-                    gap: 6px;
-                    margin-top: 16px;
-                  "
-                >
-                  <button
-                    class="btn btn-primary btn-sm"
-                    onclick="configureEdge()"
-                    data-i18n="cloud.configure_edge"
-                  >
-                    Configure
-                  </button>
-                  <button
-                    class="btn btn-outline-secondary btn-sm"
-                    onclick="uploadSelfSignedCert()"
-                    data-i18n="cloud.upload_self_cert"
-                  >
-                    Upload Certificate
-                  </button>
-                  <button
-                    class="btn btn-outline-danger btn-sm"
-                    onclick="resetEdge()"
-                    data-i18n="cloud.reset"
-                  >
-                    Reset
-                  </button>
                 </div>
               </div>
 
@@ -1153,13 +979,6 @@
                 >
                   Certificate
                 </div>
-                <input
-                  type="text"
-                  id="edge-device-id"
-                  readonly
-                  placeholder="Loading..."
-                  style="display: none"
-                />
                 <div id="cert-details-inline" style="display: none">
                   <div
                     style="
@@ -1190,38 +1009,10 @@
                     "
                   ></pre>
                 </div>
-                <div id="edge-job-log" style="display: none; margin-top: 16px">
-                  <div
-                    style="
-                      font-size: 11px;
-                      font-weight: 700;
-                      text-transform: uppercase;
-                      letter-spacing: 0.07em;
-                      color: var(--c8y-palette-gray-40);
-                      margin-bottom: 8px;
-                    "
-                    data-i18n="cloud.job_log"
-                  >
-                    Job Log
-                  </div>
-                  <div
-                    id="edge-job-log-entries"
-                    style="
-                      font-family: var(--c8y-font-family-mono);
-                      font-size: 12px;
-                      background: var(--c8y-palette-gray-100);
-                      border: 1px solid var(--c8y-palette-gray-70);
-                      border-radius: 4px;
-                      padding: 10px 12px;
-                      max-height: 240px;
-                      overflow-y: auto;
-                      line-height: 1.6;
-                    "
-                  ></div>
-                </div>
               </div>
             </div>
           </section>
+          <!-- Service Control -->
           <!-- Logs & Diagnostics -->
           <section id="sec-logs" class="card" data-page="logs">
             <h2 data-i18n="section.logs">Logs &amp; Diagnostics</h2>
@@ -2339,6 +2130,291 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
               >
                 Manage Licenses
               </a>
+            </div>
+          </section>
+          <!-- Flows Management -->
+          <section id="sec-flows" class="card" data-page="flows">
+            <h2 data-i18n="section.flows">Flows</h2>
+
+            <!-- Toolbar -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
+              "
+            >
+              <label style="font-size: 13px; font-weight: 600">
+                <span data-i18n="flows.mapper_label">Mapper:</span>
+              </label>
+              <select
+                id="flows-mapper-select"
+                class="input-field"
+                style="width: 160px; padding: 5px 8px"
+                onchange="loadFlows()"
+              >
+                <option value="c8y">Cumulocity (c8y)</option>
+                <option value="aws">AWS IoT (aws)</option>
+                <option value="az">Azure IoT (az)</option>
+              </select>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="showNewFlowForm()"
+              >
+                <i class="fas fa-folder-plus"></i>
+                <span data-i18n="flows.new_btn">Neuer Flow</span>
+              </button>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="loadFlows()"
+              >
+                <i class="fas fa-sync-alt"></i>
+                <span data-i18n="flows.refresh">Aktualisieren</span>
+              </button>
+            </div>
+
+            <!-- New Flow inline form -->
+            <div
+              id="flows-new-flow-form"
+              style="display: none; margin-bottom: 10px"
+            >
+              <div style="display: flex; gap: 8px; align-items: center">
+                <i
+                  class="fas fa-folder"
+                  style="
+                    color: var(--c8y-palette-gray-40, #999);
+                    font-size: 13px;
+                  "
+                ></i>
+                <input
+                  id="flows-new-flow-name"
+                  type="text"
+                  placeholder="flow-name"
+                  style="
+                    font-family: monospace;
+                    font-size: 13px;
+                    padding: 4px 8px;
+                    border: 1px solid var(--c8y-palette-gray-60, #555);
+                    border-radius: 4px;
+                    background: var(--c8y-palette-high);
+                    color: var(--c8y-palette-gray-10, #e0e0e0);
+                    width: 160px;
+                  "
+                  onkeydown="
+                    if (event.key === 'Enter') confirmNewFlow();
+                    if (event.key === 'Escape') cancelNewFlow();
+                  "
+                />
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick="confirmNewFlow()"
+                  data-i18n="flows.create_btn"
+                >
+                  Erstellen
+                </button>
+                <button
+                  class="btn btn-outline-secondary btn-sm"
+                  onclick="cancelNewFlow()"
+                  data-i18n="flows.cancel_btn"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+
+            <!-- Split layout: tree left, editor right -->
+            <div
+              style="
+                display: flex;
+                gap: 14px;
+                align-items: flex-start;
+                min-height: 340px;
+              "
+            >
+              <!-- LEFT: Flow tree -->
+              <div style="width: 240px; flex-shrink: 0">
+                <div
+                  id="flows-loading"
+                  style="
+                    font-size: 13px;
+                    color: var(--c8y-palette-gray-40, #999);
+                    padding: 4px 0;
+                  "
+                >
+                  <span data-i18n="flows.loading">Wird geladen...</span>
+                </div>
+                <div
+                  id="flows-empty"
+                  style="
+                    display: none;
+                    font-size: 13px;
+                    color: var(--c8y-palette-gray-40, #999);
+                    padding: 4px 0;
+                  "
+                >
+                  <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+                </div>
+                <div
+                  id="flows-error"
+                  style="
+                    display: none;
+                    font-size: 12px;
+                    color: var(--c8y-brand-danger, #e74c3c);
+                    padding: 4px 0;
+                  "
+                ></div>
+                <div
+                  id="flows-tree"
+                  style="
+                    display: none;
+                    border: 1px solid var(--c8y-palette-gray-70, #333);
+                    border-radius: 4px;
+                    overflow: hidden;
+                  "
+                ></div>
+              </div>
+
+              <!-- RIGHT: Editor area (three exclusive states) -->
+              <div style="flex: 1; min-width: 0">
+                <!-- State 1: nothing selected -->
+                <div
+                  id="flows-editor-placeholder"
+                  style="
+                    font-size: 13px;
+                    color: var(--c8y-palette-gray-40, #999);
+                    padding: 8px 0;
+                  "
+                >
+                  <span data-i18n="flows.editor_placeholder"
+                    >Flow auswählen oder „Neuer Flow" klicken.</span
+                  >
+                </div>
+
+                <!-- State 2: add-file form -->
+                <div id="flows-new-file-form" style="display: none">
+                  <p style="font-size: 13px; margin: 0 0 8px">
+                    <span data-i18n="flows.new_file_for">Neue Datei in</span>
+                    <strong
+                      id="flows-new-file-flow-label"
+                      style="font-family: monospace"
+                    ></strong
+                    >:
+                  </p>
+                  <div
+                    style="
+                      display: flex;
+                      gap: 8px;
+                      align-items: center;
+                      flex-wrap: wrap;
+                    "
+                  >
+                    <input
+                      id="flows-new-file-name"
+                      type="text"
+                      placeholder="main.js"
+                      style="
+                        font-family: monospace;
+                        font-size: 13px;
+                        padding: 4px 8px;
+                        border: 1px solid var(--c8y-palette-gray-60, #555);
+                        border-radius: 4px;
+                        background: var(--c8y-palette-high);
+                        color: var(--c8y-palette-gray-10, #e0e0e0);
+                        width: 200px;
+                      "
+                      onkeydown="
+                        if (event.key === 'Enter') confirmAddFile();
+                        if (event.key === 'Escape') cancelAddFile();
+                      "
+                    />
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="confirmAddFile()"
+                      data-i18n="flows.create_btn"
+                    >
+                      Erstellen
+                    </button>
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      onclick="cancelAddFile()"
+                      data-i18n="flows.cancel_btn"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                  <p
+                    style="
+                      font-size: 11px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      margin: 6px 0 0;
+                    "
+                    data-i18n="flows.new_file_hint"
+                  >
+                    Erlaubte Endungen: .js · .toml · .toml.template
+                  </p>
+                </div>
+
+                <!-- State 3: file editor -->
+                <div id="flows-editor-wrap" style="display: none">
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      margin-bottom: 8px;
+                      flex-wrap: wrap;
+                    "
+                  >
+                    <span
+                      id="flows-editor-breadcrumb"
+                      style="
+                        font-family: monospace;
+                        font-size: 13px;
+                        font-weight: 600;
+                        flex: 1;
+                        color: var(--c8y-palette-gray-20, #ccc);
+                      "
+                    ></span>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      onclick="saveCurrentFile()"
+                    >
+                      <i class="fas fa-save"></i>
+                      <span data-i18n="flows.editor_save">Speichern</span>
+                    </button>
+                    <button
+                      class="btn btn-outline-secondary btn-sm"
+                      onclick="deleteCurrentFile()"
+                    >
+                      <i class="fas fa-trash"></i>
+                      <span data-i18n="flows.delete_file_btn"
+                        >Datei löschen</span
+                      >
+                    </button>
+                  </div>
+                  <textarea
+                    id="flows-editor"
+                    spellcheck="false"
+                    style="
+                      width: 100%;
+                      height: calc(100vh - 360px);
+                      min-height: 240px;
+                      font-family: monospace;
+                      font-size: 12px;
+                      background: var(--c8y-palette-gray-100, #1a1a2e);
+                      color: var(--c8y-palette-gray-20, #ccc);
+                      border: 1px solid var(--c8y-palette-gray-70, #444);
+                      border-radius: 4px;
+                      padding: 12px;
+                      resize: vertical;
+                      box-sizing: border-box;
+                    "
+                    placeholder="# TOML / JavaScript"
+                  ></textarea>
+                </div>
+              </div>
             </div>
           </section>
         </div>

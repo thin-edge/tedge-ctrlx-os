@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.0
+version: 0.0.145
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -351,7 +351,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: 9f021a0078bd18452d2e82322773f91a007cc8f1
+    source-commit: e7f31dcd5702b01f0400df3b899840240d6fbb26
     build-packages:
       - pkg-config
       - libssl-dev
@@ -407,6 +407,7 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
       ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-flows-plugin
       
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server

@@ -14,20 +14,12 @@ const I18N = {
     "header.title": "thin-edge.io Konfigurationsoberfläche",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
-    // Nav items
-    "nav.setup": "Setup",
-    "nav.edge": "Edge",
-    "nav.status": "Status",
-    "nav.certificate": "Zertifikat",
-    "nav.connect": "Verbinden",
-    "nav.logs": "Logs",
-    "nav.tedge_config": "Tedge Config",
-    "nav.device": "Gerät",
-    "nav.snap_config": "Snap Config",
-    "nav.datalayer": "Datalayer",
-    "nav.licensing": "Lizenzierung",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Aktionen",
     "section.cloud": "Cloud-Konfiguration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Gerät & Zertifikat",
@@ -56,6 +48,41 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Gültig bis",
     "licensing.col.quantity": "Anzahl",
+    // Flows
+    "section.flows": "Flows (JavaScript-Transformationen)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Aktualisieren",
+    "flows.upload_btn": "Flow hochladen (.toml)",
+    "flows.new_btn": "Neu",
+    "flows.loading": "Flows werden geladen...",
+    "flows.empty": "Keine Flows vorhanden.",
+    "flows.editor_placeholder":
+      'Flow in der Liste auswählen oder "Neu" klicken.',
+    "flows.editor_placeholder_toml": "# TOML flow configuration",
+    "flows.col.name": "Dateiname",
+    "flows.col.actions": "Aktionen",
+    "flows.btn_view": "Anzeigen",
+    "flows.btn_delete": "Löschen",
+    "flows.editor_close": "Schließen",
+    "flows.editor_save": "Speichern",
+    "flows.confirm_delete": (name) => `Flow "${name}" wirklich löschen?`,
+    "flows.deleted": (name) => `Flow "${name}" gelöscht`,
+    "flows.saved": (name) => `Flow "${name}" gespeichert`,
+    "flows.upload_ok": (name) => `Flow "${name}" hochgeladen`,
+    "flows.err_load": "Fehler beim Laden der Flows",
+    "flows.err_save": "Fehler beim Speichern des Flows",
+    "flows.err_delete": "Fehler beim Löschen des Flows",
+    "flows.err_no_name": "Bitte Flow-Name eingeben",
+    "flows.create_btn": "Erstellen",
+    "flows.cancel_btn": "Abbrechen",
+    "flows.delete_file_btn": "Datei löschen",
+    "flows.delete_flow_btn": "Flow löschen",
+    "flows.add_file_btn": "+ Datei",
+    "flows.new_file_for": "Neue Datei in",
+    "flows.new_file_hint": "Erlaubte Endungen: .js · .toml · .toml.template",
+    "flows.confirm_delete_flow": (name) =>
+      `Flow "${name}" und alle Dateien löschen?`,
+    "flows.err_invalid_ext": "Erlaubte Endungen: .js, .toml, .toml.template",
     // Status
     "status.services": "Dienste",
     "status.mappers": "Mapper",
@@ -312,20 +339,12 @@ const I18N = {
     "header.title": "thin-edge.io Configuration Interface",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
-    // Nav items
-    "nav.setup": "Setup",
-    "nav.edge": "Edge",
-    "nav.status": "Status",
-    "nav.certificate": "Certificate",
-    "nav.connect": "Connect",
-    "nav.logs": "Logs",
-    "nav.tedge_config": "Tedge Config",
-    "nav.device": "Device",
-    "nav.snap_config": "Snap Config",
-    "nav.datalayer": "Datalayer",
-    "nav.licensing": "Licensing",
     // Nav / Sections
     "section.status": "Connection Status",
+    "section.service_control": "Service Control",
+    "service.col.service": "Service",
+    "service.col.status": "Status",
+    "service.col.actions": "Actions",
     "section.cloud": "Cloud Configuration",
     "section.cloud_col": "Cloud",
     "section.device_col": "Device & Certificate",
@@ -354,7 +373,40 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Valid Until",
     "licensing.col.quantity": "Qty",
-    // Status
+    // Flows
+    "section.flows": "Flows (JavaScript Transformations)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Refresh",
+    "flows.upload_btn": "Upload Flow (.toml)",
+    "flows.new_btn": "New",
+    "flows.loading": "Loading flows...",
+    "flows.empty": "No flows configured.",
+    "flows.editor_placeholder": 'Select a flow from the list or click "New".',
+    "flows.editor_placeholder_toml": "# TOML flow configuration",
+    "flows.col.name": "Filename",
+    "flows.col.actions": "Actions",
+    "flows.btn_view": "View",
+    "flows.btn_delete": "Delete",
+    "flows.editor_close": "Close",
+    "flows.editor_save": "Save",
+    "flows.confirm_delete": (name) => `Delete flow "${name}"?`,
+    "flows.deleted": (name) => `Flow "${name}" deleted`,
+    "flows.saved": (name) => `Flow "${name}" saved`,
+    "flows.upload_ok": (name) => `Flow "${name}" uploaded`,
+    "flows.err_load": "Error loading flows",
+    "flows.err_save": "Error saving flow",
+    "flows.err_delete": "Error deleting flow",
+    "flows.err_no_name": "Please enter a flow name",
+    "flows.create_btn": "Create",
+    "flows.cancel_btn": "Cancel",
+    "flows.delete_file_btn": "Delete File",
+    "flows.delete_flow_btn": "Delete Flow",
+    "flows.add_file_btn": "+ Add File",
+    "flows.new_file_for": "New file in",
+    "flows.new_file_hint": "Allowed extensions: .js · .toml · .toml.template",
+    "flows.confirm_delete_flow": (name) =>
+      `Delete flow "${name}" and all its files?`,
+    "flows.err_invalid_ext": "Allowed extensions: .js, .toml, .toml.template",
     "status.services": "Services",
     "status.mappers": "Mappers",
     "status.connection": "Connection",
@@ -830,6 +882,8 @@ window.addEventListener("DOMContentLoaded", () => {
   // Only load the first visible section (status) on startup.
   // All other sections load their data lazily when the user opens them.
   loadStatus();
+  loadServiceControl();
+  loadDatalayerStatus();
   checkLicenseStatus();
 
   // Apply persisted certificate mode (default: CA)
@@ -848,11 +902,100 @@ window.addEventListener("DOMContentLoaded", () => {
   // Auto-refresh service status every 30 seconds (only if section is open)
   setInterval(() => {
     const sec = document.getElementById("sec-status");
-    if (sec && !sec.classList.contains("collapsed")) loadStatus();
+    if (sec && !sec.classList.contains("collapsed")) {
+      loadStatus();
+      loadServiceControl();
+      loadDatalayerStatus();
+    }
   }, 30000);
 });
 
 // Load service status
+
+// ── Service Control ────────────────────────────────────────────────────────
+
+const SERVICE_CONTROL_LIST = [
+  { key: "mosquitto", svc: "mosquitto", label: "MQTT Broker (mosquitto)" },
+  { key: "agent", svc: "tedge-agent", label: "Tedge Agent" },
+  {
+    key: "bridge",
+    svc: "tedge-datalayer-bridge",
+    label: "ctrlXDatalayer Bridge",
+  },
+  { key: "watchdog", svc: "tedge-watchdog", label: "Watchdog" },
+  {
+    key: "log_upload_manager",
+    svc: "tedge-log-upload-manager",
+    label: "Log Manager",
+  },
+  { key: "mapper_c8y", svc: "tedge-mapper-c8y", label: "Mapper C8Y" },
+  { key: "mapper_aws", svc: "tedge-mapper-aws", label: "Mapper AWS" },
+  { key: "mapper_az", svc: "tedge-mapper-az", label: "Mapper Azure" },
+];
+
+async function loadServiceControl() {
+  const tbody = document.getElementById("service-control-tbody");
+  if (!tbody) return;
+
+  try {
+    const r = await fetchWithAuth("api/status");
+    if (!r.ok) throw new Error("Status load failed");
+    const data = await r.json();
+
+    tbody.innerHTML = "";
+    SERVICE_CONTROL_LIST.forEach(({ key, svc, label }) => {
+      const status = data[key] || "unknown";
+      const isRunning = status === "running";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="padding:8px 12px; font-size:13px;">${label}</td>
+        <td style="padding:8px 12px;">
+          <span style="font-size:12px; color:var(--c8y-palette-gray-40);">${t("status." + status) || status}</span>
+        </td>
+        <td style="padding:8px 12px;">
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('start','${svc}')"
+            ${isRunning ? "disabled" : ""} title="Start">▶</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('stop','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Stop">■</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('restart','${svc}')"
+            ${!isRunning ? "disabled" : ""} title="Restart">↺</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--c8y-brand-danger,#e74c3c);padding:16px;">${e.message}</td></tr>`;
+  }
+}
+
+async function serviceAction(action, svc) {
+  const endpointMap = {
+    start: "start-service",
+    stop: "stop-service",
+    restart: "restart-service",
+  };
+  const endpoint = endpointMap[action];
+  if (!endpoint) return;
+  try {
+    const r = await fetchWithAuth(`api/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service: svc }),
+    });
+    const d = await r.json();
+    if (d.success) {
+      showNotification(`${action} ${svc}: OK`, "success");
+    } else {
+      showNotification(`${action} ${svc}: ${d.error || "failed"}`, "error");
+    }
+  } catch (e) {
+    showNotification(`${action} ${svc}: ${e.message}`, "error");
+  }
+  setTimeout(() => {
+    loadStatus();
+    loadServiceControl();
+  }, 1500);
+}
 
 async function loadStatus() {
   try {
@@ -877,13 +1020,14 @@ async function loadStatus() {
     updateStatusBadge("mapper-c8y-status", data.mapper_c8y || "unknown");
     updateStatusBadge("mapper-aws-status", data.mapper_aws || "unknown");
     updateStatusBadge("mapper-az-status", data.mapper_az || "unknown");
-    // Supplement mapper status
-    updateStatusBadge("c8y-mapper-status", data.c8y || "unknown");
-    updateStatusBadge("aws-mapper-status", data.aws || "unknown");
-    updateStatusBadge("az-mapper-status", data.az || "unknown");
-    updateStatusBadge("c8y-status", data.c8y || "unknown");
-    updateStatusBadge("aws-status", data.aws || "unknown");
-    updateStatusBadge("az-status", data.az || "unknown");
+    // Cloud + Datalayer: text-only status in merged table
+    const setStatusText = (id, key) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t("status." + (data[key] || "unknown")) || "";
+    };
+    setStatusText("c8y-status-text", "c8y");
+    setStatusText("aws-status-text", "aws");
+    setStatusText("az-status-text", "az");
   } catch (error) {
     console.error("Error loading status:", error);
     showNotification(t("notify.status_load_err"), "error");
@@ -1374,7 +1518,6 @@ async function saveDeviceConfig() {
 function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
   loadStatus();
-  loadDatalayerStatus();
 }
 
 // Load logs from API
@@ -2207,11 +2350,13 @@ function initCollapsibleSections() {
   window._sectionLazyLoaders = {
     "sec-status": () => {
       loadStatus();
+      loadServiceControl();
     },
     "sec-cloud": () => {
       loadConfiguration();
       loadC8yMqttPort();
-      loadEdgeDeviceId();
+    },
+    "sec-device": () => {
       _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
@@ -2245,6 +2390,9 @@ function initCollapsibleSections() {
     },
     "sec-licensing": () => {
       loadLicenses();
+    },
+    "sec-flows": () => {
+      loadFlows();
     },
   };
 
@@ -2325,37 +2473,27 @@ async function loadDatalayerStatus() {
   const text = document.getElementById("datalayer-status-text");
 
   const setStatus = (key) => {
-    if (text) {
-      text.textContent = t(key);
-      text.setAttribute("data-i18n", key);
-    }
-  };
-  const setCustom = (str) => {
-    if (text) {
-      text.textContent = str;
-      text.removeAttribute("data-i18n");
-    }
+    text.textContent = t(key);
+    text.setAttribute("data-i18n", key);
   };
 
-  const setDot = (cssStatus) => {
-    updateStatusBadge("datalayer-dot-service", cssStatus);
-  };
-
-  // Start-Zustand
-  setDot("unknown");
+  // Start-Zustand: ⚪ | ⚪ Loading...
+  dotSvc.textContent = "⚪";
   setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
     if (r.status === 401 || r.status === 403) {
-      setDot("running");
+      dotSvc.textContent = "🟢";
+      // Note: you may need to add 'status.noauth' ("🟡 Auth Error") to i18n!
       setStatus("datalayer.status_noauth");
       return;
     }
 
     if (!r.ok) {
-      setDot("unknown");
+      // Webserver liefert Fehler: 🔴 | ⚪ Unknown
+      dotSvc.textContent = "🔴";
       setStatus("status.unknown");
       return;
     }
@@ -2363,21 +2501,22 @@ async function loadDatalayerStatus() {
     const d = await r.json();
 
     if (!d.enabled) {
-      setDot("inactive");
-      setStatus("status.inactive");
+      // Schalter ist aus -> Verbindung ist deaktiviert
+      dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
+      setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
     } else {
       if (d.connected) {
-        setDot("running");
-        setCustom(
-          `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`,
-        );
+        // Verbindung zum Datalayer steht
+        text.textContent = `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`;
+        text.removeAttribute("data-i18n");
       } else {
-        setDot("stopped");
-        setStatus("status.stopped");
+        // Dienst da, aber keine Verbindung
+        setStatus("status.stopped"); // "🔴 Getrennt"
       }
     }
   } catch (e) {
-    setDot("unknown");
+    // Komplettabsturz (Rust-Backend weg): 🔴 | ⚪ Unknown
+    dotSvc.textContent = "🔴";
     setStatus("status.unknown");
   }
 }
@@ -3397,337 +3536,3 @@ async function loadLicenses() {
     }
   }
 }
-
-// ── Navigator ────────────────────────────────────────────────────────
-/**
- * Show a specific section and mark the corresponding nav-item as active.
- * @param {string} sectionId  - id of the <section> to show (e.g. "sec-cloud")
- * @param {Element|null} clickedEl - the .nav-item that was clicked
- */
-function showNav(sectionId, clickedEl) {
-  // Hide all navigable sections
-  document.querySelectorAll("#main-container > section").forEach((s) => {
-    s.style.display = "none";
-  });
-
-  // Check if target section belongs to a page group
-  const targetEl = document.getElementById(sectionId);
-  const pageGroup = targetEl ? targetEl.dataset.page : null;
-
-  // Collect all sections to show
-  const toShow = pageGroup
-    ? Array.from(
-        document.querySelectorAll(
-          `#main-container > section[data-page="${pageGroup}"]`,
-        ),
-      )
-    : targetEl
-      ? [targetEl]
-      : [];
-
-  toShow.forEach((s) => {
-    s.style.display = "block";
-    if (s.classList.contains("collapsed")) {
-      s.classList.remove("collapsed");
-      if (!s.dataset.sectionLoaded) {
-        s.dataset.sectionLoaded = "1";
-        const loader =
-          window._sectionLazyLoaders && window._sectionLazyLoaders[s.id];
-        if (loader) loader();
-      }
-    }
-  });
-
-  // Remove active class from all nav items
-  document
-    .querySelectorAll(".nav-item")
-    .forEach((el) => el.classList.remove("active"));
-
-  // Add active to clicked element
-  if (clickedEl) clickedEl.classList.add("active");
-
-  // Show header save button on setup and device pages
-  const saveBtn = document.getElementById("header-save-btn");
-  const refreshBtn = document.getElementById("header-refresh-btn");
-  if (refreshBtn) {
-    const showRefresh =
-      pageGroup === "status" ||
-      pageGroup === "datalayer" ||
-      pageGroup === "licensing";
-    refreshBtn.style.display = showRefresh ? "" : "none";
-    if (pageGroup === "datalayer")
-      refreshBtn.onclick = () => loadDatalayerStatus();
-    else if (pageGroup === "licensing")
-      refreshBtn.onclick = () => loadLicenses();
-    else refreshBtn.onclick = () => refreshStatus();
-  }
-  if (saveBtn) {
-    const showSave =
-      pageGroup === "setup" ||
-      pageGroup === "device" ||
-      pageGroup === "snap-config" ||
-      pageGroup === "datalayer";
-    saveBtn.style.display = showSave ? "" : "none";
-    if (pageGroup === "device")
-      saveBtn.onclick = () => saveAndPublishInventory();
-    else if (pageGroup === "snap-config")
-      saveBtn.onclick = () => saveSnapConfigFile();
-    else if (pageGroup === "datalayer")
-      saveBtn.onclick = () => saveDatalayerConfig();
-    else saveBtn.onclick = () => saveActiveCloudTab();
-  }
-
-  // Persist current section
-  sessionStorage.setItem("tedge-nav-section", sectionId);
-}
-
-/**
- * Toggle open/closed state of a nav-group.
- * @param {Element} headerEl - the .nav-group-header that was clicked
- */
-function toggleNavGroup(headerEl) {
-  const group = headerEl.closest(".nav-group");
-  if (group) group.classList.toggle("open");
-}
-
-// Initialise navigator on DOMContentLoaded
-document.addEventListener("DOMContentLoaded", function () {
-  // Determine which section to show (persisted or default)
-  const saved = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
-  const navItem = document.querySelector(`.nav-item[data-target="${saved}"]`);
-  // Mark the default section as pre-loaded (data already loaded by other DOMContentLoaded handlers)
-  const defaultTarget = document.getElementById(saved);
-  if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
-  showNav(saved, navItem);
-});
-
-// ── Node.js Backend Integration (port 9080) ─────────────────────────
-
-/** Base URL for Node.js backend (always port 9080) */
-function _backendBase() {
-  return `${window.location.protocol}//${window.location.hostname}:9080`;
-}
-
-/** Socket.IO singleton */
-let _socket = null;
-
-/**
- * Get (or lazily initialise) the Socket.IO connection to the Node.js backend.
- * socket.io.js is loaded from the backend itself.
- */
-function getSocket() {
-  if (_socket && _socket.connected) return _socket;
-  if (typeof io === "undefined") {
-    console.warn("socket.io client not loaded yet");
-    return null;
-  }
-  _socket = io(_backendBase(), { transports: ["websocket", "polling"] });
-  _socket.on("connect", () => console.log("Socket.IO connected"));
-  _socket.on("disconnect", () => console.log("Socket.IO disconnected"));
-  return _socket;
-}
-
-/** Append a line to the edge job log panel */
-function _jobLogLine(text, type) {
-  const logDiv = document.getElementById("edge-job-log");
-  const entries = document.getElementById("edge-job-log-entries");
-  if (!logDiv || !entries) return;
-  logDiv.style.display = "";
-  const line = document.createElement("div");
-  const colors = {
-    error: "#d9534f",
-    success: "#5cb85c",
-    info: "#888",
-    default: "#212121",
-  };
-  line.style.color = colors[type] || colors.default;
-  line.textContent = text;
-  entries.appendChild(line);
-  entries.scrollTop = entries.scrollHeight;
-}
-
-/** Clear the job log */
-function _clearJobLog() {
-  const logDiv = document.getElementById("edge-job-log");
-  const entries = document.getElementById("edge-job-log-entries");
-  if (logDiv) logDiv.style.display = "none";
-  if (entries) entries.innerHTML = "";
-}
-
-/**
- * Submit a job to the Node.js backend via Socket.IO.
- * Progress events are displayed in the job log.
- * Returns a Promise that resolves when the job ends.
- */
-function _submitJob(jobPayload) {
-  return new Promise((resolve, reject) => {
-    const socket = getSocket();
-    if (!socket) {
-      _jobLogLine(
-        "Socket.IO not available – is the Node.js backend running?",
-        "error",
-      );
-      reject(new Error("Socket not available"));
-      return;
-    }
-
-    _clearJobLog();
-    _jobLogLine(`▶ ${jobPayload.jobName} …`, "info");
-
-    function onProgress(evt) {
-      const { status, text, level } = evt;
-      if (text) {
-        _jobLogLine(
-          text,
-          level === "error"
-            ? "error"
-            : status === "error"
-              ? "error"
-              : "default",
-        );
-      }
-      if (status === "end" || status === "error" || status === "done") {
-        socket.off("channel-job-progress", onProgress);
-        if (status === "error") reject(new Error(text || "Job failed"));
-        else resolve();
-      }
-    }
-
-    socket.on("channel-job-progress", onProgress);
-    socket.emit("channel-job-submit", jobPayload);
-  });
-}
-
-/** Load device identity from Node.js backend and fill #edge-device-id */
-async function loadEdgeDeviceId() {
-  const el = document.getElementById("edge-device-id");
-  if (!el) return;
-  try {
-    const resp = await fetch(`${_backendBase()}/api/device/identity`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    el.value = data.deviceName || data.id || "";
-  } catch (e) {
-    el.value = "";
-    el.placeholder = "Backend not reachable";
-  }
-}
-
-/** Determine currently active cloud provider from tab selection */
-function _activeCloudProvider() {
-  const activeTab = document.querySelector("#sec-cloud .tab.active");
-  if (!activeTab) return "c8y";
-  return activeTab.dataset.cloud || "c8y";
-}
-
-/** Configure Edge via Socket.IO → configureTedge job */
-async function configureEdge() {
-  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
-  if (!deviceId) {
-    notify(
-      t("cloud.configure_edge") + ": " + "Device ID nicht gefunden",
-      "error",
-    );
-    return;
-  }
-
-  const provider = _activeCloudProvider();
-  const jobPayload = {
-    jobName: "configureTedge",
-    mode: "normal",
-    cloudProvider: provider,
-    deviceId,
-    c8yUrl: document.getElementById("c8y-url")?.value?.trim() || "",
-    awsUrl: document.getElementById("aws-url")?.value?.trim() || "",
-    azUrl: document.getElementById("az-url")?.value?.trim() || "",
-  };
-
-  try {
-    // Also save web-config to backend
-    await fetch(`${_backendBase()}/api/web-config`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cloudProvider: provider,
-        c8y: { "c8y-url": jobPayload.c8yUrl },
-        aws: { "aws-url": jobPayload.awsUrl },
-        az: { "azure-url": jobPayload.azUrl },
-        device: { id: deviceId, name: deviceId },
-      }),
-    });
-    await _submitJob(jobPayload);
-    _jobLogLine("✓ Edge konfiguriert", "success");
-  } catch (e) {
-    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
-  }
-}
-
-/** Download CA-certificate from Node.js backend */
-async function downloadCACertificate() {
-  const deviceId = document.getElementById("edge-device-id")?.value?.trim();
-  const url = `${_backendBase()}/api/backend/certificate?deviceId=${encodeURIComponent(deviceId || "")}&mode=normal`;
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "device-certificate.pem";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-/** Upload Self-Signed Certificate via existing Rust backend endpoint */
-async function uploadSelfSignedCert() {
-  // Use existing Rust backend upload endpoint (api/cert/upload/c8y)
-  const provider = _activeCloudProvider();
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".pem,.crt,.cer";
-  input.onchange = async () => {
-    if (!input.files[0]) return;
-    const formData = new FormData();
-    formData.append("file", input.files[0]);
-    try {
-      const resp = await fetchWithAuth(`api/cert/upload/${provider}`, {
-        method: "POST",
-        headers: {},
-        body: formData,
-      });
-      if (resp.ok) {
-        notify(t("cloud.upload_self_cert") + " ✓", "success");
-      } else {
-        notify(`Upload fehlgeschlagen: HTTP ${resp.status}`, "error");
-      }
-    } catch (e) {
-      notify(`Upload Fehler: ${e.message}`, "error");
-    }
-  };
-  input.click();
-}
-
-/** Reset Edge via Socket.IO → resetTedge job */
-async function resetEdge() {
-  if (!confirm(t ? "Edge wirklich zurücksetzen?" : "Reset Edge?")) return;
-  try {
-    await _submitJob({ jobName: "resetTedge", mode: "normal" });
-    _jobLogLine("✓ Edge zurückgesetzt", "success");
-  } catch (e) {
-    _jobLogLine(`✗ Fehler: ${e.message}`, "error");
-  }
-}
-
-// Load socket.io.js from backend dynamically
-(function loadSocketIO() {
-  if (typeof io !== "undefined") return; // already loaded
-  const base = _backendBase();
-  const script = document.createElement("script");
-  script.src = `${base}/socket.io/socket.io.js`;
-  script.onerror = () => console.warn("Could not load socket.io from backend");
-  document.head.appendChild(script);
-})();
-
-// Load device id when Setup section becomes visible
-window.addEventListener("DOMContentLoaded", function () {
-  // If sec-cloud is the default page, load device id immediately
-  const savedSection =
-    sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
-  if (savedSection === "sec-cloud") loadEdgeDeviceId();
-});
