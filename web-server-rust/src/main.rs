@@ -1434,14 +1434,18 @@ async fn start_single_service(
 ) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
     if !role.can_execute() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"success": false, "error": "Admin required"})));
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
     }
     let svc = body.service.trim().to_string();
     if !ALLOWED_SERVICES.contains(&svc.as_str()) {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Unknown service"})));
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
     }
     if env::var("SNAP").is_err() {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Only available in snap environment"})));
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
     }
     info!("[START-SVC] Starting {} (user: {:?})", svc, user);
     run_snapctl_service("start", &svc)
@@ -1453,14 +1457,18 @@ async fn stop_single_service(
 ) -> Result<HttpResponse> {
     let (user, role, _token) = extract_user_info(&req);
     if !role.can_execute() {
-        return Ok(HttpResponse::Forbidden().json(serde_json::json!({"success": false, "error": "Admin required"})));
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"success": false, "error": "Admin required"})));
     }
     let svc = body.service.trim().to_string();
     if !ALLOWED_SERVICES.contains(&svc.as_str()) {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Unknown service"})));
+        return Ok(HttpResponse::BadRequest()
+            .json(serde_json::json!({"success": false, "error": "Unknown service"})));
     }
     if env::var("SNAP").is_err() {
-        return Ok(HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Only available in snap environment"})));
+        return Ok(HttpResponse::BadRequest().json(
+            serde_json::json!({"success": false, "error": "Only available in snap environment"}),
+        ));
     }
     info!("[STOP-SVC] Stopping {} (user: {:?})", svc, user);
     run_snapctl_service("stop", &svc)

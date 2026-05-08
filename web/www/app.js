@@ -3598,4 +3598,3 @@ document.addEventListener("DOMContentLoaded", function () {
   if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
   showNav(saved, navItem);
 });
-
