@@ -27,6 +27,7 @@ const I18N = {
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Lizenzierung",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
     "section.service_control": "Service Control",
@@ -61,6 +62,42 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Gültig bis",
     "licensing.col.quantity": "Anzahl",
+    // Flows
+    "section.flows": "Flows (JavaScript-Transformationen)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Aktualisieren",
+    "flows.upload_btn": "Flow hochladen (.toml)",
+    "flows.new_btn": "Neu",
+    "flows.loading": "Flows werden geladen...",
+    "flows.empty": "Keine Flows vorhanden.",
+    "flows.editor_placeholder":
+      'Flow in der Liste auswählen oder "Neu" klicken.',
+    "flows.editor_placeholder_toml": "# TOML flow configuration",
+    "flows.empty": "Keine Flows vorhanden.",
+    "flows.col.name": "Dateiname",
+    "flows.col.actions": "Aktionen",
+    "flows.btn_view": "Anzeigen",
+    "flows.btn_delete": "Löschen",
+    "flows.editor_close": "Schließen",
+    "flows.editor_save": "Speichern",
+    "flows.confirm_delete": (name) => `Flow "${name}" wirklich löschen?`,
+    "flows.deleted": (name) => `Flow "${name}" gelöscht`,
+    "flows.saved": (name) => `Flow "${name}" gespeichert`,
+    "flows.upload_ok": (name) => `Flow "${name}" hochgeladen`,
+    "flows.err_load": "Fehler beim Laden der Flows",
+    "flows.err_save": "Fehler beim Speichern des Flows",
+    "flows.err_delete": "Fehler beim Löschen des Flows",
+    "flows.err_no_name": "Bitte Flow-Name eingeben",
+    "flows.create_btn": "Erstellen",
+    "flows.cancel_btn": "Abbrechen",
+    "flows.delete_file_btn": "Datei löschen",
+    "flows.delete_flow_btn": "Flow löschen",
+    "flows.add_file_btn": "+ Datei",
+    "flows.new_file_for": "Neue Datei in",
+    "flows.new_file_hint": "Erlaubte Endungen: .js · .toml · .toml.template",
+    "flows.confirm_delete_flow": (name) =>
+      `Flow "${name}" und alle Dateien löschen?`,
+    "flows.err_invalid_ext": "Erlaubte Endungen: .js, .toml, .toml.template",
     // Status
     "status.services": "Dienste",
     "status.mappers": "Mapper",
@@ -330,6 +367,7 @@ const I18N = {
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Licensing",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Connection Status",
     "section.service_control": "Service Control",
@@ -364,7 +402,41 @@ const I18N = {
     "licensing.col.status": "Status",
     "licensing.col.validUntil": "Valid Until",
     "licensing.col.quantity": "Qty",
-    // Status
+    // Flows
+    "section.flows": "Flows (JavaScript Transformations)",
+    "flows.mapper_label": "Mapper",
+    "flows.refresh": "Refresh",
+    "flows.upload_btn": "Upload Flow (.toml)",
+    "flows.new_btn": "New",
+    "flows.loading": "Loading flows...",
+    "flows.empty": "No flows configured.",
+    "flows.editor_placeholder": 'Select a flow from the list or click "New".',
+    "flows.editor_placeholder_toml": "# TOML flow configuration",
+    "flows.empty": "No flows configured.",
+    "flows.col.name": "Filename",
+    "flows.col.actions": "Actions",
+    "flows.btn_view": "View",
+    "flows.btn_delete": "Delete",
+    "flows.editor_close": "Close",
+    "flows.editor_save": "Save",
+    "flows.confirm_delete": (name) => `Delete flow "${name}"?`,
+    "flows.deleted": (name) => `Flow "${name}" deleted`,
+    "flows.saved": (name) => `Flow "${name}" saved`,
+    "flows.upload_ok": (name) => `Flow "${name}" uploaded`,
+    "flows.err_load": "Error loading flows",
+    "flows.err_save": "Error saving flow",
+    "flows.err_delete": "Error deleting flow",
+    "flows.err_no_name": "Please enter a flow name",
+    "flows.create_btn": "Create",
+    "flows.cancel_btn": "Cancel",
+    "flows.delete_file_btn": "Delete File",
+    "flows.delete_flow_btn": "Delete Flow",
+    "flows.add_file_btn": "+ Add File",
+    "flows.new_file_for": "New file in",
+    "flows.new_file_hint": "Allowed extensions: .js · .toml · .toml.template",
+    "flows.confirm_delete_flow": (name) =>
+      `Delete flow "${name}" and all its files?`,
+    "flows.err_invalid_ext": "Allowed extensions: .js, .toml, .toml.template",
     "status.services": "Services",
     "status.mappers": "Mappers",
     "status.connection": "Connection",
@@ -841,6 +913,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // All other sections load their data lazily when the user opens them.
   loadStatus();
   loadServiceControl();
+  loadDatalayerStatus();
   checkLicenseStatus();
 
   // Apply persisted certificate mode (default: CA)
@@ -862,6 +935,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (sec && !sec.classList.contains("collapsed")) {
       loadStatus();
       loadServiceControl();
+      loadDatalayerStatus();
     }
   }, 30000);
 });
@@ -873,7 +947,11 @@ window.addEventListener("DOMContentLoaded", () => {
 const SERVICE_CONTROL_LIST = [
   { key: "mosquitto", svc: "mosquitto", label: "MQTT Broker (mosquitto)" },
   { key: "agent", svc: "tedge-agent", label: "Tedge Agent" },
-  { key: "bridge", svc: "tedge-datalayer-bridge", label: "Datalayer Bridge" },
+  {
+    key: "bridge",
+    svc: "tedge-datalayer-bridge",
+    label: "ctrlXDatalayer Bridge",
+  },
   { key: "watchdog", svc: "tedge-watchdog", label: "Watchdog" },
   {
     key: "log_upload_manager",
@@ -903,8 +981,7 @@ async function loadServiceControl() {
       tr.innerHTML = `
         <td style="padding:8px 12px; font-size:13px;">${label}</td>
         <td style="padding:8px 12px;">
-          <span class="status ${status}" style="font-size:22px; line-height:1;">●</span>
-          <span style="font-size:12px; color:var(--c8y-palette-gray-40); margin-left:6px;">${t("status." + status) || status}</span>
+          <span style="font-size:12px; color:var(--c8y-palette-gray-40);">${t("status." + status) || status}</span>
         </td>
         <td style="padding:8px 12px;">
           <button class="btn btn-outline-secondary btn-sm" onclick="serviceAction('start','${svc}')"
@@ -973,13 +1050,14 @@ async function loadStatus() {
     updateStatusBadge("mapper-c8y-status", data.mapper_c8y || "unknown");
     updateStatusBadge("mapper-aws-status", data.mapper_aws || "unknown");
     updateStatusBadge("mapper-az-status", data.mapper_az || "unknown");
-    // Supplement mapper status
-    updateStatusBadge("c8y-mapper-status", data.c8y || "unknown");
-    updateStatusBadge("aws-mapper-status", data.aws || "unknown");
-    updateStatusBadge("az-mapper-status", data.az || "unknown");
-    updateStatusBadge("c8y-status", data.c8y || "unknown");
-    updateStatusBadge("aws-status", data.aws || "unknown");
-    updateStatusBadge("az-status", data.az || "unknown");
+    // Cloud + Datalayer: text-only status in merged table
+    const setStatusText = (id, key) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t("status." + (data[key] || "unknown")) || "";
+    };
+    setStatusText("c8y-status-text", "c8y");
+    setStatusText("aws-status-text", "aws");
+    setStatusText("az-status-text", "az");
   } catch (error) {
     console.error("Error loading status:", error);
     showNotification(t("notify.status_load_err"), "error");
@@ -2309,7 +2387,6 @@ function initCollapsibleSections() {
     "sec-cloud": () => {
       loadConfiguration();
       loadC8yMqttPort();
-      loadEdgeDeviceId();
       _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
@@ -2343,6 +2420,9 @@ function initCollapsibleSections() {
     },
     "sec-licensing": () => {
       loadLicenses();
+    },
+    "sec-flows": () => {
+      loadFlows();
     },
   };
 
@@ -2435,25 +2515,18 @@ async function loadDatalayerStatus() {
     }
   };
 
-  const setDot = (cssStatus) => {
-    updateStatusBadge("datalayer-dot-service", cssStatus);
-  };
-
   // Start-Zustand
-  setDot("unknown");
   setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
     if (r.status === 401 || r.status === 403) {
-      setDot("running");
       setStatus("datalayer.status_noauth");
       return;
     }
 
     if (!r.ok) {
-      setDot("unknown");
       setStatus("status.unknown");
       return;
     }
@@ -2461,21 +2534,17 @@ async function loadDatalayerStatus() {
     const d = await r.json();
 
     if (!d.enabled) {
-      setDot("inactive");
       setStatus("status.inactive");
     } else {
       if (d.connected) {
-        setDot("running");
         setCustom(
           `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`,
         );
       } else {
-        setDot("stopped");
         setStatus("status.stopped");
       }
     }
   } catch (e) {
-    setDot("unknown");
     setStatus("status.unknown");
   }
 }
@@ -3494,6 +3563,388 @@ async function loadLicenses() {
       errDiv.style.display = "";
     }
   }
+}
+
+// ── Flows Management ─────────────────────────────────────────────────────────
+
+let _flowsCurrentFlow = null; // currently open flow directory name
+let _flowsCurrentFile = null; // currently open file name
+let _flowsNewFileTarget = null; // flow name for pending "add file" operation
+
+function _flowsMapper() {
+  const sel = document.getElementById("flows-mapper-select");
+  return sel ? sel.value : "c8y";
+}
+
+function _showEditorState(state) {
+  // state: "placeholder" | "add-file" | "editor"
+  const placeholder = document.getElementById("flows-editor-placeholder");
+  const addForm = document.getElementById("flows-new-file-form");
+  const wrap = document.getElementById("flows-editor-wrap");
+  if (placeholder)
+    placeholder.style.display = state === "placeholder" ? "" : "none";
+  if (addForm) addForm.style.display = state === "add-file" ? "" : "none";
+  if (wrap) wrap.style.display = state === "editor" ? "" : "none";
+}
+
+async function loadFlows() {
+  const loading = document.getElementById("flows-loading");
+  const tree = document.getElementById("flows-tree");
+  const empty = document.getElementById("flows-empty");
+  const errDiv = document.getElementById("flows-error");
+
+  if (loading) loading.style.display = "";
+  if (tree) tree.style.display = "none";
+  if (empty) empty.style.display = "none";
+  if (errDiv) errDiv.style.display = "none";
+
+  try {
+    const mapper = _flowsMapper();
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (resp.status === 403) {
+      if (loading) loading.style.display = "none";
+      if (errDiv) {
+        errDiv.textContent = t("notify.no_perm_status");
+        errDiv.style.display = "";
+      }
+      return;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const flows = data.flows || [];
+
+    if (loading) loading.style.display = "none";
+
+    if (flows.length === 0) {
+      if (empty) empty.style.display = "";
+      return;
+    }
+
+    if (tree) {
+      _renderFlowsTree(flows, tree);
+      tree.style.display = "";
+      _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
+    }
+  } catch (err) {
+    if (loading) loading.style.display = "none";
+    if (errDiv) {
+      errDiv.textContent = `${t("flows.err_load")}: ${err.message}`;
+      errDiv.style.display = "";
+    }
+  }
+}
+
+function _fileIcon(name) {
+  if (name.endsWith(".js")) return "📜";
+  if (name === "flow.toml") return "⚙️";
+  if (name.endsWith(".toml.template")) return "📋";
+  if (name.endsWith(".toml")) return "📄";
+  return "📄";
+}
+
+function _renderFlowsTree(flows, container) {
+  container.innerHTML = "";
+  flows.forEach((flow) => {
+    // ── Flow header row ──
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display:flex; align-items:center; gap:4px;
+      padding:7px 10px;
+      background:var(--c8y-palette-gray-80,#252525);
+      border-bottom:1px solid var(--c8y-palette-gray-70,#333);
+      font-size:12px; font-weight:600;
+    `;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText =
+      "flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:monospace;";
+    nameSpan.textContent = "📁 " + flow.name;
+    nameSpan.title = flow.name;
+    header.appendChild(nameSpan);
+
+    // "+ file" button
+    const addBtn = document.createElement("button");
+    addBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-palette-gray-30,#bbb); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:3px; cursor:pointer";
+    addBtn.title = t("flows.add_file_btn");
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.onclick = (e) => {
+      e.stopPropagation();
+      showAddFileForm(flow.name);
+    };
+    header.appendChild(addBtn);
+
+    // delete flow button
+    const delBtn = document.createElement("button");
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer; margin-left:2px";
+    delBtn.title = t("flows.delete_flow_btn");
+    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteFlow(flow.name);
+    };
+    header.appendChild(delBtn);
+
+    container.appendChild(header);
+
+    // ── File rows ──
+    flow.files.forEach((file) => {
+      const row = document.createElement("div");
+      row.dataset.flow = flow.name;
+      row.dataset.file = file.name;
+      const isActive =
+        flow.name === _flowsCurrentFlow && file.name === _flowsCurrentFile;
+      row.style.cssText = `
+        padding:5px 10px 5px 22px;
+        font-family:monospace; font-size:12px;
+        cursor:pointer;
+        border-bottom:1px solid var(--c8y-palette-gray-70,#2a2a2a);
+        background:${isActive ? "var(--c8y-brand-primary,#1776BF)" : "transparent"};
+        color:${isActive ? "#fff" : "var(--c8y-palette-gray-10,#e0e0e0)"};
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      `;
+      row.textContent = _fileIcon(file.name) + " " + file.name;
+      row.title = file.name;
+      row.onclick = () => openFileInEditor(flow.name, file.name, file.content);
+      container.appendChild(row);
+    });
+  });
+}
+
+function _highlightFlowFile(flowName, fileName) {
+  const container = document.getElementById("flows-tree");
+  if (!container) return;
+  container.querySelectorAll("div[data-file]").forEach((row) => {
+    const active =
+      row.dataset.flow === flowName && row.dataset.file === fileName;
+    row.style.background = active
+      ? "var(--c8y-brand-primary,#1776BF)"
+      : "transparent";
+    row.style.color = active ? "#fff" : "var(--c8y-palette-gray-10,#e0e0e0)";
+  });
+}
+
+function openFileInEditor(flowName, fileName, content) {
+  _flowsCurrentFlow = flowName;
+  _flowsCurrentFile = fileName;
+  _highlightFlowFile(flowName, fileName);
+
+  const breadcrumb = document.getElementById("flows-editor-breadcrumb");
+  const editor = document.getElementById("flows-editor");
+  if (breadcrumb) breadcrumb.textContent = `${flowName} / ${fileName}`;
+  if (editor) editor.value = content;
+
+  _showEditorState("editor");
+}
+
+async function saveCurrentFile() {
+  if (!_flowsCurrentFlow || !_flowsCurrentFile) return;
+  const editor = document.getElementById("flows-editor");
+  const content = editor ? editor.value : "";
+  const mapper = _flowsMapper();
+
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const label = `${_flowsCurrentFlow}/${_flowsCurrentFile}`;
+    showNotification(t("flows.saved", label), "success");
+    await loadFlows();
+    _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
+  } catch (err) {
+    showNotification(`${t("flows.err_save")}: ${err.message}`, "error");
+  }
+}
+
+async function deleteCurrentFile() {
+  if (!_flowsCurrentFlow || !_flowsCurrentFile) return;
+  const name = `${_flowsCurrentFlow}/${_flowsCurrentFile}`;
+  if (!confirm(t("flows.confirm_delete", name))) return;
+
+  const mapper = _flowsMapper();
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    showNotification(t("flows.deleted", name), "success");
+    _flowsCurrentFlow = null;
+    _flowsCurrentFile = null;
+    _showEditorState("placeholder");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`${t("flows.err_delete")}: ${err.message}`, "error");
+  }
+}
+
+async function deleteFlow(flowName) {
+  const mapper = _flowsMapper();
+  if (!confirm(t("flows.confirm_delete_flow", flowName))) return;
+
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (_flowsCurrentFlow === flowName) {
+      _flowsCurrentFlow = null;
+      _flowsCurrentFile = null;
+      _showEditorState("placeholder");
+    }
+    showNotification(t("flows.deleted", flowName), "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`${t("flows.err_delete")}: ${err.message}`, "error");
+  }
+}
+
+// ── New Flow form ─────────────────────────────────────────────────────────────
+
+function showNewFlowForm() {
+  const form = document.getElementById("flows-new-flow-form");
+  const input = document.getElementById("flows-new-flow-name");
+  if (form) form.style.display = "";
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  loadFlows();
+}
+
+function cancelNewFlow() {
+  const form = document.getElementById("flows-new-flow-form");
+  if (form) form.style.display = "none";
+}
+
+async function confirmNewFlow() {
+  const input = document.getElementById("flows-new-flow-name");
+  const rawName = input ? input.value.trim() : "";
+  if (!rawName) {
+    showNotification(t("flows.err_no_name"), "error");
+    return;
+  }
+
+  const mapper = _flowsMapper();
+  const content = `[flow]
+version = "1.0"
+description = "My flow"
+
+[input.mqtt]
+topics = ["te/+/+/+/+/m/+"]
+
+[[steps]]
+script = "main.js"
+`;
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(rawName)}&file=flow.toml`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    cancelNewFlow();
+    await loadFlows();
+    openFileInEditor(rawName, "flow.toml", content);
+  } catch (err) {
+    showNotification(`${t("flows.err_save")}: ${err.message}`, "error");
+  }
+}
+
+// ── Add File form ─────────────────────────────────────────────────────────────
+
+function showAddFileForm(flowName) {
+  _flowsNewFileTarget = flowName;
+  const label = document.getElementById("flows-new-file-flow-label");
+  const input = document.getElementById("flows-new-file-name");
+  if (label) label.textContent = flowName;
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  _showEditorState("add-file");
+}
+
+function cancelAddFile() {
+  _flowsNewFileTarget = null;
+  _showEditorState(
+    _flowsCurrentFlow && _flowsCurrentFile ? "editor" : "placeholder",
+  );
+}
+
+function _defaultFileContent(fileName) {
+  if (fileName.endsWith(".js")) {
+    return `const decoder = new TextDecoder();
+
+export function onMessage(message, context) {
+  const payload = JSON.parse(decoder.decode(message.payload));
+  // TODO: transform payload
+  return [{
+    topic: message.topic,
+    payload: JSON.stringify(payload),
+  }];
+}
+`;
+  }
+  if (fileName.endsWith(".toml.template")) {
+    return `# Configuration defaults for this flow.
+# Copy to params.toml and edit values to override.
+
+# threshold = 70.0
+`;
+  }
+  return "";
+}
+
+async function confirmAddFile() {
+  const input = document.getElementById("flows-new-file-name");
+  const rawName = input ? input.value.trim() : "";
+  if (!rawName) {
+    showNotification(t("flows.err_no_name"), "error");
+    return;
+  }
+
+  const validExts = [".js", ".toml", ".toml.template"];
+  if (!validExts.some((ext) => rawName.endsWith(ext))) {
+    showNotification(t("flows.err_invalid_ext"), "error");
+    return;
+  }
+
+  const flowName = _flowsNewFileTarget;
+  if (!flowName) return;
+
+  _flowsNewFileTarget = null;
+  openFileInEditor(flowName, rawName, _defaultFileContent(rawName));
+  // File is created on disk only when the user clicks "Speichern"
+  await loadFlows();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Navigator ────────────────────────────────────────────────────────

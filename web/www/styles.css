@@ -562,6 +562,28 @@ main {
   border-color: var(--brand-dark);
   color: var(--brand-dark);
 }
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  line-height: 1.57142857;
+  cursor: pointer;
+  margin-top: 6px;
+  text-decoration: none;
+  background: var(--c8y-brand-danger, #c0392b);
+  color: #fff;
+  border: 1px solid var(--c8y-brand-danger, #c0392b);
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-danger:hover {
+  background: #a93226;
+  border-color: #a93226;
+}
 .tabs {
   display: flex;
   border-bottom: 2px solid var(--c8y-palette-gray-70);
