@@ -12,7 +12,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping, MappingDirection, MappingTransform};
+use crate::datalayer::{
+    DatalayerConfig, DatalayerCredentials, DatalayerMapping, MappingDirection, MappingTransform,
+};
 
 /// Returns the snap instance name at runtime.
 /// snapd always sets SNAP_INSTANCE_NAME inside the snap environment.
@@ -4712,10 +4714,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
 /// - "flows"   → Tedge Flows active (ctrlx-* flow dirs present in SNAP_DATA)
 /// - "both"    → Both active simultaneously (conflict / double-publishing)
 /// - "none"    → Neither active
-async fn get_mapping_mode(
-    req: HttpRequest,
-    data: web::Data<AppState>,
-) -> Result<HttpResponse> {
+async fn get_mapping_mode(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
         return Ok(HttpResponse::Forbidden()
@@ -4726,11 +4725,12 @@ async fn get_mapping_mode(
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
 
     // Bridge active: datalayer enabled AND at least one active transform mapping
-    let bridge_active = dl_cfg.enabled && dl_cfg.mappings.iter().any(|m| {
-        m.enabled
-            && m.direction == MappingDirection::DatalayerToTedge
-            && m.transform != MappingTransform::Raw
-    });
+    let bridge_active = dl_cfg.enabled
+        && dl_cfg.mappings.iter().any(|m| {
+            m.enabled
+                && m.direction == MappingDirection::DatalayerToTedge
+                && m.transform != MappingTransform::Raw
+        });
 
     // Flows active: ctrlx-* flow directories exist under SNAP_DATA/tedge/mappers/c8y/flows/
     let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
@@ -4738,7 +4738,7 @@ async fn get_mapping_mode(
     let flows_active = flow_dirs.iter().any(|d| flows_base.join(d).is_dir());
 
     let mode = match (bridge_active, flows_active) {
-        (true, true)  => "both",
+        (true, true) => "both",
         (true, false) => "bridge",
         (false, true) => "flows",
         (false, false) => "none",
@@ -4974,14 +4974,8 @@ async fn main() -> io::Result<()> {
                                 "/tedge-bridge-inspect",
                                 web::get().to(get_tedge_bridge_inspect),
                             )
-                            .route(
-                                "/mapping-mode",
-                                web::get().to(get_mapping_mode),
-                            )
-                            .route(
-                                "/mapping-mode",
-                                web::post().to(set_mapping_mode),
-                            )
+                            .route("/mapping-mode", web::get().to(get_mapping_mode))
+                            .route("/mapping-mode", web::post().to(set_mapping_mode))
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))

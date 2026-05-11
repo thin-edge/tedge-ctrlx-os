@@ -290,13 +290,16 @@ const I18N = {
     "mappingmode.bridge": "ctrlX Datalayer Mapping",
     "mappingmode.flows": "Tedge Flow Mapping",
     "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
-    "mappingmode.warning": "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
-    "mappingmode.hint": "ctrlX Datalayer Mapping: Datalayer → MQTT direkt · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.warning":
+      "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
+    "mappingmode.hint":
+      "ctrlX Datalayer Mapping: Datalayer → MQTT direkt · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Modus gespeichert.",
     "mappingmode.error": "Fehler beim Speichern des Modus.",
     "datalayer.topic_out": "tedge MQTT Topic - out",
     "datalayer.topic_in": "tedge MQTT Flow Topic - in",
-    "datalayer.cloud_mapping_hint": "Stelle bitte sicher, dass ein entsprechendes Data Mapping in der Cloud konfiguriert ist – sei es durch Data Preparation, den Dynamic Mapper, einen Microservice oder ein anderes Mapping-Tool deiner Wahl.",
+    "datalayer.cloud_mapping_hint":
+      "Stelle bitte sicher, dass ein entsprechendes Data Mapping in der Cloud konfiguriert ist – sei es durch Data Preparation, den Dynamic Mapper, einen Microservice oder ein anderes Mapping-Tool deiner Wahl.",
     // Snap Config Editor
     "snapconfig.file": "Datei",
     "snapconfig.load": "Laden",
@@ -624,13 +627,16 @@ const I18N = {
     "mappingmode.bridge": "ctrlX Datalayer Mapping",
     "mappingmode.flows": "Tedge Flow Mapping",
     "mappingmode.conflict": "⚠ Conflict – both active",
-    "mappingmode.warning": "⚠ Both modes are active — data will be sent twice to Cumulocity!",
-    "mappingmode.hint": "ctrlX Datalayer Mapping: Datalayer → MQTT direct · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.warning":
+      "⚠ Both modes are active — data will be sent twice to Cumulocity!",
+    "mappingmode.hint":
+      "ctrlX Datalayer Mapping: Datalayer → MQTT direct · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Mode saved.",
     "mappingmode.error": "Error saving mode.",
     "datalayer.topic_out": "tedge MQTT Topic - out",
     "datalayer.topic_in": "tedge MQTT Flow Topic - in",
-    "datalayer.cloud_mapping_hint": "Please ensure that you have data mapping in place in the Cloud, using either Data Preparation, the Dynamic Mapper, a Microservice, or any other mapping tool.",
+    "datalayer.cloud_mapping_hint":
+      "Please ensure that you have data mapping in place in the Cloud, using either Data Preparation, the Dynamic Mapper, a Microservice, or any other mapping tool.",
     // Snap Config Editor
     // Tedge section
     "section.tedgeconfig": "Tedge",
@@ -2540,21 +2546,25 @@ function _initDatalayerUI() {
 
 /** Sets the active mapping_type toggle (checkbox + label) in the edit form */
 function setMappingTypeBtn(type) {
-  const chk    = document.getElementById("datalayer-mapping-type-chk");
-  const label  = document.getElementById("mtype-label");
+  const chk = document.getElementById("datalayer-mapping-type-chk");
+  const label = document.getElementById("mtype-label");
   const hidden = document.getElementById("datalayer-mapping-type");
-  const hint   = document.getElementById("mtype-datalayer-hint");
+  const hint = document.getElementById("mtype-datalayer-hint");
 
-  if (chk)   chk.checked  = (type === "flow");
+  if (chk) chk.checked = type === "flow";
   if (hidden) hidden.value = type;
 
   if (label) {
-    label.setAttribute("data-i18n", type === "flow" ? "mappingmode.flows" : "mappingmode.bridge");
-    label.textContent = type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+    label.setAttribute(
+      "data-i18n",
+      type === "flow" ? "mappingmode.flows" : "mappingmode.bridge",
+    );
+    label.textContent =
+      type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
   }
 
   // Show cloud-mapping hint only for datalayer mode
-  if (hint) hint.style.display = (type === "flow") ? "none" : "";
+  if (hint) hint.style.display = type === "flow" ? "none" : "";
 
   // Auto-update topic + placeholder based on selected type
   _applyMappingTypeToTopic(type);
@@ -2563,33 +2573,42 @@ function setMappingTypeBtn(type) {
 /** Like setMappingTypeBtn but does NOT touch the topic field.
  *  Use this when loading an existing mapping so the stored topic is preserved. */
 function _setMappingTypeVisual(type) {
-  const chk    = document.getElementById("datalayer-mapping-type-chk");
-  const label  = document.getElementById("mtype-label");
+  const chk = document.getElementById("datalayer-mapping-type-chk");
+  const label = document.getElementById("mtype-label");
   const hidden = document.getElementById("datalayer-mapping-type");
-  const hint   = document.getElementById("mtype-datalayer-hint");
+  const hint = document.getElementById("mtype-datalayer-hint");
 
-  if (chk)   chk.checked  = (type === "flow");
+  if (chk) chk.checked = type === "flow";
   if (hidden) hidden.value = type;
 
   if (label) {
-    label.setAttribute("data-i18n", type === "flow" ? "mappingmode.flows" : "mappingmode.bridge");
-    label.textContent = type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+    label.setAttribute(
+      "data-i18n",
+      type === "flow" ? "mappingmode.flows" : "mappingmode.bridge",
+    );
+    label.textContent =
+      type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
   }
 
-  if (hint) hint.style.display = (type === "flow") ? "none" : "";
+  if (hint) hint.style.display = type === "flow" ? "none" : "";
 
   // Update placeholder only, not the value
   const topicInput = document.getElementById("datalayer-mapping-topic");
   if (topicInput) {
-    const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+    const transform =
+      document.getElementById("datalayer-mapping-transform")?.value ||
+      "measurement";
     if (type === "flow") {
-      if (transform === "event")      topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
-      else if (transform === "alarm") topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
-      else                            topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+      if (transform === "event") topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+      else if (transform === "alarm")
+        topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
+      else topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
     } else {
-      if (transform === "event")      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-      else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-      else                            topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+      if (transform === "event")
+        topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+      else if (transform === "alarm")
+        topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+      else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
     }
   }
 }
@@ -2623,21 +2642,24 @@ function _applyMappingTypeToTopic(type) {
     topicLabel.textContent = t(key);
   }
 
-  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
-  const path      = document.getElementById("datalayer-mapping-path")?.value || "";
-  const lastPart  = path.split("/").filter(Boolean).pop() || "myMeasurement";
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
+  const path = document.getElementById("datalayer-mapping-path")?.value || "";
+  const lastPart = path.split("/").filter(Boolean).pop() || "myMeasurement";
 
   if (type === "flow") {
     // For flow mode: always use the canonical wildcard subscription topic
     let flowTopic;
-    if (transform === "event")       flowTopic = "te/+/+/+/+/e/+";
-    else if (transform === "alarm")  flowTopic = "te/+/+/+/+/a/+";
-    else                             flowTopic = "te/+/+/+/+/m/+";
+    if (transform === "event") flowTopic = "te/+/+/+/+/e/+";
+    else if (transform === "alarm") flowTopic = "te/+/+/+/+/a/+";
+    else flowTopic = "te/+/+/+/+/m/+";
 
     topicInput.value = flowTopic;
-    if (transform === "event")       topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
-    else if (transform === "alarm")  topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
-    else                             topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+    if (transform === "event") topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
+    else topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
   } else {
     // For datalayer mode: c8y/mqtt/out/<lastSegment>
     const suggested = "c8y/mqtt/out/" + lastPart;
@@ -2645,14 +2667,15 @@ function _applyMappingTypeToTopic(type) {
     if (!topicInput.value || topicInput.value.startsWith("te/+/")) {
       topicInput.value = suggested;
     }
-    if (transform === "event")       topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm")  topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-    else                             topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+    if (transform === "event")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   }
 
   showMappingPayloadPreview();
 }
-
 
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
 async function loadDatalayerStatus() {
@@ -2977,53 +3000,44 @@ function isMqttServiceActive() {
 
 /** 4. Topic automatisch basierend auf Transform setzen */
 function updateTopicPrefix() {
-  const direction = document.getElementById(
-    "datalayer-mapping-direction",
-  ).value;
-  const transform = document.getElementById(
-    "datalayer-mapping-transform",
-  ).value;
+  const mappingType = document.getElementById("datalayer-mapping-type")?.value || "datalayer";
+
+  // For flow mode, always use the canonical wildcard — delegate to _applyMappingTypeToTopic
+  if (mappingType === "flow") {
+    _applyMappingTypeToTopic("flow");
+    return;
+  }
+
+  // For datalayer mode: build topic from path + transform + MQTT mode
+  const direction = document.getElementById("datalayer-mapping-direction").value;
+  const transform = document.getElementById("datalayer-mapping-transform").value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
-
-  const lastPart = path.split("/").pop() || "value";
+  const lastPart = path.split("/").filter(Boolean).pop() || "value";
 
   if (isMqttServiceActive()) {
-    // MQTT Service (9883): enforce c8y/mqtt/out/ prefix
+    // MQTT Service (9883): c8y/mqtt/out/ prefix
     const prefix = "c8y/mqtt/out/";
-    let topic = prefix;
-    if (direction === "tedge_to_dl") {
-      topic += "cmd/" + lastPart;
-    } else {
-      topic += lastPart;
-    }
-    topicInput.value = topic;
-    // Placeholder shows the matching example for 9883
-    if (transform === "event")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+    topicInput.value = prefix + (direction === "tedge_to_dl" ? "cmd/" + lastPart : lastPart);
+    if (transform === "event")       topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")  topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else                             topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
-    // Core MQTT (8883): te/ prefix
+    // Core MQTT (8883): te/ prefix with specific segment
     let topic = "te/device/main///";
     if (direction === "tedge_to_dl") {
       topic += "cmd/plc/" + lastPart;
     } else {
       if (transform === "measurement") topic += "m/" + lastPart;
-      else if (transform === "event") topic += "e/" + lastPart;
-      else if (transform === "alarm") topic += "a/" + lastPart;
-      else topic += "m/" + lastPart;
+      else if (transform === "event")  topic += "e/" + lastPart;
+      else if (transform === "alarm")  topic += "a/" + lastPart;
+      else                             topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    // Placeholder shows the matching example for 8883
-    if (transform === "event")
-      topicInput.placeholder = "e.g. te/device/main///e/myValue";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. te/device/main///a/myValue";
-    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
+    if (transform === "event")       topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm")  topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    else                             topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
-  // Live-update preview whenever topic changes
   showMappingPayloadPreview();
 }
 
@@ -3041,8 +3055,10 @@ function showMappingPayloadPreview() {
     "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
   const topic = document.getElementById("datalayer-mapping-topic").value.trim();
-  const mappingType = document.getElementById("datalayer-mapping-type")?.value || "datalayer";
-  const isC8yService = topic.startsWith("c8y/mqtt/out/") || mappingType === "datalayer";
+  const mappingType =
+    document.getElementById("datalayer-mapping-type")?.value || "datalayer";
+  const isC8yService =
+    topic.startsWith("c8y/mqtt/out/") || mappingType === "datalayer";
   const ts = new Date().toISOString();
 
   let payload;
@@ -3394,13 +3410,15 @@ function renderDatalayerMappings() {
     transSpan.className = `label ${labelClass}`;
     transSpan.style.cssText = "font-size:10px; padding:1px 6px;";
     transSpan.title = fieldName || "";
-    transSpan.textContent = trans.charAt(0).toUpperCase() + trans.slice(1).toLowerCase(); // Measurement / Event / Alarm / Raw
+    transSpan.textContent =
+      trans.charAt(0).toUpperCase() + trans.slice(1).toLowerCase(); // Measurement / Event / Alarm / Raw
     tdField.appendChild(transSpan);
 
     // Mapping-Typ column
     const mtype = inferMappingType(m);
     const tdMtype = document.createElement("td");
-    tdMtype.style.cssText = "width:90px; font-size:12px; color:var(--c8y-palette-gray-30,#ccc); white-space:nowrap;";
+    tdMtype.style.cssText =
+      "width:90px; font-size:12px; color:var(--c8y-palette-gray-30,#ccc); white-space:nowrap;";
     tdMtype.textContent = mtype === "flow" ? "Tedge Flow" : "ctrlX DL";
 
     const tdToggle = document.createElement("td");

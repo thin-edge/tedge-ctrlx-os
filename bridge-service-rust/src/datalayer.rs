@@ -379,10 +379,11 @@ impl DatalayerEngine {
         }
 
         let mappings = self.config.mappings.clone();
-        for mapping in mappings
-            .iter()
-            .filter(|m| m.enabled && m.direction == MappingDirection::DatalayerToTedge && m.mapping_type != "flow")
-        {
+        for mapping in mappings.iter().filter(|m| {
+            m.enabled
+                && m.direction == MappingDirection::DatalayerToTedge
+                && m.mapping_type != "flow"
+        }) {
             let url = format!(
                 "{}/automation/api/v2/nodes/{}?type=all",
                 self.config.base_url.trim_end_matches('/'),
