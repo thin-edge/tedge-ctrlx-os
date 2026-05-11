@@ -11,6 +11,9 @@ case "$UI" in
     cp web/www/app.js    web-server-rust/www/app.js
     cp web/www/styles.less web-server-rust/www/styles.less
     cp web/www/styles.css  web-server-rust/www/styles.css
+    cp -f web/www/icon.svg web-server-rust/www/icon.svg 2>/dev/null || true
+    cp -f web/www/icon.png web-server-rust/www/icon.png 2>/dev/null || true
+    cp -rf web/www/pictures web-server-rust/www/pictures 2>/dev/null || true
     ;;
   *)
 
