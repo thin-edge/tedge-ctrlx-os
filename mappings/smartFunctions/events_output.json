@@ -1,0 +1,10 @@
+{
+  "cumulocityType": "event",
+  "action": "create",
+  "payload": {
+    "text": "{\"mainDiagnosisCode\":\"...\",\"text\":\"...\",\"severity\":\"ERROR\", ...}",
+    "time": "2026-05-11T10:00:00Z",
+    "type": "ctrlx.diagnostic.event"
+  },
+  "externalSource": [{"type": "c8y_Serial", "externalId": "ctrlx-48FC8D56-..."}]
+}

@@ -12,7 +12,7 @@ function onMessage(inputMsg, context) {
         var payload = inputMsg.getPayload();
 
         // GraalVM Java-Map: Zugriff über .get(), nicht ["key"]
-        var externalId = payload.get("externalId") || context.getClientId();
+        var externalId = payload.get("externalId");
         var time       = payload.get("time");
         var type       = payload.get("type");
         var textObj    = payload.get("Text");

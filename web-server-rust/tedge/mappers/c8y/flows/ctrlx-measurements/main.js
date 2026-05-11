@@ -15,7 +15,7 @@ function onMessage(msg, context) {
     console.log("Payload Raw:" + payload);
 
     // Get externalId from context first, fall back to payload
-    var externalId = context.getClientId() || payload.get("externalId");
+    var externalId = context.getClientId();
 
     // lookup device for enrichment
     var deviceByExternalId = context.getManagedObject(
