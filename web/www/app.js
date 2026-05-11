@@ -296,8 +296,8 @@ const I18N = {
     "mappingmode.error": "Fehler beim Speichern des Modus.",
     "datalayer.topic_out": "tedge MQTT Topic - out",
     "datalayer.topic_in": "tedge MQTT Flow Topic - in",
+    "datalayer.cloud_mapping_hint": "Stelle bitte sicher, dass ein entsprechendes Data Mapping in der Cloud konfiguriert ist – sei es durch Data Preparation, den Dynamic Mapper, einen Microservice oder ein anderes Mapping-Tool deiner Wahl.",
     // Snap Config Editor
-    "section.snapconfig": "Snap Konfigurationsdateien",
     "snapconfig.file": "Datei",
     "snapconfig.load": "Laden",
     "snapconfig.save": "Speichern",
@@ -630,8 +630,8 @@ const I18N = {
     "mappingmode.error": "Error saving mode.",
     "datalayer.topic_out": "tedge MQTT Topic - out",
     "datalayer.topic_in": "tedge MQTT Flow Topic - in",
+    "datalayer.cloud_mapping_hint": "Please ensure that you have data mapping in place in the Cloud, using either Data Preparation, the Dynamic Mapper, a Microservice, or any other mapping tool.",
     // Snap Config Editor
-    "section.snapconfig": "Snap Configuration Files",
     // Tedge section
     "section.tedgeconfig": "Tedge",
     "nav.tedge_config": "Tedge",
@@ -2543,6 +2543,7 @@ function setMappingTypeBtn(type) {
   const chk    = document.getElementById("datalayer-mapping-type-chk");
   const label  = document.getElementById("mtype-label");
   const hidden = document.getElementById("datalayer-mapping-type");
+  const hint   = document.getElementById("mtype-datalayer-hint");
 
   if (chk)   chk.checked  = (type === "flow");
   if (hidden) hidden.value = type;
@@ -2551,6 +2552,9 @@ function setMappingTypeBtn(type) {
     label.setAttribute("data-i18n", type === "flow" ? "mappingmode.flows" : "mappingmode.bridge");
     label.textContent = type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
   }
+
+  // Show cloud-mapping hint only for datalayer mode
+  if (hint) hint.style.display = (type === "flow") ? "none" : "";
 
   // Auto-update topic + placeholder based on selected type
   _applyMappingTypeToTopic(type);
