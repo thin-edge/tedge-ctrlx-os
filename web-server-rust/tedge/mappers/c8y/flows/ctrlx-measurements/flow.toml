@@ -1,0 +1,5 @@
+input.mqtt.topics = ["te/+/+/+/+/m/+"]
+
+steps = [
+    { script = "main.js" },
+]
