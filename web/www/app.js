@@ -3405,10 +3405,8 @@ function renderDatalayerMappings() {
     // Mapping-Typ column
     const mtype = inferMappingType(m);
     const tdMtype = document.createElement("td");
-    tdMtype.style.width = "100px";
-    tdMtype.style.fontSize = "12px";
-    tdMtype.style.color = "var(--c8y-palette-gray-30,#ccc)";
-    tdMtype.textContent = mtype === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+    tdMtype.style.cssText = "width:90px; font-size:12px; color:var(--c8y-palette-gray-30,#ccc); white-space:nowrap;";
+    tdMtype.textContent = mtype === "flow" ? "Tedge Flow" : "ctrlX DL";
 
     const tdToggle = document.createElement("td");
     tdToggle.className = "text-center";
