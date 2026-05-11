@@ -3389,21 +3389,14 @@ function renderDatalayerMappings() {
 
     const tdField = document.createElement("td");
     tdField.style.whiteSpace = "nowrap";
-    // Abbreviate transform to single letter to save space
+    // Show only transform type abbreviation — no field name in table
     const transAbbr = trans.charAt(0).toUpperCase(); // M / E / A / R
     const transSpan = document.createElement("span");
     transSpan.className = `label ${labelClass}`;
     transSpan.style.cssText = "font-size:10px; padding:1px 5px; min-width:0;";
-    transSpan.title = trans.toUpperCase();
+    transSpan.title = trans.toUpperCase() + (fieldName ? ` · ${fieldName}` : "");
     transSpan.textContent = transAbbr;
     tdField.appendChild(transSpan);
-    if (fieldName) {
-      tdField.appendChild(document.createTextNode(" "));
-      const fnSpan = document.createElement("span");
-      fnSpan.style.fontSize = "12px";
-      fnSpan.textContent = fieldName;
-      tdField.appendChild(fnSpan);
-    }
 
     // Mapping-Typ column
     const mtype = inferMappingType(m);
