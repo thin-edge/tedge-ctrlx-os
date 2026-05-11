@@ -287,13 +287,15 @@ const I18N = {
     // Mapping Mode
     "mappingmode.label": "Mapping-Modus",
     "mappingmode.col_label": "Mapping-Typ",
-    "mappingmode.bridge": "Datalayer Mapping",
-    "mappingmode.flows": "Flow Mapping",
+    "mappingmode.bridge": "ctrlX Datalayer Mapping",
+    "mappingmode.flows": "Tedge Flow Mapping",
     "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
     "mappingmode.warning": "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
-    "mappingmode.hint": "Datalayer Mapping: Datalayer → MQTT direkt · Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.hint": "ctrlX Datalayer Mapping: Datalayer → MQTT direkt · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Modus gespeichert.",
     "mappingmode.error": "Fehler beim Speichern des Modus.",
+    "datalayer.topic_out": "tedge MQTT Topic - out",
+    "datalayer.topic_in": "tedge MQTT Flow Topic - in",
     // Snap Config Editor
     "section.snapconfig": "Snap Konfigurationsdateien",
     "snapconfig.file": "Datei",
@@ -619,13 +621,15 @@ const I18N = {
     // Mapping Mode
     "mappingmode.label": "Mapping Mode",
     "mappingmode.col_label": "Mapping Type",
-    "mappingmode.bridge": "Datalayer Mapping",
-    "mappingmode.flows": "Flow Mapping",
+    "mappingmode.bridge": "ctrlX Datalayer Mapping",
+    "mappingmode.flows": "Tedge Flow Mapping",
     "mappingmode.conflict": "⚠ Conflict – both active",
     "mappingmode.warning": "⚠ Both modes are active — data will be sent twice to Cumulocity!",
-    "mappingmode.hint": "Datalayer Mapping: Datalayer → MQTT direct · Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.hint": "ctrlX Datalayer Mapping: Datalayer → MQTT direct · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Mode saved.",
     "mappingmode.error": "Error saving mode.",
+    "datalayer.topic_out": "tedge MQTT Topic - out",
+    "datalayer.topic_in": "tedge MQTT Flow Topic - in",
     // Snap Config Editor
     "section.snapconfig": "Snap Configuration Files",
     // Tedge section
@@ -2559,7 +2563,15 @@ function setMappingTypeBtn(type) {
  */
 function _applyMappingTypeToTopic(type) {
   const topicInput = document.getElementById("datalayer-mapping-topic");
+  const topicLabel = document.getElementById("datalayer-topic-label");
   if (!topicInput) return;
+
+  // Update label
+  if (topicLabel) {
+    const key = type === "flow" ? "datalayer.topic_in" : "datalayer.topic_out";
+    topicLabel.setAttribute("data-i18n", key);
+    topicLabel.textContent = t(key);
+  }
 
   const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
   const path      = document.getElementById("datalayer-mapping-path")?.value || "";
