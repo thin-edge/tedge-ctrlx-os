@@ -112,6 +112,8 @@ apps:
   # Build information display
   build-info:
     command: scripts/show-build-info.sh
+    aliases:
+      - tedge-build-info
     environment:
       TZ: Europe/Berlin
 
@@ -211,12 +213,16 @@ apps:
   # Plugins
   c8y-remote-access-plugin:
     command: scripts/tedge-service-wrapper.sh c8y-remote-access-plugin
+    aliases:
+      - c8y-remote-access-plugin
     plugs:
       - network
       - network-bind
 
   tedge-file-config-plugin:
     command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
+    aliases:
+      - tedge-file-config-plugin
     plugs:
       - network
 
