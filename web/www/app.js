@@ -2534,23 +2534,19 @@ function _initDatalayerUI() {
 
 // ─── Mapping Mode ──────────────────────────────────────────────────────────
 
-/** Sets the active mapping_type toggle button in the edit form */
+/** Sets the active mapping_type toggle (checkbox + label) in the edit form */
 function setMappingTypeBtn(type) {
-  const activeCss   = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
-  const inactiveCss = "background:transparent; color:var(--c8y-palette-gray-30,#ccc);";
-  const btnDl   = document.getElementById("mtype-btn-datalayer");
-  const btnFlow = document.getElementById("mtype-btn-flow");
-  const hidden  = document.getElementById("datalayer-mapping-type");
-  if (!btnDl || !btnFlow) return;
+  const chk    = document.getElementById("datalayer-mapping-type-chk");
+  const label  = document.getElementById("mtype-label");
+  const hidden = document.getElementById("datalayer-mapping-type");
 
-  if (type === "flow") {
-    btnFlow.style.cssText = activeCss;
-    btnDl.style.cssText   = inactiveCss;
-  } else {
-    btnDl.style.cssText   = activeCss;
-    btnFlow.style.cssText = inactiveCss;
-  }
+  if (chk)   chk.checked  = (type === "flow");
   if (hidden) hidden.value = type;
+
+  if (label) {
+    label.setAttribute("data-i18n", type === "flow" ? "mappingmode.flows" : "mappingmode.bridge");
+    label.textContent = type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+  }
 
   // Auto-update topic + placeholder based on selected type
   _applyMappingTypeToTopic(type);

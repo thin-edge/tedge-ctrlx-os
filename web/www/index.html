@@ -1805,7 +1805,7 @@ Befehl auswählen und "Laden" klicken…</pre
                   display: flex;
                   align-items: center;
                   gap: 8px;
-                  margin-bottom: 15px;
+                  margin-bottom: 8px;
                   color: var(--brand-primary);
                 "
               >
@@ -1820,6 +1820,19 @@ Befehl auswählen und "Laden" klicken…</pre
                   "
                   >Mapping hinzufügen</strong
                 >
+              </div>
+
+              <!-- Mapping-Typ Toggle (label + switch, direkt unter Titel) -->
+              <div class="tedge-switch-group" style="margin-bottom:16px;">
+                <label class="tedge-switch">
+                  <input type="checkbox" id="datalayer-mapping-type-chk"
+                    onchange="setMappingTypeBtn(this.checked ? 'flow' : 'datalayer')" />
+                  <span class="tedge-switch-slider"></span>
+                </label>
+                <span id="mtype-label" data-i18n="mappingmode.bridge"
+                  style="font-size:13px; cursor:pointer;"
+                  onclick="const c=document.getElementById('datalayer-mapping-type-chk'); c.checked=!c.checked; setMappingTypeBtn(c.checked?'flow':'datalayer');">Datalayer Mapping</span>
+                <input type="hidden" id="datalayer-mapping-type" value="datalayer" />
               </div>
 
               <div class="status-columns">
@@ -1938,21 +1951,7 @@ Befehl auswählen und "Laden" klicken…</pre
                       oninput="showMappingPayloadPreview()"
                     />
                   </div>
-                  <!-- Mapping-Typ Toggle -->
-                  <div class="form-group" style="margin-top:10px;">
-                    <label data-i18n="mappingmode.label" style="display:block; margin-bottom:6px;">Mapping-Typ</label>
-                    <div style="display:flex; gap:0; background:var(--c8y-palette-gray-80,#2a2a40); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:20px; padding:3px; width:fit-content;">
-                      <button id="mtype-btn-datalayer" type="button"
-                        onclick="setMappingTypeBtn('datalayer')"
-                        style="border:none; border-radius:16px; padding:5px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.2s,color 0.2s;"
-                        data-i18n="mappingmode.bridge">Datalayer Mapping</button>
-                      <button id="mtype-btn-flow" type="button"
-                        onclick="setMappingTypeBtn('flow')"
-                        style="border:none; border-radius:16px; padding:5px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.2s,color 0.2s;"
-                        data-i18n="mappingmode.flows">Flow Mapping</button>
-                    </div>
-                    <input type="hidden" id="datalayer-mapping-type" value="datalayer" />
-                  </div>
+
                   <div
                     class="action-buttons"
                     style="
