@@ -3389,10 +3389,13 @@ function renderDatalayerMappings() {
 
     const tdField = document.createElement("td");
     tdField.style.whiteSpace = "nowrap";
+    // Abbreviate transform to single letter to save space
+    const transAbbr = trans.charAt(0).toUpperCase(); // M / E / A / R
     const transSpan = document.createElement("span");
     transSpan.className = `label ${labelClass}`;
-    transSpan.style.fontSize = "10px";
-    transSpan.textContent = trans.toUpperCase();
+    transSpan.style.cssText = "font-size:10px; padding:1px 5px; min-width:0;";
+    transSpan.title = trans.toUpperCase();
+    transSpan.textContent = transAbbr;
     tdField.appendChild(transSpan);
     if (fieldName) {
       tdField.appendChild(document.createTextNode(" "));
