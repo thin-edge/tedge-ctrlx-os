@@ -3041,7 +3041,8 @@ function showMappingPayloadPreview() {
     "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
   const topic = document.getElementById("datalayer-mapping-topic").value.trim();
-  const isC8yService = topic.startsWith("c8y/mqtt/out/");
+  const mappingType = document.getElementById("datalayer-mapping-type")?.value || "datalayer";
+  const isC8yService = topic.startsWith("c8y/mqtt/out/") || mappingType === "datalayer";
   const ts = new Date().toISOString();
 
   let payload;
