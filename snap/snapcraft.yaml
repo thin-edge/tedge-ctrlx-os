@@ -620,3 +620,10 @@ parts:
       craftctl default
       # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
       cp $CRAFT_PRIME/web/www/pictures/thin-edge-avatar.png $CRAFT_PRIME/meta/icon.png
+
+  # Default flows — shipped read-only in $SNAP, copied to $SNAP_DATA on install/refresh
+  default-flows:
+    plugin: dump
+    source: ./web-server-rust/tedge
+    organize:
+      '*': tedge-flows/

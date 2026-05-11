@@ -51,6 +51,35 @@ mkdir -p "$SNAP_COMMON_PATH/tedge/cache"
 # Register tedge-flows-plugin as sm-plugin
 ln -sf "$SNAP/bin/tedge-flows-plugin" "$SNAP_DATA_PATH/tedge/sm-plugins/flow"
 
+# Copy default flows from $SNAP/tedge-flows into $SNAP_DATA/tedge/mappers/c8y/flows/
+# Each flow directory is only copied if it does not already exist (preserve user edits).
+FLOWS_SRC="${SNAP:-$SNAP_DATA_PATH/..}/tedge-flows/mappers/c8y/flows"
+FLOWS_DST="$SNAP_DATA_PATH/tedge/mappers/c8y/flows"
+if [ -d "$FLOWS_SRC" ]; then
+    mkdir -p "$FLOWS_DST"
+    for flow_dir in "$FLOWS_SRC"/*/; do
+        flow_name="$(basename "$flow_dir")"
+        dst="$FLOWS_DST/$flow_name"
+        if [ ! -d "$dst" ]; then
+            echo "Installing default flow: $flow_name" >&2
+            cp -r "$flow_dir" "$dst"
+        else
+            echo "Flow already exists, skipping: $flow_name" >&2
+        fi
+    done
+    # Copy loose .toml files (e.g. test.toml, check.js.toml)
+    for toml_file in "$FLOWS_SRC"/*.toml; do
+        [ -f "$toml_file" ] || continue
+        dst_toml="$FLOWS_DST/$(basename "$toml_file")"
+        if [ ! -f "$dst_toml" ]; then
+            echo "Installing flow config: $(basename "$toml_file")" >&2
+            cp "$toml_file" "$dst_toml"
+        fi
+    done
+else
+    echo "WARNING: Default flows not found at $FLOWS_SRC" >&2
+fi
+
 # Certificate store (ctrlX Certificate Manager integration)
 # Structure: /own/certs (certificate), /own/private (private key, 700)
 mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/own/certs"
