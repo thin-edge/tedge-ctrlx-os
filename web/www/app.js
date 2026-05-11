@@ -2560,6 +2560,52 @@ function setMappingTypeBtn(type) {
   _applyMappingTypeToTopic(type);
 }
 
+/** Like setMappingTypeBtn but does NOT touch the topic field.
+ *  Use this when loading an existing mapping so the stored topic is preserved. */
+function _setMappingTypeVisual(type) {
+  const chk    = document.getElementById("datalayer-mapping-type-chk");
+  const label  = document.getElementById("mtype-label");
+  const hidden = document.getElementById("datalayer-mapping-type");
+  const hint   = document.getElementById("mtype-datalayer-hint");
+
+  if (chk)   chk.checked  = (type === "flow");
+  if (hidden) hidden.value = type;
+
+  if (label) {
+    label.setAttribute("data-i18n", type === "flow" ? "mappingmode.flows" : "mappingmode.bridge");
+    label.textContent = type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+  }
+
+  if (hint) hint.style.display = (type === "flow") ? "none" : "";
+
+  // Update placeholder only, not the value
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  if (topicInput) {
+    const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+    if (type === "flow") {
+      if (transform === "event")      topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+      else if (transform === "alarm") topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
+      else                            topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+    } else {
+      if (transform === "event")      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+      else if (transform === "alarm") topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+      else                            topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+    }
+  }
+}
+
+/**
+ * Infers the effective mapping_type from stored value + topic pattern.
+ * Existing mappings without mapping_type default to "datalayer", but if their
+ * topic is a flow wildcard (te/+/+/+/+/m|e|a/+), treat them as "flow".
+ */
+function inferMappingType(m) {
+  if (m.mapping_type === "flow") return "flow";
+  const topic = m.topic || m.tedge_topic || "";
+  if (/^te\/\+\/\+\/\+\/\+\/[mea]\/\+$/.test(topic)) return "flow";
+  return "datalayer";
+}
+
 /**
  * Sets the MQTT topic field based on the selected mapping type and transform.
  * - "datalayer": c8y/mqtt/out/<lastPathSegment>  (placeholder only if topic empty)
@@ -3078,8 +3124,8 @@ function editDatalayerMapping(id) {
     mapping.field_name || "";
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
 
-  // Mapping-Typ toggle
-  setMappingTypeBtn(mapping.mapping_type || "datalayer");
+  // Mapping-Typ toggle — infer from stored value + topic pattern, preserve stored topic
+  _setMappingTypeVisual(inferMappingType(mapping));
 
   showMappingPayloadPreview();
 
@@ -3357,7 +3403,7 @@ function renderDatalayerMappings() {
     }
 
     // Mapping-Typ column
-    const mtype = m.mapping_type || "datalayer";
+    const mtype = inferMappingType(m);
     const tdMtype = document.createElement("td");
     tdMtype.style.width = "100px";
     tdMtype.style.fontSize = "12px";
