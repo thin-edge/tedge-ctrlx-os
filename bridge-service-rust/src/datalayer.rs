@@ -51,6 +51,10 @@ pub struct DatalayerMapping {
     pub unit: Option<String>,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Which pipeline handles this mapping: "datalayer" (bridge) or "flow" (tedge-flows).
+    /// Used by the UI to label mappings; the bridge skips mappings with mapping_type == "flow".
+    #[serde(default = "default_mapping_type")]
+    pub mapping_type: String,
 }
 
 // Helper function for Serde
@@ -60,6 +64,9 @@ fn generate_uuid() -> String {
 
 fn default_direction() -> MappingDirection {
     MappingDirection::DatalayerToTedge
+}
+fn default_mapping_type() -> String {
+    "datalayer".to_string()
 }
 fn default_true() -> bool {
     true
@@ -374,7 +381,7 @@ impl DatalayerEngine {
         let mappings = self.config.mappings.clone();
         for mapping in mappings
             .iter()
-            .filter(|m| m.enabled && m.direction == MappingDirection::DatalayerToTedge)
+            .filter(|m| m.enabled && m.direction == MappingDirection::DatalayerToTedge && m.mapping_type != "flow")
         {
             let url = format!(
                 "{}/automation/api/v2/nodes/{}?type=all",

@@ -286,6 +286,7 @@ const I18N = {
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
     // Mapping Mode
     "mappingmode.label": "Mapping-Modus",
+    "mappingmode.col_label": "Mapping-Typ",
     "mappingmode.bridge": "Datalayer Mapping",
     "mappingmode.flows": "Flow Mapping",
     "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
@@ -617,6 +618,7 @@ const I18N = {
     "section.datalayer": "ctrlX Data Points (Datalayer)",
     // Mapping Mode
     "mappingmode.label": "Mapping Mode",
+    "mappingmode.col_label": "Mapping Type",
     "mappingmode.bridge": "Datalayer Mapping",
     "mappingmode.flows": "Flow Mapping",
     "mappingmode.conflict": "⚠ Conflict – both active",
@@ -2444,7 +2446,6 @@ function initCollapsibleSections() {
       loadDatalayerStatus();
       loadDatalayerConfig();
       loadDatalayerMappings();
-      loadMappingMode();
       // Ensure port toggle is set before updateTopicPrefix() is called
       loadC8yMqttPort().then(() => updateTopicPrefix());
     },
@@ -2533,69 +2534,29 @@ function _initDatalayerUI() {
 
 // ─── Mapping Mode ──────────────────────────────────────────────────────────
 
-async function loadMappingMode() {
-  const badge = document.getElementById("mapping-mode-badge");
-  const warn  = document.getElementById("mapping-mode-warning");
-  const btnBridge = document.getElementById("mm-btn-bridge");
-  const btnFlows  = document.getElementById("mm-btn-flows");
-  if (!btnBridge || !btnFlows) return;
+/** Sets the active mapping_type toggle button in the edit form */
+function setMappingTypeBtn(type) {
+  const activeCss  = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
+  const inactiveCss = "background:transparent; color:var(--c8y-palette-gray-30,#ccc);";
+  const btnDl   = document.getElementById("mtype-btn-datalayer");
+  const btnFlow = document.getElementById("mtype-btn-flow");
+  const hidden  = document.getElementById("datalayer-mapping-type");
+  if (!btnDl || !btnFlow) return;
 
-  try {
-    const r = await fetchWithAuth("api/mapping-mode");
-    if (!r.ok) return;
-    const d = await r.json();
-
-    // Highlight active button
-    const activeCss  = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
-    const inactiveCss = "background:transparent; color:var(--c8y-palette-gray-30,#ccc);";
-
-    if (d.mode === "bridge" || d.mode === "both") {
-      btnBridge.style.cssText = activeCss;
-      btnFlows.style.cssText  = inactiveCss;
-    } else {
-      btnFlows.style.cssText   = activeCss;
-      btnBridge.style.cssText  = inactiveCss;
-    }
-
-    if (badge) {
-      if (d.mode === "both") {
-        badge.textContent = t("mappingmode.conflict");
-        badge.style.background = "var(--c8y-status-warning-bg,#4a3000)";
-        badge.style.color  = "var(--c8y-status-warning,#f0c040)";
-        badge.style.border = "1px solid var(--c8y-status-warning,#f0a500)";
-        badge.style.display = "";
-      } else {
-        badge.style.display = "none";
-      }
-    }
-
-    if (warn) warn.style.display = d.mode === "both" ? "" : "none";
-
-  } catch (e) {
-    console.warn("[mapping-mode] load error:", e);
+  if (type === "flow") {
+    btnFlow.style.cssText = activeCss;
+    btnDl.style.cssText   = inactiveCss;
+  } else {
+    btnDl.style.cssText   = activeCss;
+    btnFlow.style.cssText = inactiveCss;
   }
+  if (hidden) hidden.value = type;
 }
 
-async function applyMappingMode(mode) {
-  try {
-    const r = await fetchWithAuth("api/mapping-mode", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
-    });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      showToast(err.error || t("mappingmode.error"), "error");
-      return;
-    }
-    showToast(t("mappingmode.applied"), "success");
-    await loadMappingMode();
-    await loadDatalayerConfig();
-  } catch (e) {
-    showToast(t("mappingmode.error"), "error");
-    console.error("[mapping-mode] apply error:", e);
-  }
-}
+// Legacy global-mode functions kept for backward compatibility (no-op)
+async function loadMappingMode() {}
+async function applyMappingMode() {}
+
 
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
 async function loadDatalayerStatus() {
@@ -3067,6 +3028,9 @@ function editDatalayerMapping(id) {
     mapping.field_name || "";
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
 
+  // Mapping-Typ toggle
+  setMappingTypeBtn(mapping.mapping_type || "datalayer");
+
   showMappingPayloadPreview();
 
   const titleEl = document.getElementById("mapping-form-title");
@@ -3145,6 +3109,8 @@ async function saveNewMapping() {
       document.getElementById("datalayer-mapping-field").value.trim() || null,
     unit:
       document.getElementById("datalayer-mapping-unit").value.trim() || null,
+    mapping_type:
+      document.getElementById("datalayer-mapping-type")?.value || "datalayer",
     enabled: true,
   };
 
@@ -3208,6 +3174,8 @@ function cancelMapping() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  // Reset mapping-type toggle to default
+  setMappingTypeBtn("datalayer");
   // Delete-Button wieder ausblenden
   const delBtn = document.getElementById("delete-mapping-btn");
   if (delBtn) delBtn.style.display = "none";
@@ -3223,7 +3191,7 @@ function renderDatalayerMappings() {
     tbody.innerHTML = "";
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 6;
+    td.colSpan = 7;
     td.className = "node-empty-hint";
     td.style.cssText = "text-align:center; padding:20px;";
     td.textContent = t("datalayer.no_mappings");
@@ -3338,6 +3306,17 @@ function renderDatalayerMappings() {
       tdField.appendChild(fnSpan);
     }
 
+    // Mapping-Typ column
+    const mtype = m.mapping_type || "datalayer";
+    const tdMtype = document.createElement("td");
+    tdMtype.style.width = "100px";
+    const mtypeSpan = document.createElement("span");
+    mtypeSpan.style.cssText = mtype === "flow"
+      ? "font-size:11px; padding:2px 8px; border-radius:10px; background:#2a3a5a; color:#7ab4f5; border:1px solid #4a6a9a;"
+      : "font-size:11px; padding:2px 8px; border-radius:10px; background:#1a3a1a; color:#6ecb6e; border:1px solid #3a6a3a;";
+    mtypeSpan.textContent = mtype === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+    tdMtype.appendChild(mtypeSpan);
+
     const tdToggle = document.createElement("td");
     tdToggle.className = "text-center";
     tdToggle.style.width = "52px";
@@ -3375,6 +3354,7 @@ function renderDatalayerMappings() {
     tr.appendChild(tdTopic);
     tr.appendChild(tdDir);
     tr.appendChild(tdField);
+    tr.appendChild(tdMtype);
     tr.appendChild(tdToggle);
     tr.appendChild(tdDel);
     tbody.appendChild(tr);
