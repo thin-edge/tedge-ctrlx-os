@@ -624,6 +624,6 @@ parts:
   # Default flows — shipped read-only in $SNAP, copied to $SNAP_DATA on install/refresh
   default-flows:
     plugin: dump
-    source: ./web-server-rust/tedge
+    source: ./mappings/c8y
     organize:
-      '*': tedge-flows/
+      '*': tedge-flows/mappers/c8y/
