@@ -3131,9 +3131,7 @@ async fn get_tedge_bridge_inspect(req: HttpRequest) -> Result<HttpResponse> {
             Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout).to_string();
                 let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                if out.status.success() {
-                    stdout
-                } else if !stdout.is_empty() {
+                if !stdout.is_empty() {
                     stdout
                 } else {
                     format!("[Fehler]\n{}", stderr.trim())
