@@ -1,5 +1,8 @@
 input.mqtt.topics = ["te/+/+/+/+/a/+"]
 
+[output.mqtt]
+topic = "c8y/alarm/alarms/create"
+
 steps = [
     { script = "main.js" },
 ]

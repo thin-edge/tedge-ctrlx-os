@@ -1,9 +1,0 @@
-[flow]
-version = "1.0"
-description = "My flow"
-
-[input]
-topic = "te/+/+/+/+/m/+"
-
-[output]
-topic = "te/device/main///m/processed"
