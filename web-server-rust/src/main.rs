@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping};
+use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping, MappingDirection, MappingTransform};
 
 /// Returns the snap instance name at runtime.
 /// snapd always sets SNAP_INSTANCE_NAME inside the snap environment.
@@ -4705,6 +4705,145 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     })))
 }
 
+// ─── Mapping Mode API ────────────────────────────────────────────────────────
+
+/// Returns the current mapping mode:
+/// - "bridge"  → Datalayer Bridge Mappings active (transform ≠ Raw, enabled=true, direction=dl_to_tedge)
+/// - "flows"   → Tedge Flows active (ctrlx-* flow dirs present in SNAP_DATA)
+/// - "both"    → Both active simultaneously (conflict / double-publishing)
+/// - "none"    → Neither active
+async fn get_mapping_mode(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let dl_cfg = data.load_datalayer_config();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+
+    // Bridge active: datalayer enabled AND at least one active transform mapping
+    let bridge_active = dl_cfg.enabled && dl_cfg.mappings.iter().any(|m| {
+        m.enabled
+            && m.direction == MappingDirection::DatalayerToTedge
+            && m.transform != MappingTransform::Raw
+    });
+
+    // Flows active: ctrlx-* flow directories exist under SNAP_DATA/tedge/mappers/c8y/flows/
+    let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
+    let flow_dirs = ["ctrlx-measurements", "ctrlx-events", "ctrlx-alarms"];
+    let flows_active = flow_dirs.iter().any(|d| flows_base.join(d).is_dir());
+
+    let mode = match (bridge_active, flows_active) {
+        (true, true)  => "both",
+        (true, false) => "bridge",
+        (false, true) => "flows",
+        (false, false) => "none",
+    };
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "mode": mode,
+        "bridge_active": bridge_active,
+        "flows_active": flows_active,
+    })))
+}
+
+#[derive(serde::Deserialize)]
+struct SetMappingModeRequest {
+    mode: String, // "bridge" | "flows" | "none"
+}
+
+/// Switch mapping mode:
+/// - "bridge" → disable flows (remove ctrlx-* dirs), keep bridge mappings as-is
+/// - "flows"  → disable bridge transform mappings (set enabled=false for all non-Raw dl_to_tedge)
+/// - "none"   → disable both
+async fn set_mapping_mode(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    body: web::Json<SetMappingModeRequest>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
+    let flow_dirs = ["ctrlx-measurements", "ctrlx-events", "ctrlx-alarms"];
+
+    match body.mode.as_str() {
+        "bridge" => {
+            // Disable flows: rename ctrlx-* dirs to ctrlx-*.disabled
+            for dir in &flow_dirs {
+                let src = flows_base.join(dir);
+                let dst = flows_base.join(format!("{}.disabled", dir));
+                if src.exists() {
+                    if let Err(e) = std::fs::rename(&src, &dst) {
+                        warn!("[MAPPING-MODE] Could not disable flow {}: {}", dir, e);
+                    } else {
+                        info!("[MAPPING-MODE] Flow disabled: {}", dir);
+                    }
+                }
+            }
+        }
+        "flows" => {
+            // Re-enable flows: rename ctrlx-*.disabled back
+            for dir in &flow_dirs {
+                let src = flows_base.join(format!("{}.disabled", dir));
+                let dst = flows_base.join(dir);
+                if src.exists() {
+                    if let Err(e) = std::fs::rename(&src, &dst) {
+                        warn!("[MAPPING-MODE] Could not enable flow {}: {}", dir, e);
+                    } else {
+                        info!("[MAPPING-MODE] Flow enabled: {}", dir);
+                    }
+                }
+            }
+            // Disable bridge transform mappings (set enabled=false for non-Raw dl_to_tedge)
+            let mut dl_cfg = data.load_datalayer_config();
+            for m in dl_cfg.mappings.iter_mut() {
+                if m.direction == MappingDirection::DatalayerToTedge
+                    && m.transform != MappingTransform::Raw
+                {
+                    m.enabled = false;
+                }
+            }
+            if let Err(e) = data.save_datalayer_config(&dl_cfg) {
+                warn!("[MAPPING-MODE] Could not save datalayer config: {}", e);
+            }
+        }
+        "none" => {
+            // Disable both
+            for dir in &flow_dirs {
+                let src = flows_base.join(dir);
+                let dst = flows_base.join(format!("{}.disabled", dir));
+                if src.exists() {
+                    let _ = std::fs::rename(&src, &dst);
+                }
+            }
+            let mut dl_cfg = data.load_datalayer_config();
+            for m in dl_cfg.mappings.iter_mut() {
+                if m.direction == MappingDirection::DatalayerToTedge
+                    && m.transform != MappingTransform::Raw
+                {
+                    m.enabled = false;
+                }
+            }
+            let _ = data.save_datalayer_config(&dl_cfg);
+        }
+        _ => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"error": "Invalid mode. Use: bridge, flows, none"})));
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true, "mode": body.mode})))
+}
+
 /// Sanitize a path derived from environment variables (e.g. SNAP_DATA) to prevent
 /// path traversal: remove any `..` components before constructing file paths.
 fn sanitize_snap_path(path: &str) -> String {
@@ -4823,9 +4962,26 @@ async fn main() -> io::Result<()> {
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
                             .route("/tedge-config-list", web::get().to(get_tedge_config_list))
-                            .route("/tedge-config-list-all", web::get().to(get_tedge_config_list_all))
-                            .route("/tedge-config-list-doc", web::get().to(get_tedge_config_list_doc))
-                            .route("/tedge-bridge-inspect", web::get().to(get_tedge_bridge_inspect))
+                            .route(
+                                "/tedge-config-list-all",
+                                web::get().to(get_tedge_config_list_all),
+                            )
+                            .route(
+                                "/tedge-config-list-doc",
+                                web::get().to(get_tedge_config_list_doc),
+                            )
+                            .route(
+                                "/tedge-bridge-inspect",
+                                web::get().to(get_tedge_bridge_inspect),
+                            )
+                            .route(
+                                "/mapping-mode",
+                                web::get().to(get_mapping_mode),
+                            )
+                            .route(
+                                "/mapping-mode",
+                                web::post().to(set_mapping_mode),
+                            )
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))

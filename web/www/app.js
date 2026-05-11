@@ -284,6 +284,19 @@ const I18N = {
     "cert.create_err": "Fehler beim Erstellen des Zertifikats",
     // Datalayer section
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
+    // Mapping Mode
+    "mappingmode.label": "Mapping-Modus",
+    "mappingmode.bridge": "Bridge Mappings",
+    "mappingmode.flows": "Tedge Flows",
+    "mappingmode.none": "Keins",
+    "mappingmode.apply": "Anwenden",
+    "mappingmode.refresh": "↺",
+    "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
+    "mappingmode.inactive": "Inaktiv",
+    "mappingmode.warning": "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
+    "mappingmode.hint": "Bridge: Datalayer → MQTT direkt · Flows: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.applied": "Modus gespeichert.",
+    "mappingmode.error": "Fehler beim Speichern des Modus.",
     // Snap Config Editor
     "section.snapconfig": "Snap Konfigurationsdateien",
     "snapconfig.file": "Datei",
@@ -606,6 +619,19 @@ const I18N = {
     "cert.create_err": "Error creating certificate",
     // Datalayer section
     "section.datalayer": "ctrlX Data Points (Datalayer)",
+    // Mapping Mode
+    "mappingmode.label": "Mapping Mode",
+    "mappingmode.bridge": "Bridge Mappings",
+    "mappingmode.flows": "Tedge Flows",
+    "mappingmode.none": "None",
+    "mappingmode.apply": "Apply",
+    "mappingmode.refresh": "↺",
+    "mappingmode.conflict": "⚠ Conflict – both active",
+    "mappingmode.inactive": "Inactive",
+    "mappingmode.warning": "⚠ Both modes are active — data will be sent twice to Cumulocity!",
+    "mappingmode.hint": "Bridge: Datalayer → MQTT direct · Flows: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.applied": "Mode saved.",
+    "mappingmode.error": "Error saving mode.",
     // Snap Config Editor
     "section.snapconfig": "Snap Configuration Files",
     // Tedge section
@@ -1646,7 +1672,8 @@ async function loadTedgeCmd(id, endpoint) {
       return;
     }
     const data = await response.json();
-    pre.textContent = data.output || t("tedgeconfig.error", data.error || "Unbekannter Fehler");
+    pre.textContent =
+      data.output || t("tedgeconfig.error", data.error || "Unbekannter Fehler");
   } catch (err) {
     pre.textContent = t("tedgeconfig.error", err.message);
   }
@@ -1671,8 +1698,12 @@ function copyTedgeCmd(id) {
 }
 
 // Legacy aliases (kept for backwards compatibility)
-function loadTedgeConfig() { loadTedgeCmd("tedge-cmd-output", "api/tedge-config-list"); }
-function copyTedgeConfig() { copyTedgeCmd("tedge-cmd-output"); }
+function loadTedgeConfig() {
+  loadTedgeCmd("tedge-cmd-output", "api/tedge-config-list");
+}
+function copyTedgeConfig() {
+  copyTedgeCmd("tedge-cmd-output");
+}
 
 function copyLogs() {
   const viewer = document.getElementById("log-viewer");
@@ -2421,6 +2452,7 @@ function initCollapsibleSections() {
       loadDatalayerStatus();
       loadDatalayerConfig();
       loadDatalayerMappings();
+      loadMappingMode();
       // Ensure port toggle is set before updateTopicPrefix() is called
       loadC8yMqttPort().then(() => updateTopicPrefix());
     },
@@ -2505,6 +2537,75 @@ function _initDatalayerUI() {
   setTimeout(() => {
     applyI18n();
   }, 150);
+}
+
+// ─── Mapping Mode ──────────────────────────────────────────────────────────
+
+async function loadMappingMode() {
+  const sel = document.getElementById("mapping-mode-select");
+  const badge = document.getElementById("mapping-mode-badge");
+  const warn = document.getElementById("mapping-mode-warning");
+  if (!sel) return;
+
+  try {
+    const r = await fetchWithAuth("api/mapping-mode");
+    if (!r.ok) return;
+    const d = await r.json();
+
+    sel.value = d.mode === "both" ? "bridge" : d.mode;
+
+    if (badge) {
+      if (d.mode === "both") {
+        badge.textContent = t("mappingmode.conflict");
+        badge.style.background = "var(--c8y-status-warning-bg,#4a3000)";
+        badge.style.color = "var(--c8y-status-warning,#f0c040)";
+        badge.style.border = "1px solid var(--c8y-status-warning,#f0a500)";
+        badge.style.display = "";
+      } else if (d.mode === "none") {
+        badge.textContent = t("mappingmode.inactive");
+        badge.style.background = "var(--c8y-palette-gray-80,#333)";
+        badge.style.color = "var(--c8y-palette-gray-40,#aaa)";
+        badge.style.border = "1px solid var(--c8y-palette-gray-60,#555)";
+        badge.style.display = "";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    if (warn) warn.style.display = d.mode === "both" ? "" : "none";
+
+  } catch (e) {
+    console.warn("[mapping-mode] load error:", e);
+  }
+}
+
+function onMappingModeSelectChange() {
+  // Just visual feedback; user must click "Anwenden"
+}
+
+async function applyMappingMode() {
+  const sel = document.getElementById("mapping-mode-select");
+  if (!sel) return;
+  const mode = sel.value;
+
+  try {
+    const r = await fetchWithAuth("api/mapping-mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      showToast(err.error || t("mappingmode.error"), "error");
+      return;
+    }
+    showToast(t("mappingmode.applied"), "success");
+    await loadMappingMode();
+    await loadDatalayerConfig();
+  } catch (e) {
+    showToast(t("mappingmode.error"), "error");
+    console.error("[mapping-mode] apply error:", e);
+  }
 }
 
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */

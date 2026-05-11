@@ -1455,15 +1455,49 @@ Click "Load Logs" to load the latest entries.</pre
           <!-- Tedge Configuration -->
           <section id="sec-tedge-config" class="card" data-page="tedge-config">
             <h2 data-i18n="section.tedgeconfig">Tedge</h2>
-            <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
-              <select id="tedge-cmd-select" class="form-control" style="max-width:320px; font-family:monospace; font-size:13px;">
+            <div
+              style="
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 14px;
+                flex-wrap: wrap;
+              "
+            >
+              <select
+                id="tedge-cmd-select"
+                class="form-control"
+                style="
+                  max-width: 320px;
+                  font-family: monospace;
+                  font-size: 13px;
+                "
+              >
                 <option value="api/tedge-config-list">tedge config list</option>
-                <option value="api/tedge-config-list-all">tedge config list --all</option>
-                <option value="api/tedge-config-list-doc">tedge config list --doc</option>
-                <option value="api/tedge-bridge-inspect">tedge bridge inspect c8y</option>
+                <option value="api/tedge-config-list-all">
+                  tedge config list --all
+                </option>
+                <option value="api/tedge-config-list-doc">
+                  tedge config list --doc
+                </option>
+                <option value="api/tedge-bridge-inspect">
+                  tedge bridge inspect c8y
+                </option>
               </select>
-              <button class="btn btn-primary btn-sm" onclick="loadTedgeCmdFromSelect()" data-i18n="tedgeconfig.load">Laden</button>
-              <button class="btn btn-outline-secondary btn-sm" onclick="copyTedgeCmd('tedge-cmd-output')" data-i18n="tedgeconfig.copy">Kopieren</button>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick="loadTedgeCmdFromSelect()"
+                data-i18n="tedgeconfig.load"
+              >
+                Laden
+              </button>
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="copyTedgeCmd('tedge-cmd-output')"
+                data-i18n="tedgeconfig.copy"
+              >
+                Kopieren
+              </button>
             </div>
             <pre
               id="tedge-cmd-output"
@@ -1482,7 +1516,9 @@ Click "Load Logs" to load the latest entries.</pre
                 margin: 0;
               "
               data-i18n="tedgeconfig.placeholder"
-            >Befehl auswählen und "Laden" klicken…</pre>
+            >
+Befehl auswählen und "Laden" klicken…</pre
+            >
           </section>
 
           <!-- Snap Config Editor -->
@@ -1586,6 +1622,28 @@ Click "Load Logs" to load the latest entries.</pre
 
           <section id="sec-datalayer" class="card" data-page="datalayer">
             <h2 data-i18n="section.datalayer">ctrlX Datenpunkte (Datalayer)</h2>
+
+            <!-- Mapping Mode Selector -->
+            <div id="mapping-mode-block" style="margin-bottom:18px; padding:14px; border:1px solid var(--c8y-palette-gray-70,#444); border-radius:6px; background:var(--c8y-palette-gray-90,#22223a);">
+              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
+                <span style="font-weight:600; font-size:13px;" data-i18n="mappingmode.label">Mapping-Modus</span>
+                <select id="mapping-mode-select" class="form-control" style="max-width:220px; font-size:13px;" onchange="onMappingModeSelectChange()">
+                  <option value="bridge" data-i18n-opt="mappingmode.bridge">Bridge Mappings</option>
+                  <option value="flows"  data-i18n-opt="mappingmode.flows">Tedge Flows</option>
+                  <option value="none"   data-i18n-opt="mappingmode.none">Keins</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="applyMappingMode()" data-i18n="mappingmode.apply">Anwenden</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadMappingMode()" data-i18n="mappingmode.refresh">↺</button>
+                <span id="mapping-mode-badge" style="display:none; font-size:12px; padding:2px 10px; border-radius:12px;"></span>
+              </div>
+              <div id="mapping-mode-warning" style="display:none; background:var(--c8y-status-warning-bg,#4a3000); border:1px solid var(--c8y-status-warning,#f0a500); color:var(--c8y-status-warning,#f0c040); border-radius:4px; padding:8px 12px; font-size:12px; margin-top:4px;">
+                <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+                <span data-i18n="mappingmode.warning">⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!</span>
+              </div>
+              <div style="font-size:11px; color:var(--c8y-palette-gray-40,#aaa); margin-top:8px;" data-i18n="mappingmode.hint">
+                Bridge Mappings: Datalayer → direkt MQTT · Tedge Flows: Datalayer → te/… → Flows → c8y/…
+              </div>
+            </div>
 
             <div
               style="
