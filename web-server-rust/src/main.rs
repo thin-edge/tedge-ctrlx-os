@@ -3014,6 +3014,142 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
     }
 }
 
+async fn get_tedge_config_list_all(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "config", "list", "--all"]);
+        info!("[TEDGE-CONFIG] Running: tedge config list --all");
+        match cmd.output() {
+            Ok(out) => {
+                if out.status.success() {
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                } else {
+                    format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+async fn get_tedge_config_list_doc(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "config", "list", "--doc"]);
+        info!("[TEDGE-CONFIG] Running: tedge config list --doc");
+        match cmd.output() {
+            Ok(out) => {
+                if out.status.success() {
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                } else {
+                    format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+async fn get_tedge_bridge_inspect(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "bridge", "inspect", "c8y"]);
+        info!("[TEDGE-CONFIG] Running: tedge bridge inspect c8y");
+        match cmd.output() {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                if out.status.success() {
+                    stdout
+                } else if !stdout.is_empty() {
+                    stdout
+                } else {
+                    format!("[Fehler]\n{}", stderr.trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
@@ -4689,6 +4825,9 @@ async fn main() -> io::Result<()> {
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
                             .route("/tedge-config-list", web::get().to(get_tedge_config_list))
+                            .route("/tedge-config-list-all", web::get().to(get_tedge_config_list_all))
+                            .route("/tedge-config-list-doc", web::get().to(get_tedge_config_list_doc))
+                            .route("/tedge-bridge-inspect", web::get().to(get_tedge_bridge_inspect))
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))

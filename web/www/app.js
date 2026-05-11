@@ -186,15 +186,15 @@ const I18N = {
     "logs.copy": "Kopieren",
     "logs.copied": "Logs in Zwischenablage kopiert",
     "logs.placeholder": 'Klicke „Logs laden" um die letzten Einträge zu laden.',
-    // Tedge Config
-    "section.tedgeconfig": "Tedge Konfiguration",
-    "tedgeconfig.load": "Konfiguration laden",
+    // Tedge
+    "section.tedgeconfig": "Tedge",
+    "nav.tedge_config": "Tedge",
+    "tedgeconfig.load": "Laden",
     "tedgeconfig.copy": "Kopieren",
-    "tedgeconfig.placeholder":
-      'Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.',
-    "tedgeconfig.loading": "Lade Konfiguration…",
-    "tedgeconfig.error": (msg) => `Fehler beim Laden der Konfiguration: ${msg}`,
-    "tedgeconfig.copied": "Konfiguration in Zwischenablage kopiert",
+    "tedgeconfig.placeholder": 'Auf "Laden" klicken…',
+    "tedgeconfig.loading": "Lade…",
+    "tedgeconfig.error": (msg) => `Fehler: ${msg}`,
+    "tedgeconfig.copied": "In Zwischenablage kopiert",
     // Sysinfo
     "sysinfo.version": "Version:",
     "sysinfo.build": "Build:",
@@ -361,7 +361,7 @@ const I18N = {
     "nav.certificate": "Certificate",
     "nav.connect": "Connect",
     "nav.logs": "Logs",
-    "nav.tedge_config": "Tedge Config",
+    "nav.tedge_config": "Tedge",
     "nav.device": "Device",
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
@@ -608,15 +608,15 @@ const I18N = {
     "section.datalayer": "ctrlX Data Points (Datalayer)",
     // Snap Config Editor
     "section.snapconfig": "Snap Configuration Files",
-    // Tedge Config section
-    "section.tedgeconfig": "Tedge Configuration",
-    "tedgeconfig.load": "Load Configuration",
+    // Tedge section
+    "section.tedgeconfig": "Tedge",
+    "nav.tedge_config": "Tedge",
+    "tedgeconfig.load": "Load",
     "tedgeconfig.copy": "Copy",
-    "tedgeconfig.placeholder":
-      'Click "Load Configuration" to view all tedge settings.',
-    "tedgeconfig.loading": "Loading configuration…",
-    "tedgeconfig.error": (msg) => `Error loading configuration: ${msg}`,
-    "tedgeconfig.copied": "Configuration copied to clipboard",
+    "tedgeconfig.placeholder": 'Click "Load"…',
+    "tedgeconfig.loading": "Loading…",
+    "tedgeconfig.error": (msg) => `Error: ${msg}`,
+    "tedgeconfig.copied": "Copied to clipboard",
     "snapconfig.file": "File",
     "snapconfig.load": "Load",
     "snapconfig.save": "Save",
@@ -1618,43 +1618,47 @@ async function applyLogLevel() {
   }
 }
 
-// Load tedge config list
-async function loadTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  if (!viewer) return;
-  viewer.textContent = t("tedgeconfig.loading");
+// Tedge command blocks: toggle accordion
+function toggleTedgeCmd(id) {
+  const pre = document.getElementById(id);
+  const chevron = document.getElementById(id + "-chevron");
+  if (!pre) return;
+  const isOpen = pre.classList.toggle("open");
+  if (chevron) chevron.classList.toggle("open", isOpen);
+}
+
+// Load output for a tedge command block
+async function loadTedgeCmd(id, endpoint) {
+  const pre = document.getElementById(id);
+  const chevron = document.getElementById(id + "-chevron");
+  if (!pre) return;
+  // Auto-open on load
+  pre.classList.add("open");
+  if (chevron) chevron.classList.add("open");
+  pre.textContent = t("tedgeconfig.loading");
   try {
-    const response = await fetchWithAuth("api/tedge-config-list");
+    const response = await fetchWithAuth(endpoint);
     if (response.status === 403) {
-      viewer.textContent = t("tedgeconfig.error", "Keine Berechtigung");
+      pre.textContent = t("tedgeconfig.error", "Keine Berechtigung");
       return;
     }
     const data = await response.json();
-    if (data.output) {
-      viewer.textContent = data.output;
-    } else {
-      viewer.textContent = t(
-        "tedgeconfig.error",
-        data.error || "Unbekannter Fehler",
-      );
-    }
-  } catch (error) {
-    viewer.textContent = t("tedgeconfig.error", error.message);
+    pre.textContent = data.output || t("tedgeconfig.error", data.error || "Unbekannter Fehler");
+  } catch (err) {
+    pre.textContent = t("tedgeconfig.error", err.message);
   }
 }
 
-function copyTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  if (!viewer || !viewer.textContent) return;
+function copyTedgeCmd(id) {
+  const pre = document.getElementById(id);
+  if (!pre || !pre.textContent) return;
   navigator.clipboard
-    .writeText(viewer.textContent)
-    .then(() => {
-      showNotification(t("tedgeconfig.copied"), "success");
-    })
+    .writeText(pre.textContent)
+    .then(() => showNotification(t("tedgeconfig.copied"), "success"))
     .catch(() => {
       const sel = window.getSelection();
       const range = document.createRange();
-      range.selectNodeContents(viewer);
+      range.selectNodeContents(pre);
       sel.removeAllRanges();
       sel.addRange(range);
       document.execCommand("copy");
@@ -1662,6 +1666,10 @@ function copyTedgeConfig() {
       showNotification(t("tedgeconfig.copied"), "success");
     });
 }
+
+// Legacy aliases (kept for backwards compatibility)
+function loadTedgeConfig() { loadTedgeCmd("tc-1", "api/tedge-config-list"); }
+function copyTedgeConfig() { copyTedgeCmd("tc-1"); }
 
 function copyLogs() {
   const viewer = document.getElementById("log-viewer");
