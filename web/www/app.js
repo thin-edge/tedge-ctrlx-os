@@ -14,6 +14,20 @@ const I18N = {
     "header.title": "thin-edge.io Konfigurationsoberfläche",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
+    // Nav items
+    "nav.setup": "Setup",
+    "nav.edge": "Edge",
+    "nav.status": "Status",
+    "nav.service_control": "Service Control",
+    "nav.certificate": "Zertifikat",
+    "nav.connect": "Verbinden",
+    "nav.logs": "Logs",
+    "nav.tedge_config": "Tedge Config",
+    "nav.device": "Gerät",
+    "nav.snap_config": "Snap Config",
+    "nav.datalayer": "Datalayer",
+    "nav.licensing": "Lizenzierung",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Verbindungsstatus",
     "section.service_control": "Service Control",
@@ -339,6 +353,20 @@ const I18N = {
     "header.title": "thin-edge.io Configuration Interface",
     "header.lang_de": "DE",
     "header.lang_en": "EN",
+    // Nav items
+    "nav.setup": "Setup",
+    "nav.edge": "Edge",
+    "nav.status": "Status",
+    "nav.service_control": "Service Control",
+    "nav.certificate": "Certificate",
+    "nav.connect": "Connect",
+    "nav.logs": "Logs",
+    "nav.tedge_config": "Tedge Config",
+    "nav.device": "Device",
+    "nav.snap_config": "Snap Config",
+    "nav.datalayer": "Datalayer",
+    "nav.licensing": "Licensing",
+    "nav.flows": "Flows",
     // Nav / Sections
     "section.status": "Connection Status",
     "section.service_control": "Service Control",
@@ -1518,6 +1546,8 @@ async function saveDeviceConfig() {
 function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
   loadStatus();
+  loadDatalayerStatus();
+  loadServiceControl();
 }
 
 // Load logs from API
@@ -2355,8 +2385,6 @@ function initCollapsibleSections() {
     "sec-cloud": () => {
       loadConfiguration();
       loadC8yMqttPort();
-    },
-    "sec-device": () => {
       _applyCertMode(getCertMode());
       loadDeviceIdInfo();
       applyRoleRestrictions();
@@ -2473,27 +2501,30 @@ async function loadDatalayerStatus() {
   const text = document.getElementById("datalayer-status-text");
 
   const setStatus = (key) => {
-    text.textContent = t(key);
-    text.setAttribute("data-i18n", key);
+    if (text) {
+      text.textContent = t(key);
+      text.setAttribute("data-i18n", key);
+    }
+  };
+  const setCustom = (str) => {
+    if (text) {
+      text.textContent = str;
+      text.removeAttribute("data-i18n");
+    }
   };
 
-  // Start-Zustand: ⚪ | ⚪ Loading...
-  dotSvc.textContent = "⚪";
+  // Start-Zustand
   setStatus("status.loading");
 
   try {
     const r = await fetchWithAuth("api/datalayer/status");
 
     if (r.status === 401 || r.status === 403) {
-      dotSvc.textContent = "🟢";
-      // Note: you may need to add 'status.noauth' ("🟡 Auth Error") to i18n!
       setStatus("datalayer.status_noauth");
       return;
     }
 
     if (!r.ok) {
-      // Webserver liefert Fehler: 🔴 | ⚪ Unknown
-      dotSvc.textContent = "🔴";
       setStatus("status.unknown");
       return;
     }
@@ -2501,22 +2532,17 @@ async function loadDatalayerStatus() {
     const d = await r.json();
 
     if (!d.enabled) {
-      // Schalter ist aus -> Verbindung ist deaktiviert
-      dotSvc.textContent = "⚫"; // Dienst-Punkt schwarz oder grau
-      setStatus("status.inactive"); // "⚫ Verbindung deaktiviert"
+      setStatus("status.inactive");
     } else {
       if (d.connected) {
-        // Verbindung zum Datalayer steht
-        text.textContent = `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`;
-        text.removeAttribute("data-i18n");
+        setCustom(
+          `${t("status.running")} (${d.active_mappings}/${d.mapping_count} Mappings)`,
+        );
       } else {
-        // Dienst da, aber keine Verbindung
-        setStatus("status.stopped"); // "🔴 Getrennt"
+        setStatus("status.stopped");
       }
     }
   } catch (e) {
-    // Komplettabsturz (Rust-Backend weg): 🔴 | ⚪ Unknown
-    dotSvc.textContent = "🔴";
     setStatus("status.unknown");
   }
 }
@@ -3536,3 +3562,488 @@ async function loadLicenses() {
     }
   }
 }
+
+// ── Flows Management ─────────────────────────────────────────────────────────
+
+let _flowsCurrentFlow = null; // currently open flow directory name
+let _flowsCurrentFile = null; // currently open file name
+let _flowsNewFileTarget = null; // flow name for pending "add file" operation
+
+function _flowsMapper() {
+  const sel = document.getElementById("flows-mapper-select");
+  return sel ? sel.value : "c8y";
+}
+
+function _showEditorState(state) {
+  // state: "placeholder" | "add-file" | "editor"
+  const placeholder = document.getElementById("flows-editor-placeholder");
+  const addForm = document.getElementById("flows-new-file-form");
+  const wrap = document.getElementById("flows-editor-wrap");
+  if (placeholder)
+    placeholder.style.display = state === "placeholder" ? "" : "none";
+  if (addForm) addForm.style.display = state === "add-file" ? "" : "none";
+  if (wrap) wrap.style.display = state === "editor" ? "" : "none";
+}
+
+async function loadFlows() {
+  const loading = document.getElementById("flows-loading");
+  const tree = document.getElementById("flows-tree");
+  const empty = document.getElementById("flows-empty");
+  const errDiv = document.getElementById("flows-error");
+
+  if (loading) loading.style.display = "";
+  if (tree) tree.style.display = "none";
+  if (empty) empty.style.display = "none";
+  if (errDiv) errDiv.style.display = "none";
+
+  try {
+    const mapper = _flowsMapper();
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (resp.status === 403) {
+      if (loading) loading.style.display = "none";
+      if (errDiv) {
+        errDiv.textContent = t("notify.no_perm_status");
+        errDiv.style.display = "";
+      }
+      return;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const flows = data.flows || [];
+
+    if (loading) loading.style.display = "none";
+
+    if (flows.length === 0) {
+      if (empty) empty.style.display = "";
+      return;
+    }
+
+    if (tree) {
+      _renderFlowsTree(flows, tree);
+      tree.style.display = "";
+      _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
+    }
+  } catch (err) {
+    if (loading) loading.style.display = "none";
+    if (errDiv) {
+      errDiv.textContent = `${t("flows.err_load")}: ${err.message}`;
+      errDiv.style.display = "";
+    }
+  }
+}
+
+function _fileIcon(name) {
+  if (name.endsWith(".js")) return "📜";
+  if (name === "flow.toml") return "⚙️";
+  if (name.endsWith(".toml.template")) return "📋";
+  if (name.endsWith(".toml")) return "📄";
+  return "📄";
+}
+
+function _renderFlowsTree(flows, container) {
+  container.innerHTML = "";
+  flows.forEach((flow) => {
+    // ── Flow header row ──
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display:flex; align-items:center; gap:4px;
+      padding:7px 10px;
+      background:var(--c8y-palette-gray-80,#252525);
+      border-bottom:1px solid var(--c8y-palette-gray-70,#333);
+      font-size:12px; font-weight:600;
+    `;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText =
+      "flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:monospace;";
+    nameSpan.textContent = "📁 " + flow.name;
+    nameSpan.title = flow.name;
+    header.appendChild(nameSpan);
+
+    // "+ file" button
+    const addBtn = document.createElement("button");
+    addBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-palette-gray-30,#bbb); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:3px; cursor:pointer";
+    addBtn.title = t("flows.add_file_btn");
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.onclick = (e) => {
+      e.stopPropagation();
+      showAddFileForm(flow.name);
+    };
+    header.appendChild(addBtn);
+
+    // delete flow button
+    const delBtn = document.createElement("button");
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer; margin-left:2px";
+    delBtn.title = t("flows.delete_flow_btn");
+    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteFlow(flow.name);
+    };
+    header.appendChild(delBtn);
+
+    container.appendChild(header);
+
+    // ── File rows ──
+    flow.files.forEach((file) => {
+      const row = document.createElement("div");
+      row.dataset.flow = flow.name;
+      row.dataset.file = file.name;
+      const isActive =
+        flow.name === _flowsCurrentFlow && file.name === _flowsCurrentFile;
+      row.style.cssText = `
+        padding:5px 10px 5px 22px;
+        font-family:monospace; font-size:12px;
+        cursor:pointer;
+        border-bottom:1px solid var(--c8y-palette-gray-70,#2a2a2a);
+        background:${isActive ? "var(--c8y-brand-primary,#1776BF)" : "transparent"};
+        color:${isActive ? "#fff" : "var(--c8y-palette-gray-10,#e0e0e0)"};
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      `;
+      row.textContent = _fileIcon(file.name) + " " + file.name;
+      row.title = file.name;
+      row.onclick = () => openFileInEditor(flow.name, file.name, file.content);
+      container.appendChild(row);
+    });
+  });
+}
+
+function _highlightFlowFile(flowName, fileName) {
+  const container = document.getElementById("flows-tree");
+  if (!container) return;
+  container.querySelectorAll("div[data-file]").forEach((row) => {
+    const active =
+      row.dataset.flow === flowName && row.dataset.file === fileName;
+    row.style.background = active
+      ? "var(--c8y-brand-primary,#1776BF)"
+      : "transparent";
+    row.style.color = active ? "#fff" : "var(--c8y-palette-gray-10,#e0e0e0)";
+  });
+}
+
+function openFileInEditor(flowName, fileName, content) {
+  _flowsCurrentFlow = flowName;
+  _flowsCurrentFile = fileName;
+  _highlightFlowFile(flowName, fileName);
+
+  const breadcrumb = document.getElementById("flows-editor-breadcrumb");
+  const editor = document.getElementById("flows-editor");
+  if (breadcrumb) breadcrumb.textContent = `${flowName} / ${fileName}`;
+  if (editor) editor.value = content;
+
+  _showEditorState("editor");
+}
+
+async function saveCurrentFile() {
+  if (!_flowsCurrentFlow || !_flowsCurrentFile) return;
+  const editor = document.getElementById("flows-editor");
+  const content = editor ? editor.value : "";
+  const mapper = _flowsMapper();
+
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const label = `${_flowsCurrentFlow}/${_flowsCurrentFile}`;
+    showNotification(t("flows.saved", label), "success");
+    await loadFlows();
+    _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
+  } catch (err) {
+    showNotification(`${t("flows.err_save")}: ${err.message}`, "error");
+  }
+}
+
+async function deleteCurrentFile() {
+  if (!_flowsCurrentFlow || !_flowsCurrentFile) return;
+  const name = `${_flowsCurrentFlow}/${_flowsCurrentFile}`;
+  if (!confirm(t("flows.confirm_delete", name))) return;
+
+  const mapper = _flowsMapper();
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    showNotification(t("flows.deleted", name), "success");
+    _flowsCurrentFlow = null;
+    _flowsCurrentFile = null;
+    _showEditorState("placeholder");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`${t("flows.err_delete")}: ${err.message}`, "error");
+  }
+}
+
+async function deleteFlow(flowName) {
+  const mapper = _flowsMapper();
+  if (!confirm(t("flows.confirm_delete_flow", flowName))) return;
+
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (_flowsCurrentFlow === flowName) {
+      _flowsCurrentFlow = null;
+      _flowsCurrentFile = null;
+      _showEditorState("placeholder");
+    }
+    showNotification(t("flows.deleted", flowName), "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`${t("flows.err_delete")}: ${err.message}`, "error");
+  }
+}
+
+// ── New Flow form ─────────────────────────────────────────────────────────────
+
+function showNewFlowForm() {
+  const form = document.getElementById("flows-new-flow-form");
+  const input = document.getElementById("flows-new-flow-name");
+  if (form) form.style.display = "";
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  loadFlows();
+}
+
+function cancelNewFlow() {
+  const form = document.getElementById("flows-new-flow-form");
+  if (form) form.style.display = "none";
+}
+
+async function confirmNewFlow() {
+  const input = document.getElementById("flows-new-flow-name");
+  const rawName = input ? input.value.trim() : "";
+  if (!rawName) {
+    showNotification(t("flows.err_no_name"), "error");
+    return;
+  }
+
+  const mapper = _flowsMapper();
+  const content = `[flow]
+version = "1.0"
+description = "My flow"
+
+[input.mqtt]
+topics = ["te/+/+/+/+/m/+"]
+
+[[steps]]
+script = "main.js"
+`;
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(rawName)}&file=flow.toml`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    cancelNewFlow();
+    await loadFlows();
+    openFileInEditor(rawName, "flow.toml", content);
+  } catch (err) {
+    showNotification(`${t("flows.err_save")}: ${err.message}`, "error");
+  }
+}
+
+// ── Add File form ─────────────────────────────────────────────────────────────
+
+function showAddFileForm(flowName) {
+  _flowsNewFileTarget = flowName;
+  const label = document.getElementById("flows-new-file-flow-label");
+  const input = document.getElementById("flows-new-file-name");
+  if (label) label.textContent = flowName;
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  _showEditorState("add-file");
+}
+
+function cancelAddFile() {
+  _flowsNewFileTarget = null;
+  _showEditorState(
+    _flowsCurrentFlow && _flowsCurrentFile ? "editor" : "placeholder",
+  );
+}
+
+function _defaultFileContent(fileName) {
+  if (fileName.endsWith(".js")) {
+    return `const decoder = new TextDecoder();
+
+export function onMessage(message, context) {
+  const payload = JSON.parse(decoder.decode(message.payload));
+  // TODO: transform payload
+  return [{
+    topic: message.topic,
+    payload: JSON.stringify(payload),
+  }];
+}
+`;
+  }
+  if (fileName.endsWith(".toml.template")) {
+    return `# Configuration defaults for this flow.
+# Copy to params.toml and edit values to override.
+
+# threshold = 70.0
+`;
+  }
+  return "";
+}
+
+async function confirmAddFile() {
+  const input = document.getElementById("flows-new-file-name");
+  const rawName = input ? input.value.trim() : "";
+  if (!rawName) {
+    showNotification(t("flows.err_no_name"), "error");
+    return;
+  }
+
+  const validExts = [".js", ".toml", ".toml.template"];
+  if (!validExts.some((ext) => rawName.endsWith(ext))) {
+    showNotification(t("flows.err_invalid_ext"), "error");
+    return;
+  }
+
+  const flowName = _flowsNewFileTarget;
+  if (!flowName) return;
+
+  _flowsNewFileTarget = null;
+  openFileInEditor(flowName, rawName, _defaultFileContent(rawName));
+  // File is created on disk only when the user clicks "Speichern"
+  await loadFlows();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ── Navigator ────────────────────────────────────────────────────────
+/**
+ * Show a specific section and mark the corresponding nav-item as active.
+ * @param {string} sectionId  - id of the <section> to show (e.g. "sec-cloud")
+ * @param {Element|null} clickedEl - the .nav-item that was clicked
+ */
+function showNav(sectionId, clickedEl) {
+  // Hide all navigable sections
+  document.querySelectorAll("#main-container > section").forEach((s) => {
+    s.style.display = "none";
+  });
+
+  // Check if target section belongs to a page group
+  const targetEl = document.getElementById(sectionId);
+  const pageGroup = targetEl ? targetEl.dataset.page : null;
+
+  // Collect all sections to show
+  const toShow = pageGroup
+    ? Array.from(
+        document.querySelectorAll(
+          `#main-container > section[data-page="${pageGroup}"]`,
+        ),
+      )
+    : targetEl
+      ? [targetEl]
+      : [];
+
+  toShow.forEach((s) => {
+    s.style.display = "block";
+    if (s.classList.contains("collapsed")) {
+      s.classList.remove("collapsed");
+      if (!s.dataset.sectionLoaded) {
+        s.dataset.sectionLoaded = "1";
+        const loader =
+          window._sectionLazyLoaders && window._sectionLazyLoaders[s.id];
+        if (loader) loader();
+      }
+    }
+  });
+
+  // Remove active class from all nav items
+  document
+    .querySelectorAll(".nav-item")
+    .forEach((el) => el.classList.remove("active"));
+
+  // Add active to clicked element
+  if (clickedEl) clickedEl.classList.add("active");
+
+  // Show header save button on setup and device pages
+  const saveBtn = document.getElementById("header-save-btn");
+  const refreshBtn = document.getElementById("header-refresh-btn");
+  if (refreshBtn) {
+    const showRefresh =
+      pageGroup === "status" ||
+      pageGroup === "datalayer" ||
+      pageGroup === "licensing";
+    refreshBtn.style.display = showRefresh ? "" : "none";
+    if (pageGroup === "datalayer")
+      refreshBtn.onclick = () => loadDatalayerStatus();
+    else if (pageGroup === "licensing")
+      refreshBtn.onclick = () => loadLicenses();
+    else refreshBtn.onclick = () => refreshStatus();
+  }
+  if (saveBtn) {
+    const showSave =
+      pageGroup === "setup" ||
+      pageGroup === "device" ||
+      pageGroup === "snap-config" ||
+      pageGroup === "datalayer";
+    saveBtn.style.display = showSave ? "" : "none";
+    if (pageGroup === "device")
+      saveBtn.onclick = () => saveAndPublishInventory();
+    else if (pageGroup === "snap-config")
+      saveBtn.onclick = () => saveSnapConfigFile();
+    else if (pageGroup === "datalayer")
+      saveBtn.onclick = () => saveDatalayerConfig();
+    else saveBtn.onclick = () => saveActiveCloudTab();
+  }
+
+  // Persist current section
+  sessionStorage.setItem("tedge-nav-section", sectionId);
+}
+
+/**
+ * Toggle open/closed state of a nav-group.
+ * @param {Element} headerEl - the .nav-group-header that was clicked
+ */
+function toggleNavGroup(headerEl) {
+  const group = headerEl.closest(".nav-group");
+  if (group) group.classList.toggle("open");
+}
+
+// Initialise navigator on DOMContentLoaded
+document.addEventListener("DOMContentLoaded", function () {
+  // Determine which section to show (persisted or default)
+  const saved = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
+  const navItem = document.querySelector(`.nav-item[data-target="${saved}"]`);
+  // Mark the default section as pre-loaded (data already loaded by other DOMContentLoaded handlers)
+  const defaultTarget = document.getElementById(saved);
+  if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
+  showNav(saved, navItem);
+});
