@@ -1969,7 +1969,10 @@ Befehl auswählen und "Laden" klicken…</pre
                     <select
                       id="datalayer-mapping-transform"
                       class="form-control"
-                      onchange="updateTopicPrefix(); showMappingPayloadPreview();"
+                      onchange="
+                        updateTopicPrefix();
+                        showMappingPayloadPreview();
+                      "
                     >
                       <option value="raw">Raw</option>
                       <option value="measurement">Measurement</option>

@@ -3000,7 +3000,8 @@ function isMqttServiceActive() {
 
 /** 4. Topic automatisch basierend auf Transform setzen */
 function updateTopicPrefix() {
-  const mappingType = document.getElementById("datalayer-mapping-type")?.value || "datalayer";
+  const mappingType =
+    document.getElementById("datalayer-mapping-type")?.value || "datalayer";
 
   // For flow mode, always use the canonical wildcard — delegate to _applyMappingTypeToTopic
   if (mappingType === "flow") {
@@ -3009,8 +3010,12 @@ function updateTopicPrefix() {
   }
 
   // For datalayer mode: build topic from path + transform + MQTT mode
-  const direction = document.getElementById("datalayer-mapping-direction").value;
-  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const direction = document.getElementById(
+    "datalayer-mapping-direction",
+  ).value;
+  const transform = document.getElementById(
+    "datalayer-mapping-transform",
+  ).value;
   const topicInput = document.getElementById("datalayer-mapping-topic");
   const path = document.getElementById("datalayer-mapping-path").value;
   const lastPart = path.split("/").filter(Boolean).pop() || "value";
@@ -3018,10 +3023,13 @@ function updateTopicPrefix() {
   if (isMqttServiceActive()) {
     // MQTT Service (9883): c8y/mqtt/out/ prefix
     const prefix = "c8y/mqtt/out/";
-    topicInput.value = prefix + (direction === "tedge_to_dl" ? "cmd/" + lastPart : lastPart);
-    if (transform === "event")       topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm")  topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-    else                             topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+    topicInput.value =
+      prefix + (direction === "tedge_to_dl" ? "cmd/" + lastPart : lastPart);
+    if (transform === "event")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
   } else {
     // Core MQTT (8883): te/ prefix with specific segment
     let topic = "te/device/main///";
@@ -3029,14 +3037,16 @@ function updateTopicPrefix() {
       topic += "cmd/plc/" + lastPart;
     } else {
       if (transform === "measurement") topic += "m/" + lastPart;
-      else if (transform === "event")  topic += "e/" + lastPart;
-      else if (transform === "alarm")  topic += "a/" + lastPart;
-      else                             topic += "m/" + lastPart;
+      else if (transform === "event") topic += "e/" + lastPart;
+      else if (transform === "alarm") topic += "a/" + lastPart;
+      else topic += "m/" + lastPart;
     }
     topicInput.value = topic;
-    if (transform === "event")       topicInput.placeholder = "e.g. te/device/main///e/myValue";
-    else if (transform === "alarm")  topicInput.placeholder = "e.g. te/device/main///a/myValue";
-    else                             topicInput.placeholder = "e.g. te/device/main///m/myValue";
+    if (transform === "event")
+      topicInput.placeholder = "e.g. te/device/main///e/myValue";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. te/device/main///a/myValue";
+    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
   }
   showMappingPayloadPreview();
 }
