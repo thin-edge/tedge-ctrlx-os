@@ -3054,47 +3054,31 @@ function showMappingPayloadPreview() {
     document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
     "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
-  const topic = document.getElementById("datalayer-mapping-topic").value.trim();
-  const mappingType =
-    document.getElementById("datalayer-mapping-type")?.value || "datalayer";
-  const isC8yService =
-    topic.startsWith("c8y/mqtt/out/") || mappingType === "datalayer";
   const ts = new Date().toISOString();
 
   let payload;
   if (transform === "measurement") {
     payload = { [fieldName]: 42.0, time: ts };
     if (unit) payload.unit = unit;
-    if (isC8yService) payload.externalId = "<device-external-id>";
+    payload.externalId = "<device-external-id>";
   } else if (transform === "event") {
-    if (isC8yService) {
-      payload = {
-        Text: "<datalayer-value>",
-        type: "c8y_ctrlx_Event",
-        time: ts,
-      };
-      payload.externalId = "<device-external-id>";
-    } else {
-      payload = { text: `Event: ${fieldName} is <value>`, type: "ctrlx_event" };
-    }
+    payload = {
+      Text: "<datalayer-value>",
+      type: "c8y_ctrlx_Event",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
   } else if (transform === "alarm") {
-    if (isC8yService) {
-      payload = {
-        Text: "<datalayer-value>",
-        severity: "MAJOR",
-        status: "ACTIVE",
-        type: "c8y_ctrlx_Alarm",
-        time: ts,
-      };
-      payload.externalId = "<device-external-id>";
-    } else {
-      payload = {
-        text: `Alarm at ${fieldName}: value is <value>`,
-        severity: "major",
-      };
-    }
+    payload = {
+      Text: "<datalayer-value>",
+      severity: "MAJOR",
+      status: "ACTIVE",
+      type: "c8y_ctrlx_Alarm",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
   } else {
-    payload = { raw: "<datalayer-value>" };
+    payload = { raw: "<datalayer-value>", externalId: "<device-external-id>" };
   }
 
   pre.textContent = JSON.stringify(payload, null, 2);
