@@ -3360,12 +3360,9 @@ function renderDatalayerMappings() {
     const mtype = m.mapping_type || "datalayer";
     const tdMtype = document.createElement("td");
     tdMtype.style.width = "100px";
-    const mtypeSpan = document.createElement("span");
-    mtypeSpan.style.cssText = mtype === "flow"
-      ? "font-size:11px; padding:2px 8px; border-radius:10px; background:#2a3a5a; color:#7ab4f5; border:1px solid #4a6a9a;"
-      : "font-size:11px; padding:2px 8px; border-radius:10px; background:#1a3a1a; color:#6ecb6e; border:1px solid #3a6a3a;";
-    mtypeSpan.textContent = mtype === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
-    tdMtype.appendChild(mtypeSpan);
+    tdMtype.style.fontSize = "12px";
+    tdMtype.style.color = "var(--c8y-palette-gray-30,#ccc)";
+    tdMtype.textContent = mtype === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
 
     const tdToggle = document.createElement("td");
     tdToggle.className = "text-center";
