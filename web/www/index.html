@@ -1914,6 +1914,7 @@ Befehl auswählen und "Laden" klicken…</pre
                       class="form-control"
                       onchange="
                         updateTopicPrefix();
+                        _applyMappingTypeToTopic(document.getElementById('datalayer-mapping-type')?.value || 'datalayer');
                         showMappingPayloadPreview();
                       "
                     >

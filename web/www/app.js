@@ -2536,7 +2536,7 @@ function _initDatalayerUI() {
 
 /** Sets the active mapping_type toggle button in the edit form */
 function setMappingTypeBtn(type) {
-  const activeCss  = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
+  const activeCss   = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
   const inactiveCss = "background:transparent; color:var(--c8y-palette-gray-30,#ccc);";
   const btnDl   = document.getElementById("mtype-btn-datalayer");
   const btnFlow = document.getElementById("mtype-btn-flow");
@@ -2551,11 +2551,49 @@ function setMappingTypeBtn(type) {
     btnFlow.style.cssText = inactiveCss;
   }
   if (hidden) hidden.value = type;
+
+  // Auto-update topic + placeholder based on selected type
+  _applyMappingTypeToTopic(type);
 }
 
-// Legacy global-mode functions kept for backward compatibility (no-op)
-async function loadMappingMode() {}
-async function applyMappingMode() {}
+/**
+ * Sets the MQTT topic field based on the selected mapping type and transform.
+ * - "datalayer": c8y/mqtt/out/<lastPathSegment>  (placeholder only if topic empty)
+ * - "flow":      wildcard topic matching the transform type (always override)
+ */
+function _applyMappingTypeToTopic(type) {
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  if (!topicInput) return;
+
+  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+  const path      = document.getElementById("datalayer-mapping-path")?.value || "";
+  const lastPart  = path.split("/").filter(Boolean).pop() || "myMeasurement";
+
+  if (type === "flow") {
+    // For flow mode: always use the canonical wildcard subscription topic
+    let flowTopic;
+    if (transform === "event")       flowTopic = "te/+/+/+/+/e/+";
+    else if (transform === "alarm")  flowTopic = "te/+/+/+/+/a/+";
+    else                             flowTopic = "te/+/+/+/+/m/+";
+
+    topicInput.value = flowTopic;
+    if (transform === "event")       topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+    else if (transform === "alarm")  topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
+    else                             topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+  } else {
+    // For datalayer mode: c8y/mqtt/out/<lastSegment>
+    const suggested = "c8y/mqtt/out/" + lastPart;
+    // Only overwrite if field is empty or already a flow-wildcard topic
+    if (!topicInput.value || topicInput.value.startsWith("te/+/")) {
+      topicInput.value = suggested;
+    }
+    if (transform === "event")       topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")  topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else                             topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+  }
+
+  showMappingPayloadPreview();
+}
 
 
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
