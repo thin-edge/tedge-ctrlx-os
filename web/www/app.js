@@ -1627,14 +1627,17 @@ function toggleTedgeCmd(id) {
   if (chevron) chevron.classList.toggle("open", isOpen);
 }
 
+// Load command selected from the dropdown
+async function loadTedgeCmdFromSelect() {
+  const sel = document.getElementById("tedge-cmd-select");
+  if (!sel) return;
+  loadTedgeCmd("tedge-cmd-output", sel.value);
+}
+
 // Load output for a tedge command block
 async function loadTedgeCmd(id, endpoint) {
   const pre = document.getElementById(id);
-  const chevron = document.getElementById(id + "-chevron");
   if (!pre) return;
-  // Auto-open on load
-  pre.classList.add("open");
-  if (chevron) chevron.classList.add("open");
   pre.textContent = t("tedgeconfig.loading");
   try {
     const response = await fetchWithAuth(endpoint);
@@ -1668,8 +1671,8 @@ function copyTedgeCmd(id) {
 }
 
 // Legacy aliases (kept for backwards compatibility)
-function loadTedgeConfig() { loadTedgeCmd("tc-1", "api/tedge-config-list"); }
-function copyTedgeConfig() { copyTedgeCmd("tc-1"); }
+function loadTedgeConfig() { loadTedgeCmd("tedge-cmd-output", "api/tedge-config-list"); }
+function copyTedgeConfig() { copyTedgeCmd("tedge-cmd-output"); }
 
 function copyLogs() {
   const viewer = document.getElementById("log-viewer");

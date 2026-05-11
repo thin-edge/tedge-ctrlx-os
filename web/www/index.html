@@ -1455,58 +1455,34 @@ Click "Load Logs" to load the latest entries.</pre
           <!-- Tedge Configuration -->
           <section id="sec-tedge-config" class="card" data-page="tedge-config">
             <h2 data-i18n="section.tedgeconfig">Tedge</h2>
-
-            <!-- Command 1: tedge config list -->
-            <div class="tedge-cmd-block">
-              <div class="tedge-cmd-header" onclick="toggleTedgeCmd('tc-1')">
-                <span class="tedge-cmd-title"><code>tedge config list</code></span>
-                <div class="tedge-cmd-actions">
-                  <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); loadTedgeCmd('tc-1', 'api/tedge-config-list')" data-i18n="tedgeconfig.load">Laden</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); copyTedgeCmd('tc-1')" data-i18n="tedgeconfig.copy">Kopieren</button>
-                  <i class="fas fa-chevron-down tedge-cmd-chevron" id="tc-1-chevron"></i>
-                </div>
-              </div>
-              <pre id="tc-1" class="tedge-cmd-output" data-placeholder-i18n="tedgeconfig.placeholder">Auf "Laden" klicken…</pre>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+              <select id="tedge-cmd-select" class="form-control" style="max-width:320px; font-family:monospace; font-size:13px;">
+                <option value="api/tedge-config-list">tedge config list</option>
+                <option value="api/tedge-config-list-all">tedge config list --all</option>
+                <option value="api/tedge-config-list-doc">tedge config list --doc</option>
+                <option value="api/tedge-bridge-inspect">tedge bridge inspect c8y</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="loadTedgeCmdFromSelect()" data-i18n="tedgeconfig.load">Laden</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="copyTedgeCmd('tedge-cmd-output')" data-i18n="tedgeconfig.copy">Kopieren</button>
             </div>
-
-            <!-- Command 2: tedge config list --all -->
-            <div class="tedge-cmd-block">
-              <div class="tedge-cmd-header" onclick="toggleTedgeCmd('tc-2')">
-                <span class="tedge-cmd-title"><code>tedge config list --all</code></span>
-                <div class="tedge-cmd-actions">
-                  <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); loadTedgeCmd('tc-2', 'api/tedge-config-list-all')" data-i18n="tedgeconfig.load">Laden</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); copyTedgeCmd('tc-2')" data-i18n="tedgeconfig.copy">Kopieren</button>
-                  <i class="fas fa-chevron-down tedge-cmd-chevron" id="tc-2-chevron"></i>
-                </div>
-              </div>
-              <pre id="tc-2" class="tedge-cmd-output" data-placeholder-i18n="tedgeconfig.placeholder">Auf "Laden" klicken…</pre>
-            </div>
-
-            <!-- Command 3: tedge config list --doc -->
-            <div class="tedge-cmd-block">
-              <div class="tedge-cmd-header" onclick="toggleTedgeCmd('tc-3')">
-                <span class="tedge-cmd-title"><code>tedge config list --doc</code></span>
-                <div class="tedge-cmd-actions">
-                  <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); loadTedgeCmd('tc-3', 'api/tedge-config-list-doc')" data-i18n="tedgeconfig.load">Laden</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); copyTedgeCmd('tc-3')" data-i18n="tedgeconfig.copy">Kopieren</button>
-                  <i class="fas fa-chevron-down tedge-cmd-chevron" id="tc-3-chevron"></i>
-                </div>
-              </div>
-              <pre id="tc-3" class="tedge-cmd-output" data-placeholder-i18n="tedgeconfig.placeholder">Auf "Laden" klicken…</pre>
-            </div>
-
-            <!-- Command 4: tedge bridge inspect c8y -->
-            <div class="tedge-cmd-block">
-              <div class="tedge-cmd-header" onclick="toggleTedgeCmd('tc-4')">
-                <span class="tedge-cmd-title"><code>tedge bridge inspect c8y</code></span>
-                <div class="tedge-cmd-actions">
-                  <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); loadTedgeCmd('tc-4', 'api/tedge-bridge-inspect')" data-i18n="tedgeconfig.load">Laden</button>
-                  <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); copyTedgeCmd('tc-4')" data-i18n="tedgeconfig.copy">Kopieren</button>
-                  <i class="fas fa-chevron-down tedge-cmd-chevron" id="tc-4-chevron"></i>
-                </div>
-              </div>
-              <pre id="tc-4" class="tedge-cmd-output" data-placeholder-i18n="tedgeconfig.placeholder">Auf "Laden" klicken…</pre>
-            </div>
+            <pre
+              id="tedge-cmd-output"
+              style="
+                background: var(--c8y-palette-gray-100, #1a1a2e);
+                border: 1px solid var(--c8y-palette-gray-70, #444);
+                border-radius: 4px;
+                padding: 12px;
+                font-size: 12px;
+                font-family: monospace;
+                height: calc(100vh - 260px);
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
+                color: var(--c8y-palette-gray-20, #ccc);
+                margin: 0;
+              "
+              data-i18n="tedgeconfig.placeholder"
+            >Befehl auswählen und "Laden" klicken…</pre>
           </section>
 
           <!-- Snap Config Editor -->
