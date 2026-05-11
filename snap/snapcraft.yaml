@@ -73,6 +73,8 @@ apps:
   # Main CLI tool
   tedge:
     command: scripts/tedge-wrapper.sh
+    aliases:
+      - tedge
     environment:
       TZ: Europe/Berlin
       PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
@@ -85,6 +87,8 @@ apps:
   # Device ID management script
   manage-device-id:
     command: scripts/manage-device-id.sh
+    aliases:
+      - tedge-manage-device-id
     environment:
       TZ: Europe/Berlin
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
@@ -95,6 +99,8 @@ apps:
 
   tedge-connect:
     command: scripts/connect-wrapper.sh
+    aliases:
+      - tedge-connect
     environment:
       TZ: Europe/Berlin
       PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
