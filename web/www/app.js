@@ -286,15 +286,11 @@ const I18N = {
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
     // Mapping Mode
     "mappingmode.label": "Mapping-Modus",
-    "mappingmode.bridge": "Bridge Mappings",
-    "mappingmode.flows": "Tedge Flows",
-    "mappingmode.none": "Keins",
-    "mappingmode.apply": "Anwenden",
-    "mappingmode.refresh": "↺",
+    "mappingmode.bridge": "Datalayer Mapping",
+    "mappingmode.flows": "Flow Mapping",
     "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
-    "mappingmode.inactive": "Inaktiv",
     "mappingmode.warning": "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
-    "mappingmode.hint": "Bridge: Datalayer → MQTT direkt · Flows: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.hint": "Datalayer Mapping: Datalayer → MQTT direkt · Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Modus gespeichert.",
     "mappingmode.error": "Fehler beim Speichern des Modus.",
     // Snap Config Editor
@@ -621,15 +617,11 @@ const I18N = {
     "section.datalayer": "ctrlX Data Points (Datalayer)",
     // Mapping Mode
     "mappingmode.label": "Mapping Mode",
-    "mappingmode.bridge": "Bridge Mappings",
-    "mappingmode.flows": "Tedge Flows",
-    "mappingmode.none": "None",
-    "mappingmode.apply": "Apply",
-    "mappingmode.refresh": "↺",
+    "mappingmode.bridge": "Datalayer Mapping",
+    "mappingmode.flows": "Flow Mapping",
     "mappingmode.conflict": "⚠ Conflict – both active",
-    "mappingmode.inactive": "Inactive",
     "mappingmode.warning": "⚠ Both modes are active — data will be sent twice to Cumulocity!",
-    "mappingmode.hint": "Bridge: Datalayer → MQTT direct · Flows: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.hint": "Datalayer Mapping: Datalayer → MQTT direct · Flow Mapping: Datalayer → te/… → Flows → c8y/…",
     "mappingmode.applied": "Mode saved.",
     "mappingmode.error": "Error saving mode.",
     // Snap Config Editor
@@ -2542,30 +2534,35 @@ function _initDatalayerUI() {
 // ─── Mapping Mode ──────────────────────────────────────────────────────────
 
 async function loadMappingMode() {
-  const sel = document.getElementById("mapping-mode-select");
   const badge = document.getElementById("mapping-mode-badge");
-  const warn = document.getElementById("mapping-mode-warning");
-  if (!sel) return;
+  const warn  = document.getElementById("mapping-mode-warning");
+  const btnBridge = document.getElementById("mm-btn-bridge");
+  const btnFlows  = document.getElementById("mm-btn-flows");
+  if (!btnBridge || !btnFlows) return;
 
   try {
     const r = await fetchWithAuth("api/mapping-mode");
     if (!r.ok) return;
     const d = await r.json();
 
-    sel.value = d.mode === "both" ? "bridge" : d.mode;
+    // Highlight active button
+    const activeCss  = "background:var(--c8y-brand-primary,#1776bf); color:#fff;";
+    const inactiveCss = "background:transparent; color:var(--c8y-palette-gray-30,#ccc);";
+
+    if (d.mode === "bridge" || d.mode === "both") {
+      btnBridge.style.cssText = activeCss;
+      btnFlows.style.cssText  = inactiveCss;
+    } else {
+      btnFlows.style.cssText   = activeCss;
+      btnBridge.style.cssText  = inactiveCss;
+    }
 
     if (badge) {
       if (d.mode === "both") {
         badge.textContent = t("mappingmode.conflict");
         badge.style.background = "var(--c8y-status-warning-bg,#4a3000)";
-        badge.style.color = "var(--c8y-status-warning,#f0c040)";
+        badge.style.color  = "var(--c8y-status-warning,#f0c040)";
         badge.style.border = "1px solid var(--c8y-status-warning,#f0a500)";
-        badge.style.display = "";
-      } else if (d.mode === "none") {
-        badge.textContent = t("mappingmode.inactive");
-        badge.style.background = "var(--c8y-palette-gray-80,#333)";
-        badge.style.color = "var(--c8y-palette-gray-40,#aaa)";
-        badge.style.border = "1px solid var(--c8y-palette-gray-60,#555)";
         badge.style.display = "";
       } else {
         badge.style.display = "none";
@@ -2579,15 +2576,7 @@ async function loadMappingMode() {
   }
 }
 
-function onMappingModeSelectChange() {
-  // Just visual feedback; user must click "Anwenden"
-}
-
-async function applyMappingMode() {
-  const sel = document.getElementById("mapping-mode-select");
-  if (!sel) return;
-  const mode = sel.value;
-
+async function applyMappingMode(mode) {
   try {
     const r = await fetchWithAuth("api/mapping-mode", {
       method: "POST",

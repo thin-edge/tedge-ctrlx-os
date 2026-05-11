@@ -1623,25 +1623,30 @@ Befehl auswählen und "Laden" klicken…</pre
           <section id="sec-datalayer" class="card" data-page="datalayer">
             <h2 data-i18n="section.datalayer">ctrlX Datenpunkte (Datalayer)</h2>
 
-            <!-- Mapping Mode Selector -->
+            <!-- Mapping Mode Toggle -->
             <div id="mapping-mode-block" style="margin-bottom:18px; padding:14px; border:1px solid var(--c8y-palette-gray-70,#444); border-radius:6px; background:var(--c8y-palette-gray-90,#22223a);">
-              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
-                <span style="font-weight:600; font-size:13px;" data-i18n="mappingmode.label">Mapping-Modus</span>
-                <select id="mapping-mode-select" class="form-control" style="max-width:220px; font-size:13px;" onchange="onMappingModeSelectChange()">
-                  <option value="bridge" data-i18n-opt="mappingmode.bridge">Bridge Mappings</option>
-                  <option value="flows"  data-i18n-opt="mappingmode.flows">Tedge Flows</option>
-                  <option value="none"   data-i18n-opt="mappingmode.none">Keins</option>
-                </select>
-                <button class="btn btn-primary btn-sm" onclick="applyMappingMode()" data-i18n="mappingmode.apply">Anwenden</button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="loadMappingMode()" data-i18n="mappingmode.refresh">↺</button>
+              <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                <span style="font-weight:600; font-size:13px; min-width:120px;" data-i18n="mappingmode.label">Mapping-Modus</span>
+
+                <!-- Toggle switch -->
+                <div id="mapping-mode-toggle-wrap" style="display:flex; align-items:center; gap:0; background:var(--c8y-palette-gray-80,#2a2a40); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:20px; padding:3px;">
+                  <button id="mm-btn-bridge" class="mm-mode-btn" onclick="applyMappingMode('bridge')"
+                    style="border:none; border-radius:16px; padding:5px 16px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.2s,color 0.2s;"
+                    data-i18n="mappingmode.bridge">Datalayer Mapping</button>
+                  <button id="mm-btn-flows"  class="mm-mode-btn" onclick="applyMappingMode('flows')"
+                    style="border:none; border-radius:16px; padding:5px 16px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.2s,color 0.2s;"
+                    data-i18n="mappingmode.flows">Flow Mapping</button>
+                </div>
+
+                <button class="btn btn-outline-secondary btn-sm" onclick="loadMappingMode()" title="Aktuellen Status laden" style="padding:4px 10px;">↺</button>
                 <span id="mapping-mode-badge" style="display:none; font-size:12px; padding:2px 10px; border-radius:12px;"></span>
               </div>
-              <div id="mapping-mode-warning" style="display:none; background:var(--c8y-status-warning-bg,#4a3000); border:1px solid var(--c8y-status-warning,#f0a500); color:var(--c8y-status-warning,#f0c040); border-radius:4px; padding:8px 12px; font-size:12px; margin-top:4px;">
+              <div id="mapping-mode-warning" style="display:none; background:var(--c8y-status-warning-bg,#4a3000); border:1px solid var(--c8y-status-warning,#f0a500); color:var(--c8y-status-warning,#f0c040); border-radius:4px; padding:8px 12px; font-size:12px; margin-top:10px;">
                 <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
                 <span data-i18n="mappingmode.warning">⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!</span>
               </div>
               <div style="font-size:11px; color:var(--c8y-palette-gray-40,#aaa); margin-top:8px;" data-i18n="mappingmode.hint">
-                Bridge Mappings: Datalayer → direkt MQTT · Tedge Flows: Datalayer → te/… → Flows → c8y/…
+                Datalayer Mapping: Datalayer → MQTT direkt · Flow Mapping: Datalayer → te/… → Flows → c8y/…
               </div>
             </div>
 
