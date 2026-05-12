@@ -3009,46 +3009,8 @@ function updateTopicPrefix() {
     return;
   }
 
-  // For datalayer mode: build topic from path + transform + MQTT mode
-  const direction = document.getElementById(
-    "datalayer-mapping-direction",
-  ).value;
-  const transform = document.getElementById(
-    "datalayer-mapping-transform",
-  ).value;
-  const topicInput = document.getElementById("datalayer-mapping-topic");
-  const path = document.getElementById("datalayer-mapping-path").value;
-  const lastPart = path.split("/").filter(Boolean).pop() || "value";
-
-  if (isMqttServiceActive()) {
-    // MQTT Service (9883): c8y/mqtt/out/ prefix
-    const prefix = "c8y/mqtt/out/";
-    topicInput.value =
-      prefix + (direction === "tedge_to_dl" ? "cmd/" + lastPart : lastPart);
-    if (transform === "event")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
-  } else {
-    // Core MQTT (8883): te/ prefix with specific segment
-    let topic = "te/device/main///";
-    if (direction === "tedge_to_dl") {
-      topic += "cmd/plc/" + lastPart;
-    } else {
-      if (transform === "measurement") topic += "m/" + lastPart;
-      else if (transform === "event") topic += "e/" + lastPart;
-      else if (transform === "alarm") topic += "a/" + lastPart;
-      else topic += "m/" + lastPart;
-    }
-    topicInput.value = topic;
-    if (transform === "event")
-      topicInput.placeholder = "e.g. te/device/main///e/myValue";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. te/device/main///a/myValue";
-    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
-  }
-  showMappingPayloadPreview();
+  // For datalayer mode: delegate to _applyMappingTypeToTopic
+  _applyMappingTypeToTopic("datalayer");
 }
 
 /** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
@@ -3105,19 +3067,7 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-path").value =
     mapping.path || mapping.datalayer_path || "";
   const existingTopic = mapping.topic || mapping.tedge_topic || "";
-  let loadedTopic = existingTopic;
-  // In MQTT Service mode: ensure prefix is correct
-  if (
-    isMqttServiceActive() &&
-    loadedTopic &&
-    !loadedTopic.startsWith("c8y/mqtt/out/")
-  ) {
-    setTimeout(
-      () => showNotification(t("notify.dl_topic_te_warning"), "warning"),
-      200,
-    );
-  }
-  document.getElementById("datalayer-mapping-topic").value = loadedTopic;
+  document.getElementById("datalayer-mapping-topic").value = existingTopic;
   document.getElementById("datalayer-mapping-direction").value =
     mapping.direction || "dl_to_tedge";
 
@@ -3186,24 +3136,6 @@ async function saveNewMapping() {
     .value.trim();
   if (topicRaw.endsWith("/")) {
     topicRaw = topicRaw.replace(/\/+$/, "");
-  }
-
-  // Im MQTT-Service-Modus (9883) sicherstellen dass c8y/mqtt/out/ vorangestellt ist
-  if (isMqttServiceActive()) {
-    const prefix = "c8y/mqtt/out/";
-    if (!topicRaw.startsWith(prefix)) {
-      // Old te/ topic or other: prepend prefix
-      const bare = topicRaw.replace(
-        /^(te\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/|c8y\/[^/]*\/[^/]*\/)/,
-        "",
-      );
-      topicRaw = prefix + (bare || topicRaw.replace(/\//g, "_"));
-      document.getElementById("datalayer-mapping-topic").value = topicRaw;
-      showNotification(
-        `Topic auf "${topicRaw}" korrigiert (MQTT Service erfordert c8y/mqtt/out/ Präfix)`,
-        "warning",
-      );
-    }
   }
 
   const body = {
