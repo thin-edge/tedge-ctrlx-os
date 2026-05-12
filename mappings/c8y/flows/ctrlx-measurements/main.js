@@ -20,19 +20,19 @@ export function onMessage(message, context) {
     // Extract field name from topic: dl/device/main///m/<field_name>
     const topicParts = message.topic.split("/");
     const fieldName = topicParts[topicParts.length - 1];
-    const unit = payload.unit != null ? String(payload.unit) : "";
+    const unit = payload.unit != null ? String(payload.unit) : "";  // kept for potential future use
     const time = payload.time != null ? String(payload.time) : new Date().toISOString();
 
-    // Build thin-edge measurement: { "<fragment>": { "<series>": { value, unit } } }
+    // Build thin-edge measurement: { "<fragment>": { "<series>": <number> } }
     const measurementKeys = Object.keys(payload).filter(k => SKIP_KEYS.indexOf(k) === -1);
     if (measurementKeys.length === 0) return [];
 
     const fragments = {};
     for (const key of measurementKeys) {
         const val = payload[key];
-        if (typeof val === "number" || typeof val === "string") {
-            const series = unit ? { value: val, unit } : { value: val };
-            fragments[key] = { [key]: series };
+        if (typeof val === "number") {
+            // thin-edge only accepts plain numbers at the series level — no {value, unit} objects
+            fragments[key] = { [key]: val };
         }
     }
 
