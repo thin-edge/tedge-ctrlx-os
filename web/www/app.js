@@ -75,6 +75,7 @@ const I18N = {
     "flows.empty": "Keine Flows vorhanden.",
     "flows.archived_empty": "Keine archivierten Flows.",
     "flows.restore_flow_btn": "Flow wiederherstellen",
+    "flows.archive_flow_btn": "Flow archivieren",
     "flows.editor_placeholder":
       'Flow in der Liste auswählen oder "Neu" klicken.',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
@@ -434,6 +435,7 @@ const I18N = {
     "flows.empty": "No flows configured.",
     "flows.archived_empty": "No archived flows.",
     "flows.restore_flow_btn": "Restore flow",
+    "flows.archive_flow_btn": "Archive flow",
     "flows.editor_placeholder": 'Select a flow from the list or click "New".',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
     "flows.col.name": "Filename",
@@ -3810,6 +3812,18 @@ function _renderFlowsTree(flows, container) {
     };
     header.appendChild(addBtn);
 
+    // archive button
+    const archiveBtn = document.createElement("button");
+    archiveBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-palette-gray-30,#bbb); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:3px; cursor:pointer; margin-left:2px";
+    archiveBtn.title = t("flows.archive_flow_btn") || "Flow archivieren";
+    archiveBtn.innerHTML = '<i class="fas fa-archive"></i>';
+    archiveBtn.onclick = (e) => {
+      e.stopPropagation();
+      archiveFlow(flow.name);
+    };
+    header.appendChild(archiveBtn);
+
     // delete flow button
     const delBtn = document.createElement("button");
     delBtn.style.cssText =
@@ -3914,12 +3928,31 @@ async function restoreFlow(flowName) {
   }
 }
 
-async function deleteArchivedFlow(flowName) {
+async function archiveFlow(flowName) {
   const mapper = _flowsMapper();
-  if (!confirm(`Archivierten Flow "${flowName}.disabled" endgültig löschen?`)) return;
   try {
     const resp = await fetch(
-      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName + ".disabled")}`,
+      `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "POST", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Flow "${flowName}" archiviert.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
+}
+
+async function deleteArchivedFlow(flowName) {
+  const mapper = _flowsMapper();
+  if (!confirm(`Archivierten Flow "${flowName}" endgültig löschen?`)) return;
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
       { method: "DELETE", headers: { Accept: "application/json" } },
     );
     if (!resp.ok) {

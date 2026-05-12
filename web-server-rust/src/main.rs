@@ -4300,29 +4300,21 @@ async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
             .cmp(b["name"].as_str().unwrap_or(""))
     });
 
-    // Collect archived flows (directories ending in ".disabled")
+    // Collect archived flows from mappers/archived/<mapper>/flows/
+    let archived_dir = format!("{}/tedge/mappers/archived/{}/flows", snap_data, mapper);
     let mut archived_flows: Vec<serde_json::Value> = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&flows_dir) {
+    if let Ok(entries) = std::fs::read_dir(&archived_dir) {
+        // codeql[rust/path-injection] - archived_dir constructed from validated mapper name
         for entry in entries.flatten() {
             let path = entry.path();
             if !path.is_dir() {
                 continue;
             }
-            let raw_name = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n.to_string(),
-                None => continue,
+            let flow_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) if validate_flow_dir_name(n) => n.to_string(),
+                _ => continue,
             };
-            if !raw_name.ends_with(".disabled") {
-                continue;
-            }
-            let flow_name = raw_name.trim_end_matches(".disabled").to_string();
-            if !validate_flow_dir_name(&flow_name) {
-                continue;
-            }
-            archived_flows.push(serde_json::json!({
-                "name": flow_name,
-                "archived_name": raw_name
-            }));
+            archived_flows.push(serde_json::json!({"name": flow_name}));
         }
     }
     archived_flows.sort_by(|a, b| {
@@ -4454,8 +4446,8 @@ async fn delete_flow_dir(req: HttpRequest) -> Result<HttpResponse> {
     }
 }
 
-/// POST /api/flows/restore?mapper=<m>&flow=<f>  — restores an archived flow (renames <flow>.disabled → <flow>)
-async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
+/// DELETE /api/flows/archive?mapper=<m>&flow=<f>  — permanently deletes a flow from the archive
+async fn delete_archived_flow(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_write() {
         return Ok(HttpResponse::Forbidden()
@@ -4490,9 +4482,120 @@ async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
     // codeql[rust/path-injection] - mapper and flow are validated above
     let archived_dir = format!(
-        "{}/tedge/mappers/{}/flows/{}.disabled",
+        "{}/tedge/mappers/archived/{}/flows/{}",
         snap_data, mapper, flow
     );
+
+    match std::fs::remove_dir_all(&archived_dir) {
+        // codeql[rust/path-injection] - archived_dir constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Deleted archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Archived flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// POST /api/flows/archive?mapper=<m>&flow=<f>  — moves an active flow to mappers/archived/<mapper>/flows/<flow>
+async fn archive_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_base = format!("{}/tedge/mappers/archived/{}/flows", snap_data, mapper);
+    let archived_dir = format!("{}/{}", archived_base, flow);
+
+    if !std::path::Path::new(&active_dir).is_dir() {
+        return Ok(
+            HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"}))
+        );
+    }
+    // codeql[rust/path-injection] - archived_base constructed from validated components
+    if let Err(e) = std::fs::create_dir_all(&archived_base) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("Cannot create archive dir: {}", e)})));
+    }
+    match std::fs::rename(&active_dir, &archived_dir) {
+        // codeql[rust/path-injection] - paths constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// POST /api/flows/restore?mapper=<m>&flow=<f>  — moves an archived flow back to active mappers/<mapper>/flows/<flow>
+async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_dir = format!("{}/tedge/mappers/archived/{}/flows/{}", snap_data, mapper, flow);
     let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
 
     match std::fs::rename(&archived_dir, &active_dir) {
@@ -4866,23 +4969,28 @@ async fn set_mapping_mode(
 
     match body.mode.as_str() {
         "bridge" => {
-            // Disable flows: rename ctrlx-* dirs to ctrlx-*.disabled
+            // Disable flows: move ctrlx-* dirs to mappers/archived/c8y/flows/
+            let archived_base =
+                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let _ = std::fs::create_dir_all(&archived_base);
             for dir in &flow_dirs {
                 let src = flows_base.join(dir);
-                let dst = flows_base.join(format!("{}.disabled", dir));
+                let dst = archived_base.join(dir);
                 if src.exists() {
                     if let Err(e) = std::fs::rename(&src, &dst) {
-                        warn!("[MAPPING-MODE] Could not disable flow {}: {}", dir, e);
+                        warn!("[MAPPING-MODE] Could not archive flow {}: {}", dir, e);
                     } else {
-                        info!("[MAPPING-MODE] Flow disabled: {}", dir);
+                        info!("[MAPPING-MODE] Flow archived: {}", dir);
                     }
                 }
             }
         }
         "flows" => {
-            // Re-enable flows: rename ctrlx-*.disabled back
+            // Re-enable flows: move from mappers/archived/c8y/flows/ back
+            let archived_base =
+                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
             for dir in &flow_dirs {
-                let src = flows_base.join(format!("{}.disabled", dir));
+                let src = archived_base.join(dir);
                 let dst = flows_base.join(dir);
                 if src.exists() {
                     if let Err(e) = std::fs::rename(&src, &dst) {
@@ -4906,10 +5014,13 @@ async fn set_mapping_mode(
             }
         }
         "none" => {
-            // Disable both
+            // Disable both: move ctrlx-* dirs to mappers/archived/c8y/flows/
+            let archived_base =
+                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let _ = std::fs::create_dir_all(&archived_base);
             for dir in &flow_dirs {
                 let src = flows_base.join(dir);
-                let dst = flows_base.join(format!("{}.disabled", dir));
+                let dst = archived_base.join(dir);
                 if src.exists() {
                     let _ = std::fs::rename(&src, &dst);
                 }
@@ -5080,6 +5191,8 @@ async fn main() -> io::Result<()> {
                             .route("/flows", web::delete().to(delete_flow_dir))
                             .route("/flows/file", web::post().to(save_flow_file))
                             .route("/flows/file", web::delete().to(delete_flow_file_handler))
+                            .route("/flows/archive", web::post().to(archive_flow))
+                            .route("/flows/archive", web::delete().to(delete_archived_flow))
                             .route("/flows/restore", web::post().to(restore_flow))
                             // Datalayer API
                             .service(
