@@ -2753,12 +2753,12 @@ function onDatalayerFlowSelected() {
 /**
  * Infers the effective mapping_type from stored value + topic pattern.
  * Existing mappings without mapping_type default to "datalayer", but if their
- * topic is a flow wildcard (te/+/+/+/+/m|e|a/+), treat them as "flow".
+ * topic is a flow wildcard (dl/+/+/+/+/m|e|a/+), treat them as "flow".
  */
 function inferMappingType(m) {
   if (m.mapping_type === "flow") return "flow";
   const topic = m.topic || m.tedge_topic || "";
-  if (/^te\/\+\/\+\/\+\/\+\/[mea]\/\+$/.test(topic)) return "flow";
+  if (/^dl\/\+\/\+\/\+\/\+\/[mea]\/\+$/.test(topic)) return "flow";
   return "datalayer";
 }
 
@@ -2788,20 +2788,20 @@ function _applyMappingTypeToTopic(type) {
   if (type === "flow") {
     // For flow mode: always use the canonical wildcard subscription topic
     let flowTopic;
-    if (transform === "event") flowTopic = "te/+/+/+/+/e/+";
-    else if (transform === "alarm") flowTopic = "te/+/+/+/+/a/+";
-    else flowTopic = "te/+/+/+/+/m/+";
+    if (transform === "event") flowTopic = "dl/+/+/+/+/e/+";
+    else if (transform === "alarm") flowTopic = "dl/+/+/+/+/a/+";
+    else flowTopic = "dl/+/+/+/+/m/+";
 
     topicInput.value = flowTopic;
-    if (transform === "event") topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+    if (transform === "event") topicInput.placeholder = "e.g. dl/+/+/+/+/e/+";
     else if (transform === "alarm")
-      topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
-    else topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+      topicInput.placeholder = "e.g. dl/+/+/+/+/a/+";
+    else topicInput.placeholder = "e.g. dl/+/+/+/+/m/+";
   } else {
     // For datalayer mode: c8y/mqtt/out/<lastSegment>
     const suggested = "c8y/mqtt/out/" + lastPart;
     // Only overwrite if field is empty or already a flow-wildcard topic
-    if (!topicInput.value || topicInput.value.startsWith("te/+/")) {
+    if (!topicInput.value || topicInput.value.startsWith("dl/+/")) {
       topicInput.value = suggested;
     }
     if (transform === "event")
