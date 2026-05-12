@@ -291,8 +291,13 @@ impl DatalayerEngine {
             }
         }
 
-        // Try to logout any existing session first to free up the session slot
-        self.logout_token().await;
+        // Try to logout any existing session first to free up the session slot.
+        // Only attempt logout if we actually have a cached token — otherwise
+        // we'd just be firing a DELETE with no bearer token which does nothing.
+        if self.cached_token.is_some() {
+            self.logout_token().await;
+        }
+
         let user = match &self.credentials.username {
             Some(u) if !u.is_empty() => u.clone(),
             _ => return false,
@@ -329,6 +334,11 @@ impl DatalayerEngine {
                 } else {
                     let body = r.text().await.unwrap_or_default();
                     warn!("[DATALAYER] Token fetch failed: HTTP {status} — {body}");
+                    // For "Too many sessions" (HTTP 400) use a longer backoff to
+                    // give the ctrlX time to expire old sessions on its own.
+                    let backoff_secs = if status.as_u16() == 400 { 300 } else { 60 };
+                    self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
+                    return false;
                 }
                 // Back off for 60s before retrying
                 self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(60));
@@ -406,10 +416,13 @@ impl DatalayerEngine {
                 }
                 Ok(resp) => {
                     if resp.status() == 401 {
-                        // Token expired — reset cache and backoff so a new token is fetched immediately
+                        // Token expired — clear cache but respect existing backoff.
+                        // Only reset the backoff if there is none yet (first 401).
                         self.cached_token = None;
-                        self.token_fail_until = None;
-                        // Fetch a new token and retry immediately
+                        if self.token_fail_until.is_none() {
+                            self.token_fail_until = None; // allow immediate retry once
+                        }
+                        // Fetch a new token and retry immediately (only if no backoff active)
                         if self.credentials.username.is_some() {
                             self.fetch_token().await;
                             let new_token = self.effective_token();
