@@ -1,65 +1,49 @@
-/**
- * @name Create event from ctrlX diagnostic message
- * @description Converts ctrlX diagnostic log entries into Cumulocity events.
- * @templateType INBOUND_SMART_FUNCTION
- * @defaultTemplate false
- * @internal true
- * @readonly true
- */
+// thin-edge.io flows API (ES2020 module)
+// Receives te/+/+/+/+/e/+ messages and forwards them as
+// Cumulocity events to c8y/event/events/create
 
-function onMessage(inputMsg, context) {
+const decoder = new TextDecoder();
+
+export function onMessage(message, context) {
+    let payload;
     try {
-        var payload = inputMsg.getPayload();
-
-        // GraalVM Java-Map: Zugriff über .get(), nicht ["key"]
-        var externalId = payload.get("externalId");
-        var time       = payload.get("time");
-        var type       = payload.get("type");
-        var textObj    = payload.get("Text");
-
-        console.log("externalId: " + externalId);
-        console.log("time: " + time);
-        console.log("type: " + type);
-        console.log("textObj: " + textObj);
-
-        if (!textObj) {
-            console.log("Kein 'Text'-Feld im Payload gefunden.");
-            console.log("Response: []");
-            return [];
-        }
-
-        // Manuell ein natives JS-Objekt bauen, damit JSON.stringify() funktioniert
-        var textPlain = {
-            mainDiagnosisCode:     textObj.get("mainDiagnosisCode"),
-            detailedDiagnosisCode: textObj.get("detailedDiagnosisCode"),
-            text:      textObj.get("text"),
-            timestamp: textObj.get("timestamp"),
-            severity:  textObj.get("severity"),
-            origin:    textObj.get("origin"),
-            category:  textObj.get("category"),
-            state:     textObj.get("state")
-        };
-
-        var textStr = JSON.stringify(textPlain);
-        console.log("text: " + textStr);
-
-        var result = [{
-            cumulocityType: "event",
-            action: "create",
-            payload: {
-                "text": textStr,
-                "time": time,
-                "type": type
-            },
-            externalSource: [{"type": "c8y_Serial", "externalId": externalId}]
-        }];
-
-        console.log("Response: " + JSON.stringify(result));
-        return result;
-
+        payload = JSON.parse(decoder.decode(message.payload));
     } catch (e) {
-        console.log("ERROR in onMessage: " + e.message);
-        console.log("Stack: " + e.stack);
+        console.log("[ctrlx-events] Failed to parse payload: " + e);
         return [];
     }
+
+    // Derive device context key from topic
+    // e.g. "te/device/main///e/ctrlx_event" → "device/main//"
+    const topicParts = message.topic.split("/");
+    const deviceKey = topicParts.slice(1, 5).join("/");
+    const eventTypeFromTopic = topicParts[6] ?? "ctrlx_event";
+
+    // Resolve Cumulocity device ID from mapper context
+    const deviceInfo = context.mapper.get(deviceKey) ?? {};
+    const deviceId = deviceInfo["@id"];
+    if (!deviceId) {
+        console.log("[ctrlx-events] No device ID found for: " + deviceKey);
+        return [];
+    }
+
+    // If payload has a nested "Text" field (from bridge service MQTT Service format),
+    // use it directly; otherwise treat the whole payload as the event text
+    const text = payload.Text
+        ? (typeof payload.Text === "object" ? JSON.stringify(payload.Text) : String(payload.Text))
+        : JSON.stringify(payload);
+
+    const time = payload.time ?? payload.Time ?? new Date().toISOString();
+    const type = payload.type ?? eventTypeFromTopic;
+
+    return [{
+        topic: "c8y/event/events/create",
+        payload: JSON.stringify({
+            text,
+            time,
+            type,
+            source: { id: deviceId }
+        })
+    }];
 }
+
