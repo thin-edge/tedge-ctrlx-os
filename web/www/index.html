@@ -1854,6 +1854,27 @@ Befehl auswählen und "Laden" klicken…</pre
                 />
               </div>
 
+              <!-- Flow selector (only visible in flow mode) -->
+              <div
+                id="mtype-flow-select-wrap"
+                style="display: none; margin-bottom: 14px"
+              >
+                <label
+                  for="datalayer-flow-select"
+                  style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block"
+                  data-i18n="datalayer.flow_select_label"
+                  >Flow auswählen</label
+                >
+                <select
+                  id="datalayer-flow-select"
+                  class="form-control"
+                  style="font-family: monospace; font-size: 13px"
+                  onchange="onDatalayerFlowSelected()"
+                >
+                  <option value="" data-i18n="datalayer.flow_select_placeholder">— Flow laden... —</option>
+                </select>
+              </div>
+
               <!-- Hint for datalayer mode -->
               <div
                 id="mtype-datalayer-hint"

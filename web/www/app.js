@@ -76,6 +76,8 @@ const I18N = {
     "flows.archived_empty": "Keine archivierten Flows.",
     "flows.restore_flow_btn": "Flow wiederherstellen",
     "flows.archive_flow_btn": "Flow archivieren",
+    "datalayer.flow_select_label": "Flow auswählen",
+    "datalayer.flow_select_placeholder": "— Flow auswählen —",
     "flows.editor_placeholder":
       'Flow in der Liste auswählen oder "Neu" klicken.',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
@@ -436,6 +438,8 @@ const I18N = {
     "flows.archived_empty": "No archived flows.",
     "flows.restore_flow_btn": "Restore flow",
     "flows.archive_flow_btn": "Archive flow",
+    "datalayer.flow_select_label": "Select flow",
+    "datalayer.flow_select_placeholder": "— Select flow —",
     "flows.editor_placeholder": 'Select a flow from the list or click "New".',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
     "flows.col.name": "Filename",
@@ -2562,6 +2566,7 @@ function setMappingTypeBtn(type) {
   const label = document.getElementById("mtype-label");
   const hidden = document.getElementById("datalayer-mapping-type");
   const hint = document.getElementById("mtype-datalayer-hint");
+  const flowWrap = document.getElementById("mtype-flow-select-wrap");
 
   if (chk) chk.checked = type === "flow";
   if (hidden) hidden.value = type;
@@ -2578,17 +2583,24 @@ function setMappingTypeBtn(type) {
   // Show cloud-mapping hint only for datalayer mode
   if (hint) hint.style.display = type === "flow" ? "none" : "";
 
+  // Show flow selector only in flow mode
+  if (flowWrap) {
+    flowWrap.style.display = type === "flow" ? "" : "none";
+    if (type === "flow") _loadFlowsDropdown(null);
+  }
+
   // Auto-update topic + placeholder based on selected type
   _applyMappingTypeToTopic(type);
 }
 
 /** Like setMappingTypeBtn but does NOT touch the topic field.
  *  Use this when loading an existing mapping so the stored topic is preserved. */
-function _setMappingTypeVisual(type) {
+function _setMappingTypeVisual(type, existingTopic) {
   const chk = document.getElementById("datalayer-mapping-type-chk");
   const label = document.getElementById("mtype-label");
   const hidden = document.getElementById("datalayer-mapping-type");
   const hint = document.getElementById("mtype-datalayer-hint");
+  const flowWrap = document.getElementById("mtype-flow-select-wrap");
 
   if (chk) chk.checked = type === "flow";
   if (hidden) hidden.value = type;
@@ -2603,6 +2615,12 @@ function _setMappingTypeVisual(type) {
   }
 
   if (hint) hint.style.display = type === "flow" ? "none" : "";
+
+  // Show flow selector in flow mode; preselect matching flow if possible
+  if (flowWrap) {
+    flowWrap.style.display = type === "flow" ? "" : "none";
+    if (type === "flow") _loadFlowsDropdown(existingTopic || null);
+  }
 
   // Update placeholder only, not the value
   const topicInput = document.getElementById("datalayer-mapping-topic");
@@ -2622,6 +2640,104 @@ function _setMappingTypeVisual(type) {
         topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
       else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
     }
+  }
+}
+
+// ─── Flow dropdown for Datalayer mapping form ─────────────────────────────────
+
+/** Cached flows data for the dropdown (set by _loadFlowsDropdown) */
+let _dlFlowsCache = [];
+
+/**
+ * Loads active flows and populates the #datalayer-flow-select dropdown.
+ * @param {string|null} matchTopic - if set, preselect the flow whose flow.toml topic matches
+ */
+async function _loadFlowsDropdown(matchTopic) {
+  const sel = document.getElementById("datalayer-flow-select");
+  if (!sel) return;
+
+  // Keep current selection if dropdown already has options beyond the placeholder
+  const currentSel = sel.value;
+
+  sel.innerHTML = `<option value="">${t("datalayer.flow_select_placeholder") || "— Flow auswählen —"}</option>`;
+
+  try {
+    const mapper = document.getElementById("flows-mapper-select")?.value || "c8y";
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const flows = data.flows || [];
+    _dlFlowsCache = flows;
+
+    flows.forEach((flow) => {
+      const opt = document.createElement("option");
+      opt.value = flow.name;
+      opt.textContent = "📁 " + flow.name;
+      sel.appendChild(opt);
+    });
+
+    // Try to preselect: first by matchTopic, then restore previous selection
+    if (matchTopic) {
+      const matched = flows.find((flow) => {
+        const toml = (flow.files || []).find((f) => f.name === "flow.toml");
+        if (!toml) return false;
+        const extracted = _extractFlowTopic(toml.content || "");
+        return extracted === matchTopic;
+      });
+      if (matched) {
+        sel.value = matched.name;
+        return; // don't update topic — it's already set (visual mode)
+      }
+    }
+
+    // Restore previous selection if still valid
+    if (currentSel && flows.find((f) => f.name === currentSel)) {
+      sel.value = currentSel;
+    }
+
+    // If exactly one flow, auto-select and fill topic
+    if (flows.length === 1 && !matchTopic) {
+      sel.value = flows[0].name;
+      onDatalayerFlowSelected();
+    }
+  } catch (err) {
+    console.warn("[DL] Could not load flows for dropdown:", err);
+  }
+}
+
+/**
+ * Extracts the first topic from the flow.toml content string.
+ * Handles both: input.mqtt.topics = ["te/+/..."]  and  topics = ["te/+/..."]
+ */
+function _extractFlowTopic(tomlContent) {
+  // Match: input.mqtt.topics = ["<topic>"] or topics = ["<topic>"]
+  const m = tomlContent.match(/input\.mqtt\.topics\s*=\s*\[\s*"([^"]+)"/);
+  if (m) return m[1];
+  // Also try bare topics = [...]
+  const m2 = tomlContent.match(/^topics\s*=\s*\[\s*"([^"]+)"/m);
+  if (m2) return m2[1];
+  return null;
+}
+
+/** Called when the user selects a flow from the dropdown. */
+function onDatalayerFlowSelected() {
+  const sel = document.getElementById("datalayer-flow-select");
+  if (!sel || !sel.value) return;
+
+  const flow = _dlFlowsCache.find((f) => f.name === sel.value);
+  if (!flow) return;
+
+  const tomlFile = (flow.files || []).find((f) => f.name === "flow.toml");
+  if (!tomlFile) return;
+
+  const topic = _extractFlowTopic(tomlFile.content || "");
+  if (topic) {
+    const topicInput = document.getElementById("datalayer-mapping-topic");
+    if (topicInput) topicInput.value = topic;
+    showMappingPayloadPreview();
   }
 }
 
@@ -3098,7 +3214,7 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
 
   // Mapping-Typ toggle — infer from stored value + topic pattern, preserve stored topic
-  _setMappingTypeVisual(inferMappingType(mapping));
+  _setMappingTypeVisual(inferMappingType(mapping), existingTopic);
 
   showMappingPayloadPreview();
 
