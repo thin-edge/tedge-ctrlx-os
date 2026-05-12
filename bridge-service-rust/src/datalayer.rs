@@ -643,7 +643,8 @@ pub async fn run_datalayer_loop(
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
                                     // Core MQTT (8883): publish to dl/ for flow processing
-                                    let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                    let mut json_obj =
+                                        serde_json::json!({ &field_name: parsed_value });
                                     let now = std::time::SystemTime::now()
                                         .duration_since(std::time::UNIX_EPOCH)
                                         .unwrap_or_default()
@@ -694,8 +695,11 @@ pub async fn run_datalayer_loop(
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
                                     // Core MQTT (8883): publish to dl/ for flow processing
-                                    let mut json_obj = serde_json::json!({ &field_name: parsed_value });
-                                    if let Some(sev) = parsed_value.get("severity").and_then(|v| v.as_str()) {
+                                    let mut json_obj =
+                                        serde_json::json!({ &field_name: parsed_value });
+                                    if let Some(sev) =
+                                        parsed_value.get("severity").and_then(|v| v.as_str())
+                                    {
                                         json_obj["severity"] = serde_json::json!(sev);
                                     }
                                     let now = std::time::SystemTime::now()
