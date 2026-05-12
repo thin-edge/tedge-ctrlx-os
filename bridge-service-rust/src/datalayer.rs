@@ -337,7 +337,8 @@ impl DatalayerEngine {
                     // For "Too many sessions" (HTTP 400) use a longer backoff to
                     // give the ctrlX time to expire old sessions on its own.
                     let backoff_secs = if status.as_u16() == 400 { 300 } else { 60 };
-                    self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
+                    self.token_fail_until =
+                        Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
                     return false;
                 }
                 // Back off for 60s before retrying
@@ -497,6 +498,16 @@ impl DatalayerEngine {
         }
         to_publish
     }
+
+    /// Returns true when token auth is configured but currently in a failure backoff
+    pub fn is_token_failing(&self) -> bool {
+        if self.credentials.username.as_deref().map(|u| !u.is_empty()).unwrap_or(false) {
+            if let Some(until) = self.token_fail_until {
+                return Instant::now() < until;
+            }
+        }
+        false
+    }
 }
 
 // --- Loops & Handler ---
@@ -520,13 +531,14 @@ pub async fn run_datalayer_loop(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs_f64();
-            let health_up = format!(r#"{{"pid":{pid},"status":"up","time":{time}}}"#);
+            let health_status = if engine.is_token_failing() { "down" } else { "up" };
+            let health_msg = format!(r#"{{"pid":{pid},"status":"{health_status}","time":{time}}}"#);
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
                 let _ = cli
                     .publish(mqtt::Message::new_retained(
                         HEALTH_TOPIC,
-                        health_up.as_str(),
+                        health_msg.as_str(),
                         1,
                     ))
                     .await;
