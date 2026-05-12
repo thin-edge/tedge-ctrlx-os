@@ -2670,7 +2670,8 @@ async function _loadFlowsDropdown(matchTopic) {
   sel.innerHTML = `<option value="">${t("datalayer.flow_select_placeholder") || "— Flow auswählen —"}</option>`;
 
   try {
-    const mapper = document.getElementById("flows-mapper-select")?.value || "c8y";
+    const mapper =
+      document.getElementById("flows-mapper-select")?.value || "c8y";
     const resp = await fetch(
       `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
       { headers: { Accept: "application/json" } },

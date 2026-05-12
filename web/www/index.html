@@ -1983,7 +1983,12 @@ Befehl auswählen und "Laden" klicken…</pre
                       style="font-family: monospace"
                       onchange="onDatalayerFlowSelected()"
                     >
-                      <option value="" data-i18n="datalayer.flow_select_placeholder">— Flow auswählen —</option>
+                      <option
+                        value=""
+                        data-i18n="datalayer.flow_select_placeholder"
+                      >
+                        — Flow auswählen —
+                      </option>
                     </select>
                   </div>
 
@@ -2246,7 +2251,16 @@ Befehl auswählen und "Laden" klicken…</pre
             <h2 data-i18n="section.flows">Flows</h2>
 
             <!-- "Flow" label above Mapper -->
-            <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
+            <div
+              style="
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--c8y-palette-gray-40, #999);
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 6px;
+              "
+            >
               <span data-i18n="flows.flow_label">Flow</span>
             </div>
 
@@ -2255,7 +2269,7 @@ Befehl auswählen und "Laden" klicken…</pre
               style="
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                justify-content: flex-start;
                 gap: 10px;
                 margin-bottom: 12px;
                 flex-wrap: wrap;
@@ -2349,11 +2363,29 @@ Befehl auswählen und "Laden" klicken…</pre
               "
             >
               <!-- LEFT: Active + Archived flows side by side -->
-              <div style="display:flex; gap:10px; align-items:flex-start; flex-shrink:0;">
-
+              <div
+                style="
+                  display: flex;
+                  gap: 10px;
+                  align-items: flex-start;
+                  flex-shrink: 0;
+                "
+              >
                 <!-- Active Flows tree -->
-                <div style="width: 240px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px;" data-i18n="flows.active_label">Aktive Flows</div>
+                <div style="width: 240px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--c8y-palette-gray-40, #999);
+                      letter-spacing: 0.06em;
+                      text-transform: uppercase;
+                      margin-bottom: 6px;
+                    "
+                    data-i18n="flows.active_label"
+                  >
+                    Aktive Flows
+                  </div>
                   <div
                     id="flows-loading"
                     style="
@@ -2396,8 +2428,20 @@ Befehl auswählen und "Laden" klicken…</pre
                 </div>
 
                 <!-- Archived Flows tree -->
-                <div style="width: 240px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px;" data-i18n="flows.archived_label">Archivierte Flows</div>
+                <div style="width: 240px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--c8y-palette-gray-40, #999);
+                      letter-spacing: 0.06em;
+                      text-transform: uppercase;
+                      margin-bottom: 6px;
+                    "
+                    data-i18n="flows.archived_label"
+                  >
+                    Archivierte Flows
+                  </div>
                   <div
                     id="flows-archived-loading"
                     style="
@@ -2418,7 +2462,9 @@ Befehl auswählen und "Laden" klicken…</pre
                       padding: 4px 0;
                     "
                   >
-                    <span data-i18n="flows.archived_empty">Keine archivierten Flows.</span>
+                    <span data-i18n="flows.archived_empty"
+                      >Keine archivierten Flows.</span
+                    >
                   </div>
                   <div
                     id="flows-archived-tree"
@@ -2430,7 +2476,6 @@ Befehl auswählen und "Laden" klicken…</pre
                     "
                   ></div>
                 </div>
-
               </div>
 
               <!-- RIGHT: Editor area (three exclusive states) -->

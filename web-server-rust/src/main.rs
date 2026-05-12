@@ -4493,7 +4493,8 @@ async fn delete_archived_flow(req: HttpRequest) -> Result<HttpResponse> {
             Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Archived flow not found"})))
+            Ok(HttpResponse::NotFound()
+                .json(serde_json::json!({"error": "Archived flow not found"})))
         }
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"error": format!("{}", e)}))),
@@ -4540,9 +4541,7 @@ async fn archive_flow(req: HttpRequest) -> Result<HttpResponse> {
     let archived_dir = format!("{}/{}", archived_base, flow);
 
     if !std::path::Path::new(&active_dir).is_dir() {
-        return Ok(
-            HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"}))
-        );
+        return Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})));
     }
     // codeql[rust/path-injection] - archived_base constructed from validated components
     if let Err(e) = std::fs::create_dir_all(&archived_base) {
@@ -4595,7 +4594,10 @@ async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
 
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
     // codeql[rust/path-injection] - mapper and flow are validated above
-    let archived_dir = format!("{}/tedge/mappers/archived/{}/flows/{}", snap_data, mapper, flow);
+    let archived_dir = format!(
+        "{}/tedge/mappers/archived/{}/flows/{}",
+        snap_data, mapper, flow
+    );
     let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
 
     match std::fs::rename(&archived_dir, &active_dir) {
@@ -4970,8 +4972,7 @@ async fn set_mapping_mode(
     match body.mode.as_str() {
         "bridge" => {
             // Disable flows: move ctrlx-* dirs to mappers/archived/c8y/flows/
-            let archived_base =
-                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
             let _ = std::fs::create_dir_all(&archived_base);
             for dir in &flow_dirs {
                 let src = flows_base.join(dir);
@@ -4987,8 +4988,7 @@ async fn set_mapping_mode(
         }
         "flows" => {
             // Re-enable flows: move from mappers/archived/c8y/flows/ back
-            let archived_base =
-                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
             for dir in &flow_dirs {
                 let src = archived_base.join(dir);
                 let dst = flows_base.join(dir);
@@ -5015,8 +5015,7 @@ async fn set_mapping_mode(
         }
         "none" => {
             // Disable both: move ctrlx-* dirs to mappers/archived/c8y/flows/
-            let archived_base =
-                PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
             let _ = std::fs::create_dir_all(&archived_base);
             for dir in &flow_dirs {
                 let src = flows_base.join(dir);
