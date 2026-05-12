@@ -1854,27 +1854,6 @@ Befehl auswählen und "Laden" klicken…</pre
                 />
               </div>
 
-              <!-- Flow selector (only visible in flow mode) -->
-              <div
-                id="mtype-flow-select-wrap"
-                style="display: none; margin-bottom: 14px"
-              >
-                <label
-                  for="datalayer-flow-select"
-                  style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block"
-                  data-i18n="datalayer.flow_select_label"
-                  >Flow auswählen</label
-                >
-                <select
-                  id="datalayer-flow-select"
-                  class="form-control"
-                  style="font-family: monospace; font-size: 13px"
-                  onchange="onDatalayerFlowSelected()"
-                >
-                  <option value="" data-i18n="datalayer.flow_select_placeholder">— Flow laden... —</option>
-                </select>
-              </div>
-
               <!-- Hint for datalayer mode -->
               <div
                 id="mtype-datalayer-hint"
@@ -1899,7 +1878,7 @@ Befehl auswählen und "Laden" klicken…</pre
                 >
               </div>
 
-              <div class="status-columns">
+              <div class="status-columns">, Feldname, Einheit, Payload Preview -->
                 <div class="status-col">
                   <div class="form-group">
                     <label
@@ -1946,6 +1925,20 @@ Befehl auswählen und "Laden" klicken…</pre
                     />
                   </div>
                   <div class="form-group">
+                    <label
+                      for="datalayer-mapping-unit"
+                      data-i18n="datalayer.unit"
+                      >Unit (optional)</label
+                    >
+                    <input
+                      type="text"
+                      id="datalayer-mapping-unit"
+                      class="form-control"
+                      placeholder="°C, bar, ..."
+                      oninput="showMappingPayloadPreview()"
+                    />
+                  </div>
+                  <div class="form-group">
                     <label data-i18n="datalayer.payload_preview"
                       >Cloud Payload Preview</label
                     >
@@ -1966,7 +1959,30 @@ Befehl auswählen und "Laden" klicken…</pre
                     ></pre>
                   </div>
                 </div>
+
+                <!-- RIGHT: Flow auswählen, tedge MQTT Topic, Transform, Buttons -->
                 <div class="status-col">
+                  <!-- Flow selector (only visible in flow mode) -->
+                  <div
+                    id="mtype-flow-select-wrap"
+                    class="form-group"
+                    style="display: none"
+                  >
+                    <label
+                      for="datalayer-flow-select"
+                      data-i18n="datalayer.flow_select_label"
+                      >Flow auswählen</label
+                    >
+                    <select
+                      id="datalayer-flow-select"
+                      class="form-control"
+                      style="font-family: monospace"
+                      onchange="onDatalayerFlowSelected()"
+                    >
+                      <option value="" data-i18n="datalayer.flow_select_placeholder">— Flow auswählen —</option>
+                    </select>
+                  </div>
+
                   <div class="form-group">
                     <label
                       id="datalayer-topic-label"
@@ -2000,20 +2016,6 @@ Befehl auswählen und "Laden" klicken…</pre
                       <option value="event">Event</option>
                       <option value="alarm">Alarm</option>
                     </select>
-                  </div>
-                  <div class="form-group">
-                    <label
-                      for="datalayer-mapping-unit"
-                      data-i18n="datalayer.unit"
-                      >Unit (optional)</label
-                    >
-                    <input
-                      type="text"
-                      id="datalayer-mapping-unit"
-                      class="form-control"
-                      placeholder="°C, bar, ..."
-                      oninput="showMappingPayloadPreview()"
-                    />
                   </div>
 
                   <div

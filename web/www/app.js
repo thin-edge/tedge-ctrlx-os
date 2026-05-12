@@ -2589,6 +2589,10 @@ function setMappingTypeBtn(type) {
     if (type === "flow") _loadFlowsDropdown(null);
   }
 
+  // Topic field: readonly in flow mode (filled from dropdown)
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  if (topicInput) topicInput.readOnly = type === "flow";
+
   // Auto-update topic + placeholder based on selected type
   _applyMappingTypeToTopic(type);
 }
@@ -2621,6 +2625,10 @@ function _setMappingTypeVisual(type, existingTopic) {
     flowWrap.style.display = type === "flow" ? "" : "none";
     if (type === "flow") _loadFlowsDropdown(existingTopic || null);
   }
+
+  // Topic field: readonly in flow mode
+  const topicInputVis = document.getElementById("datalayer-mapping-topic");
+  if (topicInputVis) topicInputVis.readOnly = type === "flow";
 
   // Update placeholder only, not the value
   const topicInput = document.getElementById("datalayer-mapping-topic");
