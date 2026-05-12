@@ -1,8 +1,5 @@
-input.mqtt.topics = ["te/+/+/+/+/m/+"]
+input.mqtt.topics = ["/datalayer/m/memavailable-mb"]
 
 steps = [
     { script = "main.js" },
 ]
-
-[output.mqtt]
-topic = "c8y/measurement/measurements/create"

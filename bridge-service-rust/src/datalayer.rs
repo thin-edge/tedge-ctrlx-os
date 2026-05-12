@@ -393,7 +393,6 @@ impl DatalayerEngine {
         for mapping in mappings.iter().filter(|m| {
             m.enabled
                 && m.direction == MappingDirection::DatalayerToTedge
-                && m.mapping_type != "flow"
         }) {
             let url = format!(
                 "{}/automation/api/v2/nodes/{}?type=all",
@@ -501,7 +500,13 @@ impl DatalayerEngine {
 
     /// Returns true when token auth is configured but currently in a failure backoff
     pub fn is_token_failing(&self) -> bool {
-        if self.credentials.username.as_deref().map(|u| !u.is_empty()).unwrap_or(false) {
+        if self
+            .credentials
+            .username
+            .as_deref()
+            .map(|u| !u.is_empty())
+            .unwrap_or(false)
+        {
             if let Some(until) = self.token_fail_until {
                 return Instant::now() < until;
             }
@@ -531,7 +536,11 @@ pub async fn run_datalayer_loop(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs_f64();
-            let health_status = if engine.is_token_failing() { "down" } else { "up" };
+            let health_status = if engine.is_token_failing() {
+                "down"
+            } else {
+                "up"
+            };
             let health_msg = format!(r#"{{"pid":{pid},"status":"{health_status}","time":{time}}}"#);
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
@@ -698,7 +707,32 @@ pub async fn run_datalayer_loop(
                                     (al_topic, json_data)
                                 }
                             }
-                            _ => (mapping.topic.clone(), payload),
+                            _ => {
+                                // For "flow" mapping_type: publish a measurement-formatted
+                                // JSON to the configured topic so the flow can process it.
+                                let mut parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
+                                if let Some(obj) = parsed_value.as_object() {
+                                    if let Some(val) = obj.values().next() {
+                                        parsed_value = val.clone();
+                                    }
+                                }
+                                let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                if let Some(unit) = &mapping.unit {
+                                    if !unit.is_empty() {
+                                        json_obj["unit"] = serde_json::json!(unit);
+                                    }
+                                }
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis();
+                                json_obj["time"] = serde_json::json!(
+                                    format_iso8601((now / 1000) as u64, (now % 1000) as u32)
+                                );
+                                (mapping.topic.clone(), json_obj.to_string())
+                            }
                         };
 
                         // 3. Publish the message

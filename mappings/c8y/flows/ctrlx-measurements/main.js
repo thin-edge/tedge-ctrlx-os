@@ -1,54 +1,49 @@
-/**
- * @name Default template for Smart Function
- * @description Default template for Smart Function, creates one measurement
- * @templateType INBOUND_SMART_FUNCTION
- * @direction INBOUND
- * @defaultTemplate true
- * @internal true
- * @readonly true
- * 
-*/
+// thin-edge.io flows API (ES2020 module)
+// Receives te/+/+/+/+/m/+ messages and forwards them as
+// Cumulocity measurements to c8y/measurement/measurements/create
 
-function onMessage(msg, context) {
-    var payload = msg.getPayload();
+const decoder = new TextDecoder();
 
-    console.log("Payload Raw:" + payload);
+const SKIP_KEYS = ["externalId", "unit", "time", "_TOPIC_LEVEL_", "_CONTEXT_DATA_"];
 
-    // Get externalId from context first, fall back to payload
-    var externalId = context.getClientId();
-
-    // lookup device for enrichment
-    var deviceByExternalId = context.getManagedObject(
-        JSON.stringify({ externalId: externalId, type: "c8y_Serial" })
-    );
-    console.log("Device (by external id): " + deviceByExternalId);
-
-    // Build measurement fragments dynamically from payload keys
-    var skipKeys = ["externalId", "unit", "time", "_TOPIC_LEVEL_", "_CONTEXT_DATA_"];
-    var unit = payload.get("unit") ? String(payload.get("unit")) : "";
-    var fragments = {};
-    var keys = payload.keySet().toArray();
-    for (var i = 0; i < keys.length; i++) {
-        var key = String(keys[i]);
-        if (skipKeys.indexOf(key) === -1) {
-            fragments[key] = {
-                [key]: {
-                    "unit": unit,
-                    "value": payload.get(key)
-                }
-            };
-        }
+export function onMessage(message, context) {
+    let payload;
+    try {
+        payload = JSON.parse(decoder.decode(message.payload));
+    } catch (e) {
+        console.log("[ctrlx-measurements] Failed to parse payload: " + e);
+        return [];
     }
 
+    // Derive device context key from topic
+    // e.g. "te/device/main///m/temperature" → "device/main//"
+    const topicParts = message.topic.split("/");
+    const deviceKey = topicParts.slice(1, 5).join("/");
+
+    // Resolve Cumulocity device ID from mapper context (set during device registration)
+    const deviceInfo = context.mapper.get(deviceKey) ?? {};
+    const deviceId = deviceInfo["@id"];
+    if (!deviceId) {
+        console.log("[ctrlx-measurements] No device ID found for: " + deviceKey);
+        return [];
+    }
+
+    const unit = payload.unit != null ? String(payload.unit) : "";
+    const time = payload.time != null ? String(payload.time) : new Date().toISOString();
+
+    // Build measurement fragments from all payload keys except reserved ones
+    const measurementKeys = Object.keys(payload).filter(k => SKIP_KEYS.indexOf(k) === -1);
+    const fragments = {};
+    for (const key of measurementKeys) {
+        fragments[key] = {
+            [key]: { value: payload[key], unit }
+        };
+    }
+
+    const type = measurementKeys[0] ?? "measurement";
+
     return [{
-        cumulocityType: "measurement",
-        action: "create",
-
-        payload: Object.assign({
-            "time": payload.get("time") ? String(payload.get("time")) : new Date().toISOString(),
-            "type": keys.filter(function(k) { return skipKeys.indexOf(String(k)) === -1; }).map(String)[0] || "measurement"
-        }, fragments),
-
-        externalSource: [{"type": "c8y_Serial", "externalId": externalId}]
+        topic: "c8y/measurement/measurements/create",
+        payload: JSON.stringify(Object.assign({ time, type, source: { id: deviceId } }, fragments))
     }];
 }
