@@ -1,10 +1,12 @@
 // thin-edge.io flows API (ES2020 module)
-// Receives te/+/+/+/+/m/+ messages and forwards them as
-// Cumulocity measurements to c8y/measurement/measurements/create
+// Receives dl/+/+/+/+/m/+ messages from the ctrlX Datalayer bridge
+// and re-publishes them as thin-edge measurements on te/device/main///m/+
+// The c8y mapper built-in then converts them to Cumulocity measurements
+// (adding source.id automatically — no device ID lookup needed here).
 
 const decoder = new TextDecoder();
 
-const SKIP_KEYS = ["externalId", "unit", "time", "_TOPIC_LEVEL_", "_CONTEXT_DATA_"];
+const SKIP_KEYS = ["unit", "time", "_TOPIC_LEVEL_", "_CONTEXT_DATA_"];
 
 export function onMessage(message, context) {
     let payload;
@@ -15,38 +17,30 @@ export function onMessage(message, context) {
         return [];
     }
 
-    // Derive device context key from topic.
-    // Expected: "te/device/main///m/temperature" → key "device/main//"
-    // For non-te topics fall back to the main device.
+    // Extract field name from topic: dl/device/main///m/<field_name>
     const topicParts = message.topic.split("/");
-    const deviceKey = message.topic.startsWith("te/")
-        ? topicParts.slice(1, 5).join("/")
-        : "device/main//";
-
-    // Resolve Cumulocity device ID from mapper context (set during device registration)
-    const deviceInfo = context.mapper.get(deviceKey) ?? {};
-    const deviceId = deviceInfo["@id"];
-    if (!deviceId) {
-        console.log("[ctrlx-measurements] No device ID found for: " + deviceKey);
-        return [];
-    }
-
+    const fieldName = topicParts[topicParts.length - 1];
     const unit = payload.unit != null ? String(payload.unit) : "";
     const time = payload.time != null ? String(payload.time) : new Date().toISOString();
 
-    // Build measurement fragments from all payload keys except reserved ones
+    // Build thin-edge measurement: { "<fragment>": { "<series>": { value, unit } } }
     const measurementKeys = Object.keys(payload).filter(k => SKIP_KEYS.indexOf(k) === -1);
+    if (measurementKeys.length === 0) return [];
+
     const fragments = {};
     for (const key of measurementKeys) {
-        fragments[key] = {
-            [key]: { value: payload[key], unit }
-        };
+        const val = payload[key];
+        if (typeof val === "number" || typeof val === "string") {
+            const series = unit ? { value: val, unit } : { value: val };
+            fragments[key] = { [key]: series };
+        }
     }
 
-    const type = measurementKeys[0] ?? "measurement";
+    const type = fieldName || measurementKeys[0];
 
+    // Re-publish to te/ topic — the c8y mapper built-in adds source.id
     return [{
-        topic: "c8y/measurement/measurements/create",
-        payload: JSON.stringify(Object.assign({ time, type, source: { id: deviceId } }, fragments))
+        topic: `te/device/main///m/${type}`,
+        payload: JSON.stringify(Object.assign({ time }, fragments))
     }];
 }

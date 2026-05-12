@@ -1,6 +1,7 @@
 // thin-edge.io flows API (ES2020 module)
-// Receives te/+/+/+/+/e/+ messages and forwards them as
-// Cumulocity events to c8y/event/events/create
+// Receives dl/+/+/+/+/e/+ messages from the ctrlX Datalayer bridge
+// and re-publishes them as thin-edge events on te/device/main///e/+
+// The c8y mapper built-in then converts them to Cumulocity events.
 
 const decoder = new TextDecoder();
 
@@ -13,40 +14,21 @@ export function onMessage(message, context) {
         return [];
     }
 
-    // Derive device context key from topic.
-    // Expected: "te/device/main///e/ctrlx_event" → key "device/main//"
-    // For non-te topics fall back to the main device.
+    // Extract event type from topic: dl/device/main///e/<type>
     const topicParts = message.topic.split("/");
-    const deviceKey = message.topic.startsWith("te/")
-        ? topicParts.slice(1, 5).join("/")
-        : "device/main//";
-    const eventTypeFromTopic = topicParts[6] ?? "ctrlx_event";
+    const eventType = topicParts[topicParts.length - 1] ?? "ctrlx_event";
 
-    // Resolve Cumulocity device ID from mapper context
-    const deviceInfo = context.mapper.get(deviceKey) ?? {};
-    const deviceId = deviceInfo["@id"];
-    if (!deviceId) {
-        console.log("[ctrlx-events] No device ID found for: " + deviceKey);
-        return [];
-    }
-
-    // If payload has a nested "Text" field (from bridge service MQTT Service format),
-    // use it directly; otherwise treat the whole payload as the event text
-    const text = payload.Text
-        ? (typeof payload.Text === "object" ? JSON.stringify(payload.Text) : String(payload.Text))
+    // If payload has a nested "Text" field (from bridge MQTT Service format), use it
+    const textObj = payload.Text ?? null;
+    const text = textObj
+        ? (typeof textObj === "object" ? JSON.stringify(textObj) : String(textObj))
         : JSON.stringify(payload);
-
     const time = payload.time ?? payload.Time ?? new Date().toISOString();
-    const type = payload.type ?? eventTypeFromTopic;
 
+    // Publish in thin-edge event format — c8y mapper built-in adds source.id
     return [{
-        topic: "c8y/event/events/create",
-        payload: JSON.stringify({
-            text,
-            time,
-            type,
-            source: { id: deviceId }
-        })
+        topic: `te/device/main///e/${eventType}`,
+        payload: JSON.stringify({ text, time })
     }];
 }
 

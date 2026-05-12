@@ -1,4 +1,4 @@
-input.mqtt.topics = ["/datalayer/m/memavailable-mb"]
+input.mqtt.topics = ["dl/+/+/+/+/m/+"]
 
 steps = [
     { script = "main.js" },
