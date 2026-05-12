@@ -390,10 +390,10 @@ impl DatalayerEngine {
         }
 
         let mappings = self.config.mappings.clone();
-        for mapping in mappings.iter().filter(|m| {
-            m.enabled
-                && m.direction == MappingDirection::DatalayerToTedge
-        }) {
+        for mapping in mappings
+            .iter()
+            .filter(|m| m.enabled && m.direction == MappingDirection::DatalayerToTedge)
+        {
             let url = format!(
                 "{}/automation/api/v2/nodes/{}?type=all",
                 self.config.base_url.trim_end_matches('/'),
@@ -708,8 +708,11 @@ pub async fn run_datalayer_loop(
                                 }
                             }
                             _ => {
-                                // For "flow" mapping_type: publish a measurement-formatted
-                                // JSON to the configured topic so the flow can process it.
+                                // For "flow" mapping_type: publish measurement-formatted JSON
+                                // to a thin-edge.io topic so the flow can pick it up.
+                                // The configured topic may be a custom string; we always
+                                // normalise to te/device/main///m/<field_name> so it matches
+                                // the standard flow subscription pattern te/+/+/+/+/m/+.
                                 let mut parsed_value: serde_json::Value =
                                     serde_json::from_str(&payload)
                                         .unwrap_or_else(|_| serde_json::json!(payload));
@@ -728,10 +731,19 @@ pub async fn run_datalayer_loop(
                                     .duration_since(std::time::UNIX_EPOCH)
                                     .unwrap_or_default()
                                     .as_millis();
-                                json_obj["time"] = serde_json::json!(
-                                    format_iso8601((now / 1000) as u64, (now % 1000) as u32)
-                                );
-                                (mapping.topic.clone(), json_obj.to_string())
+                                json_obj["time"] = serde_json::json!(format_iso8601(
+                                    (now / 1000) as u64,
+                                    (now % 1000) as u32
+                                ));
+                                // Use the configured topic if it already matches the
+                                // thin-edge.io pattern (starts with "te/"), otherwise
+                                // derive a canonical te/ topic from the field name.
+                                let te_topic = if mapping.topic.starts_with("te/") {
+                                    mapping.topic.clone()
+                                } else {
+                                    format!("te/device/main///m/{}", field_name)
+                                };
+                                (te_topic, json_obj.to_string())
                             }
                         };
 
