@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.148
+version: 0.0.149
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -363,7 +363,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: 7116e5ef99a37f3f4eb28b5181f1676fdfbadbe4
+    source-commit: dbfd5d9f225d3d8b08d9363ef879d5736410b48e
     build-packages:
       - pkg-config
       - libssl-dev

@@ -1,0 +1,9 @@
+[flow]
+version = "1.0"
+description = "My flow"
+
+[input.mqtt]
+topics = ["te/+/+/+/+/m/+"]
+
+[[steps]]
+script = "main.js"

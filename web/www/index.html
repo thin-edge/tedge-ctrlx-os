@@ -2218,6 +2218,11 @@ Befehl auswählen und "Laden" klicken…</pre
           <section id="sec-flows" class="card" data-page="flows">
             <h2 data-i18n="section.flows">Flows</h2>
 
+            <!-- "Flow" label above Mapper -->
+            <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
+              <span data-i18n="flows.flow_label">Flow</span>
+            </div>
+
             <!-- Toolbar -->
             <div
               style="
@@ -2306,7 +2311,7 @@ Befehl auswählen und "Laden" klicken…</pre
               </div>
             </div>
 
-            <!-- Split layout: tree left, editor right -->
+            <!-- Split layout: trees left, editor right -->
             <div
               style="
                 display: flex;
@@ -2315,47 +2320,89 @@ Befehl auswählen und "Laden" klicken…</pre
                 min-height: 340px;
               "
             >
-              <!-- LEFT: Flow tree -->
-              <div style="width: 240px; flex-shrink: 0">
-                <div
-                  id="flows-loading"
-                  style="
-                    font-size: 13px;
-                    color: var(--c8y-palette-gray-40, #999);
-                    padding: 4px 0;
-                  "
-                >
-                  <span data-i18n="flows.loading">Wird geladen...</span>
+              <!-- LEFT: Active + Archived flows side by side -->
+              <div style="display:flex; gap:10px; align-items:flex-start; flex-shrink:0;">
+
+                <!-- Active Flows tree -->
+                <div style="width: 240px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px;" data-i18n="flows.active_label">Aktive Flows</div>
+                  <div
+                    id="flows-loading"
+                    style="
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.loading">Wird geladen...</span>
+                  </div>
+                  <div
+                    id="flows-empty"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+                  </div>
+                  <div
+                    id="flows-error"
+                    style="
+                      display: none;
+                      font-size: 12px;
+                      color: var(--c8y-brand-danger, #e74c3c);
+                      padding: 4px 0;
+                    "
+                  ></div>
+                  <div
+                    id="flows-tree"
+                    style="
+                      display: none;
+                      border: 1px solid var(--c8y-palette-gray-70, #333);
+                      border-radius: 4px;
+                      overflow: hidden;
+                    "
+                  ></div>
                 </div>
-                <div
-                  id="flows-empty"
-                  style="
-                    display: none;
-                    font-size: 13px;
-                    color: var(--c8y-palette-gray-40, #999);
-                    padding: 4px 0;
-                  "
-                >
-                  <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+
+                <!-- Archived Flows tree -->
+                <div style="width: 240px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--c8y-palette-gray-40,#999); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px;" data-i18n="flows.archived_label">Archivierte Flows</div>
+                  <div
+                    id="flows-archived-loading"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.loading">Wird geladen...</span>
+                  </div>
+                  <div
+                    id="flows-archived-empty"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.archived_empty">Keine archivierten Flows.</span>
+                  </div>
+                  <div
+                    id="flows-archived-tree"
+                    style="
+                      display: none;
+                      border: 1px solid var(--c8y-palette-gray-70, #333);
+                      border-radius: 4px;
+                      overflow: hidden;
+                    "
+                  ></div>
                 </div>
-                <div
-                  id="flows-error"
-                  style="
-                    display: none;
-                    font-size: 12px;
-                    color: var(--c8y-brand-danger, #e74c3c);
-                    padding: 4px 0;
-                  "
-                ></div>
-                <div
-                  id="flows-tree"
-                  style="
-                    display: none;
-                    border: 1px solid var(--c8y-palette-gray-70, #333);
-                    border-radius: 4px;
-                    overflow: hidden;
-                  "
-                ></div>
+
               </div>
 
               <!-- RIGHT: Editor area (three exclusive states) -->

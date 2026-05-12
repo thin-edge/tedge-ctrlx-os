@@ -64,12 +64,17 @@ const I18N = {
     "licensing.col.quantity": "Anzahl",
     // Flows
     "section.flows": "Flows (JavaScript-Transformationen)",
+    "flows.flow_label": "Flow",
+    "flows.active_label": "Aktive Flows",
+    "flows.archived_label": "Archivierte Flows",
     "flows.mapper_label": "Mapper",
     "flows.refresh": "Aktualisieren",
     "flows.upload_btn": "Flow hochladen (.toml)",
     "flows.new_btn": "Neu",
     "flows.loading": "Flows werden geladen...",
     "flows.empty": "Keine Flows vorhanden.",
+    "flows.archived_empty": "Keine archivierten Flows.",
+    "flows.restore_flow_btn": "Flow wiederherstellen",
     "flows.editor_placeholder":
       'Flow in der Liste auswählen oder "Neu" klicken.',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
@@ -418,12 +423,17 @@ const I18N = {
     "licensing.col.quantity": "Qty",
     // Flows
     "section.flows": "Flows (JavaScript Transformations)",
+    "flows.flow_label": "Flow",
+    "flows.active_label": "Active Flows",
+    "flows.archived_label": "Archived Flows",
     "flows.mapper_label": "Mapper",
     "flows.refresh": "Refresh",
     "flows.upload_btn": "Upload Flow (.toml)",
     "flows.new_btn": "New",
     "flows.loading": "Loading flows...",
     "flows.empty": "No flows configured.",
+    "flows.archived_empty": "No archived flows.",
+    "flows.restore_flow_btn": "Restore flow",
     "flows.editor_placeholder": 'Select a flow from the list or click "New".',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
     "flows.col.name": "Filename",
@@ -3701,11 +3711,17 @@ async function loadFlows() {
   const tree = document.getElementById("flows-tree");
   const empty = document.getElementById("flows-empty");
   const errDiv = document.getElementById("flows-error");
+  const archivedLoading = document.getElementById("flows-archived-loading");
+  const archivedTree = document.getElementById("flows-archived-tree");
+  const archivedEmpty = document.getElementById("flows-archived-empty");
 
   if (loading) loading.style.display = "";
   if (tree) tree.style.display = "none";
   if (empty) empty.style.display = "none";
   if (errDiv) errDiv.style.display = "none";
+  if (archivedLoading) archivedLoading.style.display = "";
+  if (archivedTree) archivedTree.style.display = "none";
+  if (archivedEmpty) archivedEmpty.style.display = "none";
 
   try {
     const mapper = _flowsMapper();
@@ -3715,6 +3731,7 @@ async function loadFlows() {
     );
     if (resp.status === 403) {
       if (loading) loading.style.display = "none";
+      if (archivedLoading) archivedLoading.style.display = "none";
       if (errDiv) {
         errDiv.textContent = t("notify.no_perm_status");
         errDiv.style.display = "";
@@ -3724,21 +3741,28 @@ async function loadFlows() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     const flows = data.flows || [];
+    const archivedFlows = data.archived_flows || [];
 
     if (loading) loading.style.display = "none";
+    if (archivedLoading) archivedLoading.style.display = "none";
 
     if (flows.length === 0) {
       if (empty) empty.style.display = "";
-      return;
-    }
-
-    if (tree) {
+    } else if (tree) {
       _renderFlowsTree(flows, tree);
       tree.style.display = "";
       _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
     }
+
+    if (archivedFlows.length === 0) {
+      if (archivedEmpty) archivedEmpty.style.display = "";
+    } else if (archivedTree) {
+      _renderArchivedFlowsTree(archivedFlows, archivedTree);
+      archivedTree.style.display = "";
+    }
   } catch (err) {
     if (loading) loading.style.display = "none";
+    if (archivedLoading) archivedLoading.style.display = "none";
     if (errDiv) {
       errDiv.textContent = `${t("flows.err_load")}: ${err.message}`;
       errDiv.style.display = "";
@@ -3822,6 +3846,92 @@ function _renderFlowsTree(flows, container) {
       container.appendChild(row);
     });
   });
+}
+
+function _renderArchivedFlowsTree(archivedFlows, container) {
+  container.innerHTML = "";
+  archivedFlows.forEach((flow) => {
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display:flex; align-items:center; gap:4px;
+      padding:7px 10px;
+      background:var(--c8y-palette-gray-80,#252525);
+      border-bottom:1px solid var(--c8y-palette-gray-70,#333);
+      font-size:12px; font-weight:600;
+    `;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText =
+      "flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:monospace; color:var(--c8y-palette-gray-40,#999);";
+    nameSpan.textContent = "📁 " + flow.name;
+    nameSpan.title = flow.name;
+    header.appendChild(nameSpan);
+
+    // Restore button
+    const restoreBtn = document.createElement("button");
+    restoreBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-success,#27ae60); border:1px solid var(--c8y-brand-success,#27ae60); border-radius:3px; cursor:pointer";
+    restoreBtn.title = t("flows.restore_flow_btn") || "Flow wiederherstellen";
+    restoreBtn.innerHTML = '<i class="fas fa-undo"></i>';
+    restoreBtn.onclick = (e) => {
+      e.stopPropagation();
+      restoreFlow(flow.name);
+    };
+    header.appendChild(restoreBtn);
+
+    // Delete archived button
+    const delBtn = document.createElement("button");
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer; margin-left:2px";
+    delBtn.title = t("flows.delete_flow_btn");
+    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteArchivedFlow(flow.name);
+    };
+    header.appendChild(delBtn);
+
+    container.appendChild(header);
+  });
+}
+
+async function restoreFlow(flowName) {
+  const mapper = _flowsMapper();
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/restore?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "POST", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Flow "${flowName}" wiederhergestellt.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
+}
+
+async function deleteArchivedFlow(flowName) {
+  const mapper = _flowsMapper();
+  if (!confirm(`Archivierten Flow "${flowName}.disabled" endgültig löschen?`)) return;
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName + ".disabled")}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Archivierter Flow "${flowName}" gelöscht.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
 }
 
 function _highlightFlowFile(flowName, fileName) {

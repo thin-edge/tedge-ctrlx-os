@@ -4300,7 +4300,40 @@ async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
             .cmp(b["name"].as_str().unwrap_or(""))
     });
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({"flows": flows})))
+    // Collect archived flows (directories ending in ".disabled")
+    let mut archived_flows: Vec<serde_json::Value> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&flows_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let raw_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            if !raw_name.ends_with(".disabled") {
+                continue;
+            }
+            let flow_name = raw_name.trim_end_matches(".disabled").to_string();
+            if !validate_flow_dir_name(&flow_name) {
+                continue;
+            }
+            archived_flows.push(serde_json::json!({
+                "name": flow_name,
+                "archived_name": raw_name
+            }));
+        }
+    }
+    archived_flows.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+
+    Ok(HttpResponse::Ok()
+        .json(serde_json::json!({"flows": flows, "archived_flows": archived_flows})))
 }
 
 /// POST /api/flows/file?mapper=<m>&flow=<f>&file=<n>  — saves a file within a flow directory
@@ -4415,6 +4448,62 @@ async fn delete_flow_dir(req: HttpRequest) -> Result<HttpResponse> {
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// POST /api/flows/restore?mapper=<m>&flow=<f>  — restores an archived flow (renames <flow>.disabled → <flow>)
+async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_dir = format!(
+        "{}/tedge/mappers/{}/flows/{}.disabled",
+        snap_data, mapper, flow
+    );
+    let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+
+    match std::fs::rename(&archived_dir, &active_dir) {
+        // codeql[rust/path-injection] - paths constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Restored archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound()
+                .json(serde_json::json!({"error": "Archived flow not found"})))
         }
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"error": format!("{}", e)}))),
@@ -4991,6 +5080,7 @@ async fn main() -> io::Result<()> {
                             .route("/flows", web::delete().to(delete_flow_dir))
                             .route("/flows/file", web::post().to(save_flow_file))
                             .route("/flows/file", web::delete().to(delete_flow_file_handler))
+                            .route("/flows/restore", web::post().to(restore_flow))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")
