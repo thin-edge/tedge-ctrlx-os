@@ -41,7 +41,10 @@
 }
 
 // Vereinheitlichte Form-Feld-Styles für .form-control
-.form-control {
+body .form-control,
+body input.form-control,
+body select.form-control,
+body textarea.form-control {
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
@@ -52,6 +55,7 @@
   background: var(--c8y-palette-gray-90, #1e1e2e);
   color: var(--c8y-palette-gray-10, #e0e0e0);
   transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
@@ -60,10 +64,10 @@
   }
 }
 
-.form-group select,
-.form-control select,
-select.form-control,
-select {
+body .form-group select,
+body .form-control select,
+body select.form-control,
+body select {
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
@@ -80,10 +84,10 @@ select {
   box-sizing: border-box;
 }
 
-.form-group select:focus,
-.form-control select:focus,
-select.form-control:focus,
-select:focus {
+body .form-group select:focus,
+body .form-control select:focus,
+body select.form-control:focus,
+body select:focus {
   outline: none;
   border-color: @brand-primary;
   box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
@@ -600,7 +604,7 @@ main {
 }
 
 // ── Formulare ─────────────────────────────────────────────────
-.form-group {
+body .form-group {
   margin-bottom: 16px;
 
   label {
@@ -612,7 +616,9 @@ main {
   }
 
   input[type="text"],
-  input[type="password"] {
+  input[type="password"],
+  input[type="number"],
+  input[type="email"] {
     width:         100%;
     max-width:     420px;
     padding:       6px 10px;
@@ -623,6 +629,7 @@ main {
     background:    var(--c8y-palette-gray-90, #1e1e2e);
     color:         var(--c8y-palette-gray-10, #e0e0e0);
     transition:    border-color 0.15s, box-shadow 0.15s;
+    box-sizing:    border-box;
 
     &:focus {
       outline:      none;
