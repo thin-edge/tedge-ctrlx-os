@@ -1,4 +1,4 @@
-input.mqtt.topics = ["te/+/+/+/+/e/+"]
+input.mqtt.topics = ["/datalayer/e/events"]
 
 steps = [
     { script = "main.js" },

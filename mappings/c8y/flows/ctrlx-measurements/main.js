@@ -15,10 +15,13 @@ export function onMessage(message, context) {
         return [];
     }
 
-    // Derive device context key from topic
-    // e.g. "te/device/main///m/temperature" → "device/main//"
+    // Derive device context key from topic.
+    // Expected: "te/device/main///m/temperature" → key "device/main//"
+    // For non-te topics fall back to the main device.
     const topicParts = message.topic.split("/");
-    const deviceKey = topicParts.slice(1, 5).join("/");
+    const deviceKey = message.topic.startsWith("te/")
+        ? topicParts.slice(1, 5).join("/")
+        : "device/main//";
 
     // Resolve Cumulocity device ID from mapper context (set during device registration)
     const deviceInfo = context.mapper.get(deviceKey) ?? {};

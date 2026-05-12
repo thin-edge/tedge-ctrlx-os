@@ -34,10 +34,13 @@ export function onMessage(message, context) {
         return [];
     }
 
-    // Derive device context key from topic
-    // e.g. "te/device/main///a/ctrlx_alarm" → "device/main//"
+    // Derive device context key from topic.
+    // Expected: "te/device/main///a/ctrlx_alarm" → key "device/main//"
+    // For non-te topics fall back to the main device.
     const topicParts = message.topic.split("/");
-    const deviceKey = topicParts.slice(1, 5).join("/");
+    const deviceKey = message.topic.startsWith("te/")
+        ? topicParts.slice(1, 5).join("/")
+        : "device/main//";
     const alarmTypeFromTopic = topicParts[6] ?? "ctrlx_alarm";
 
     // Resolve Cumulocity device ID from mapper context
