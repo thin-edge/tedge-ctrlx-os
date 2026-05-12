@@ -642,18 +642,18 @@ pub async fn run_datalayer_loop(
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    // Core MQTT (8883): thin-edge format
-                                    let json_data = serde_json::json!({
-                                        "text": format!("Event: {} is {}", field_name, payload),
-                                        "type": "ctrlx_event"
-                                    })
-                                    .to_string();
-                                    let ev_topic = if mapping.topic.contains("events") {
-                                        mapping.topic.clone()
-                                    } else {
-                                        "tedge/events/ctrlx_event".to_string()
-                                    };
-                                    (ev_topic, json_data)
+                                    // Core MQTT (8883): publish to dl/ for flow processing
+                                    let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                    let now = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_millis();
+                                    json_obj["time"] = serde_json::json!(format_iso8601(
+                                        (now / 1000) as u64,
+                                        (now % 1000) as u32
+                                    ));
+                                    let ev_topic = format!("dl/device/main///e/{}", field_name);
+                                    (ev_topic, json_obj.to_string())
                                 }
                             }
                             MappingTransform::Alarm => {
@@ -693,18 +693,21 @@ pub async fn run_datalayer_loop(
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    // Core MQTT (8883): thin-edge format
-                                    let json_data = serde_json::json!({
-                                        "text": format!("Alarm at {}: value is {}", field_name, payload),
-                                        "severity": "major"
-                                    })
-                                    .to_string();
-                                    let al_topic = if mapping.topic.contains("alarms") {
-                                        mapping.topic.clone()
-                                    } else {
-                                        "tedge/alarms/major/ctrlx_alarm".to_string()
-                                    };
-                                    (al_topic, json_data)
+                                    // Core MQTT (8883): publish to dl/ for flow processing
+                                    let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                    if let Some(sev) = parsed_value.get("severity").and_then(|v| v.as_str()) {
+                                        json_obj["severity"] = serde_json::json!(sev);
+                                    }
+                                    let now = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_millis();
+                                    json_obj["time"] = serde_json::json!(format_iso8601(
+                                        (now / 1000) as u64,
+                                        (now % 1000) as u32
+                                    ));
+                                    let al_topic = format!("dl/device/main///a/{}", field_name);
+                                    (al_topic, json_obj.to_string())
                                 }
                             }
                             _ => {
