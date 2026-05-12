@@ -1134,6 +1134,30 @@ footer a:hover {
 .node-controls input {
   flex: 1;
   max-width: 360px;
+  background: var(--c8y-palette-gray-90, #1e1e2e);
+  border: 1px solid var(--c8y-palette-gray-70, #444);
+  border-radius: 4px;
+  color: var(--c8y-palette-gray-10, #e0e0e0);
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.node-controls input::placeholder {
+  color: var(--c8y-palette-gray-50, #777);
+}
+.node-controls input:focus {
+  outline: none;
+  border-color: var(--brand-primary, #f5a623);
+  box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.2);
+}
+.node-controls .btn {
+  background: transparent;
+  border-color: var(--c8y-palette-gray-60, #555);
+  color: var(--c8y-palette-gray-20, #ccc);
+}
+.node-controls .btn:hover {
+  background: var(--c8y-palette-gray-80, #2a2a2a);
+  border-color: var(--brand-primary, #f5a623);
+  color: var(--brand-primary, #f5a623);
 }
 .node-list-box {
   margin-top: 10px;
