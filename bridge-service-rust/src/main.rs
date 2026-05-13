@@ -157,12 +157,18 @@ async fn main() -> Result<()> {
     };
 
     let external_id = if !tedge_device_id.is_empty() {
-        info!("[BRIDGE] Device external ID from tedge config: {}", tedge_device_id);
+        info!(
+            "[BRIDGE] Device external ID from tedge config: {}",
+            tedge_device_id
+        );
         tedge_device_id
     } else {
         let serial = get_device_serial();
         if !serial.is_empty() {
-            info!("[BRIDGE] Device external ID from hardware serial ({} chars)", serial.len());
+            info!(
+                "[BRIDGE] Device external ID from hardware serial ({} chars)",
+                serial.len()
+            );
         }
         serial
     };
