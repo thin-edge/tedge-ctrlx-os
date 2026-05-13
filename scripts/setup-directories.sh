@@ -142,3 +142,9 @@ EOF
 else
     echo "system.toml already exists, not overwriting"
 fi
+
+# Register c8y-remote-access-plugin operation (c8y_RemoteAccessConnect)
+# This creates /etc/tedge/operations/c8y/c8y_RemoteAccessConnect so that
+# tedge-agent recognises remote access operations from Cumulocity.
+echo "Registering c8y-remote-access-plugin ..."
+"$SNAP/bin/c8y-remote-access-plugin" --init && echo "c8y-remote-access-plugin registered" || echo "WARNING: c8y-remote-access-plugin --init failed (ignored)"
