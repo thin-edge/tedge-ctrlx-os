@@ -1942,6 +1942,24 @@ Befehl auswählen und "Laden" klicken…</pre
                       oninput="showMappingPayloadPreview()"
                     />
                   </div>
+                  <div class="form-group">
+                    <label data-i18n="datalayer.payload_preview">Datalayer Output</label>
+                    <pre
+                      id="datalayer-payload-preview"
+                      style="
+                        background: var(--c8y-palette-gray-90, #f5f5f5);
+                        border: 1px solid var(--c8y-palette-gray-70, #ddd);
+                        border-radius: 4px;
+                        padding: 8px;
+                        font-size: 11px;
+                        min-height: 72px;
+                        white-space: pre-wrap;
+                        word-break: break-all;
+                        color: var(--c8y-palette-gray-20, #333);
+                        margin: 0;
+                      "
+                    ></pre>
+                  </div>
                 </div>
 
                 <!-- RIGHT: Flow auswählen, tedge MQTT Topic, Transform, Datalayer Output, Buttons -->
@@ -2005,25 +2023,6 @@ Befehl auswählen und "Laden" klicken…</pre
                       <option value="event">Event</option>
                       <option value="alarm">Alarm</option>
                     </select>
-                  </div>
-
-                  <div class="form-group">
-                    <label data-i18n="datalayer.payload_preview">Datalayer Output</label>
-                    <pre
-                      id="datalayer-payload-preview"
-                      style="
-                        background: var(--c8y-palette-gray-90, #f5f5f5);
-                        border: 1px solid var(--c8y-palette-gray-70, #ddd);
-                        border-radius: 4px;
-                        padding: 8px;
-                        font-size: 11px;
-                        min-height: 72px;
-                        white-space: pre-wrap;
-                        word-break: break-all;
-                        color: var(--c8y-palette-gray-20, #333);
-                        margin: 0;
-                      "
-                    ></pre>
                   </div>
 
                   <div
@@ -2121,13 +2120,6 @@ Befehl auswählen und "Laden" klicken…</pre
                   <tr>
                     <th data-i18n="datalayer.path">Pfad</th>
                     <th data-i18n="datalayer.topic">Topic</th>
-                    <th
-                      class="text-center"
-                      style="width: 32px"
-                      data-i18n="datalayer.direction"
-                    >
-                      Richtung
-                    </th>
                     <th>Typ</th>
                     <th style="width: 100px" data-i18n="mappingmode.col_label">
                       Mapping-Typ

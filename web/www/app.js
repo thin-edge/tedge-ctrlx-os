@@ -3334,7 +3334,7 @@ function renderDatalayerMappings() {
     tbody.innerHTML = "";
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 7;
+    td.colSpan = 6;
     td.className = "node-empty-hint";
     td.style.cssText = "text-align:center; padding:20px;";
     td.textContent = t("datalayer.no_mappings");
@@ -3426,14 +3426,6 @@ function renderDatalayerMappings() {
     }
     tdTopic.appendChild(document.createTextNode(t_topic));
 
-    const tdDir = document.createElement("td");
-    tdDir.className = "text-center";
-    tdDir.title = dirTitle;
-    tdDir.style.cssText = `font-size:16px; color:${dirColor}; width:32px;`;
-    const dirI = document.createElement("i");
-    dirI.className = `fa-solid ${dirIcon}`;
-    tdDir.appendChild(dirI);
-
     const tdField = document.createElement("td");
     tdField.style.whiteSpace = "nowrap";
     const transSpan = document.createElement("span");
@@ -3473,20 +3465,20 @@ function renderDatalayerMappings() {
     tdDel.className = "text-right";
     tdDel.style.width = "36px";
     const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-dot text-danger";
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer";
     delBtn.title = "Löschen";
     delBtn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       deleteDatalayerMapping(mappingId);
     });
     const delI = document.createElement("i");
-    delI.className = "fa-solid fa-trash";
+    delI.className = "fas fa-trash";
     delBtn.appendChild(delI);
     tdDel.appendChild(delBtn);
 
     tr.appendChild(tdPath);
     tr.appendChild(tdTopic);
-    tr.appendChild(tdDir);
     tr.appendChild(tdField);
     tr.appendChild(tdMtype);
     tr.appendChild(tdToggle);
