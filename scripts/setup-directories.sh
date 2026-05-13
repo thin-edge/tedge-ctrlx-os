@@ -147,9 +147,16 @@ fi
 # Default path /usr/share/tedge/config-plugins does not exist in snap confinement.
 TEDGE_BIN="$SNAP/bin/tedge"
 TEDGE_CFG_DIR="$SNAP_DATA/tedge"
-CONFIG_PLUGINS_PATH="$SNAP/usr/share/tedge/config-plugins"
+# Use a writable SNAP_DATA directory for config-plugins so only the 'file' symlink
+# is present — tedge-agent tests every binary in the directory with 'list'.
+CONFIG_PLUGINS_PATH="$SNAP_DATA/tedge/config-plugins"
 LOG_PLUGINS_PATH="$SNAP/usr/share/tedge/log-plugins"
 DIAG_PLUGINS_PATH="$SNAP/usr/share/tedge/diag-plugins"
+
+# Create config-plugins dir with only the 'file' entry
+mkdir -p "$CONFIG_PLUGINS_PATH"
+ln -sf "$SNAP/bin/tedge-file-config-plugin" "$CONFIG_PLUGINS_PATH/file"
+
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
     || echo "WARNING: could not set configuration.plugin_paths (ignored)"
