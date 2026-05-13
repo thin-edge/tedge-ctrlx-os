@@ -168,6 +168,14 @@ exec "$SNAP/bin/tedge-file-config-plugin" "\$@"
 WRAPPER
 chmod +x "$CONFIG_PLUGINS_PATH/file"
 
+# Create log-plugins dir with 'file' wrapper (same argv[0] issue)
+mkdir -p "$LOG_PLUGINS_PATH"
+cat > "$LOG_PLUGINS_PATH/file" << WRAPPER
+#!/bin/sh
+exec "$SNAP/bin/tedge-file-log-plugin" "\$@"
+WRAPPER
+chmod +x "$LOG_PLUGINS_PATH/file"
+
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
     || echo "WARNING: could not set configuration.plugin_paths (ignored)"
