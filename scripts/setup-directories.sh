@@ -122,13 +122,7 @@ fi
 
 echo "=== Setup completed successfully ==="
 
-# ── tedge system.toml: owned by root ────────────────────────────────────────────
-# ctrlX snapd supports neither system-usernames nor does AppArmor allow
-# useradd in the snap context. tedge tries to chown directories to the
-# "tedge" user when connecting/writing the bridge config — which fails.
-# Solution: create system.toml with user="root"/group="root" before tedge
-# runs for the first time. This causes tedge to chown all directories to
-# root:root, which always succeeds in the snap context.
+
 SYSTEM_TOML="$SNAP_DATA_PATH/tedge/system.toml"
 if [ ! -f "$SYSTEM_TOML" ]; then
     cat > "$SYSTEM_TOML" << 'EOF'
@@ -143,25 +137,15 @@ else
     echo "system.toml already exists, not overwriting"
 fi
 
-# Configure tedge to find config-plugins inside the snap
-# Default path /usr/share/tedge/config-plugins does not exist in snap confinement.
+
 TEDGE_BIN="$SNAP/bin/tedge"
 TEDGE_CFG_DIR="$SNAP_DATA/tedge"
-# Use a writable SNAP_DATA directory for config-plugins so only the 'file' symlink
-# is present — tedge-agent tests every binary in the directory with 'list'.
-# Plugin paths:
-# - config-plugins: writable $SNAP_DATA dir, wrapper script needed because the
-#   multicall binary dispatches via argv[0] (calling it as 'file' is not recognized).
-# - log-plugins/diag-plugins: $SNAP/scripts/* already contain complete, snap-aware
-#   scripts (file, journald for log; 01_tedge..08_truststore for diag).
-#   $SNAP path is updated on every restart by this oneshot service.
+
 CONFIG_PLUGINS_PATH="$SNAP_DATA/tedge/config-plugins"
 LOG_PLUGINS_PATH="$SNAP/scripts/log-plugins"
 DIAG_PLUGINS_PATH="$SNAP/scripts/diag-plugins"
 
-# Create config-plugins dir with only the 'file' wrapper script.
-# A wrapper is needed because the multicall binary determines its mode from
-# argv[0] — calling it as 'file' would not be recognized.
+
 mkdir -p "$CONFIG_PLUGINS_PATH"
 cat > "$CONFIG_PLUGINS_PATH/file" << WRAPPER
 #!/bin/sh
@@ -169,6 +153,9 @@ exec "$SNAP/bin/tedge-file-config-plugin" "\$@"
 WRAPPER
 chmod +x "$CONFIG_PLUGINS_PATH/file"
 
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set device.type "thin-edge.io" \
+    && echo "device.type set to thin-edge.io" \
+    || echo "WARNING: could not set device.type (ignored)"
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
     || echo "WARNING: could not set configuration.plugin_paths (ignored)"
@@ -179,9 +166,6 @@ chmod +x "$CONFIG_PLUGINS_PATH/file"
     && echo "diag.plugin_paths set to $DIAG_PLUGINS_PATH" \
     || echo "WARNING: could not set diag.plugin_paths (ignored)"
 
-# Register c8y-remote-access-plugin operation (c8y_RemoteAccessConnect)
-# This creates /etc/tedge/operations/c8y/c8y_RemoteAccessConnect so that
-# tedge-agent recognises remote access operations from Cumulocity.
 echo "Registering c8y-remote-access-plugin ..."
 "$SNAP/bin/c8y-remote-access-plugin" --init && echo "c8y-remote-access-plugin registered" || echo "WARNING: c8y-remote-access-plugin --init failed (ignored)"
 
