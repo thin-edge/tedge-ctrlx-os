@@ -3586,13 +3586,34 @@ async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Res
         return Ok(HttpResponse::Forbidden().finish());
     }
 
-    let has_license = std::path::Path::new(LICENSE_ID_FILE).exists()
-        && std::fs::read_to_string(LICENSE_ID_FILE) // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false);
+    // Check the persisted license file written by the background license loop.
+    let file_content = std::fs::read_to_string(LICENSE_ID_FILE) // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
+        .unwrap_or_default();
+    let trimmed = file_content.trim();
+    let has_license = !trimmed.is_empty();
+
+    if has_license {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({
+            "licensed": true,
+            "required": LICENSE_NAMES[0],
+        })));
+    }
+
+    // File missing or empty (e.g. right after snap install before the background task runs).
+    // Do a live check for engineering/demo licenses via capabilities — these are never
+    // acquired/released and therefore never written to the file until the loop runs.
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let socket_path = if !snap_data.is_empty() {
+        format!("{}/licensing-service/licensing-service.sock", snap_data)
+    } else {
+        "/tmp/licensing-service.sock".to_string()
+    };
+    let has_engineering = check_engineering_license_in_capabilities(&socket_path)
+        .await
+        .is_some();
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "licensed": has_license,
+        "licensed": has_engineering,
         "required": LICENSE_NAMES[0],
     })))
 }
