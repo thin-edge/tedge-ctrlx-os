@@ -3234,6 +3234,66 @@ async fn get_log_level(req: HttpRequest) -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(LogLevelConfig { levels }))
 }
 
+/// POST /api/diag-upload — runs diag-upload.sh in the background and returns immediately.
+/// The script collects diagnostic info and uploads the resulting tarball to Cumulocity.
+async fn run_diag_upload(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_execute() {
+        return Ok(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Admin required"
+        })));
+    }
+
+    let snap = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+
+    if snap.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Only available in snap environment"
+        })));
+    }
+
+    let script = format!("{}/scripts/diag-upload.sh", snap);
+    info!("[DIAG-UPLOAD] Starting diag-upload script: {}", script);
+
+    actix_web::rt::spawn(async move {
+        let result = web::block(move || {
+            Command::new(&script)
+                .env("SNAP", &snap)
+                .env("SNAP_DATA", &snap_data)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .and_then(|c| c.wait_with_output())
+        })
+        .await;
+        match result {
+            Ok(Ok(out)) => {
+                let output = format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&out.stdout),
+                    String::from_utf8_lossy(&out.stderr)
+                );
+                if out.status.success() {
+                    info!("[DIAG-UPLOAD] Completed successfully");
+                } else {
+                    warn!("[DIAG-UPLOAD] Script failed ({}): {}", out.status, output.trim());
+                }
+            }
+            Ok(Err(e)) => warn!("[DIAG-UPLOAD] IO error: {}", e),
+            Err(e) => warn!("[DIAG-UPLOAD] Blocking error: {}", e),
+        }
+    });
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Diagnostic collection started"
+    })))
+}
+
 async fn set_log_level(
     req: HttpRequest,
     body: web::Json<SetLogLevelRequest>,
@@ -5200,6 +5260,7 @@ async fn main() -> io::Result<()> {
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))
                             .route("/log-level", web::post().to(set_log_level))
+                            .route("/diag-upload", web::post().to(run_diag_upload))
                             .route("/snapconfig", web::get().to(get_snap_config_file))
                             .route("/snapconfig", web::post().to(save_snap_config_file))
                             .route("/inventory", web::get().to(get_inventory))
