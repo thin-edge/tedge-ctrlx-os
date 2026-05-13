@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.160
+version: 0.0.161
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -219,6 +219,20 @@ apps:
       - network
       - network-bind
 
+  c8y-firmware-plugin:
+    command: scripts/tedge-service-wrapper.sh c8y-firmware-plugin
+    daemon: simple
+    restart-condition: always
+    after:
+      - setup-directories
+      - mosquitto
+      - tedge-agent
+    aliases:
+      - c8y-firmware-plugin
+    plugs:
+      - network
+      - network-bind
+
   tedge-file-config-plugin:
     command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
     aliases:
@@ -418,6 +432,7 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-watchdog
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
       ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-firmware-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-flows-plugin
       mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins

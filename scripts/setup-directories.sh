@@ -148,3 +148,7 @@ fi
 # tedge-agent recognises remote access operations from Cumulocity.
 echo "Registering c8y-remote-access-plugin ..."
 "$SNAP/bin/c8y-remote-access-plugin" --init && echo "c8y-remote-access-plugin registered" || echo "WARNING: c8y-remote-access-plugin --init failed (ignored)"
+
+# Register c8y-firmware-plugin (c8y_Firmware operation for child devices)
+echo "Registering c8y-firmware-plugin ..."
+"$SNAP/bin/c8y-firmware-plugin" --init && echo "c8y-firmware-plugin registered" || echo "WARNING: c8y-firmware-plugin --init failed (ignored)"
