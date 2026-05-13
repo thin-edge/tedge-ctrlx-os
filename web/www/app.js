@@ -367,7 +367,7 @@ const I18N = {
       "Dieses Mapping verwendet ein 'te/'-Topic. Beim MQTT Service muss stattdessen 'c8y/mqtt/out/...' verwendet werden.",
     "datalayer.topic_hint_core": "z.B. te/device/main///m/meinWert",
     "datalayer.topic_hint_service": "z.B. c8y/mqtt/out/meinTopic",
-    "datalayer.payload_preview": "Payload preview",
+    "datalayer.payload_preview": "Datalayer Output",
   },
   en: {
     // Header
@@ -711,7 +711,7 @@ const I18N = {
     "datalayer.col_direction": "Direction",
     "datalayer.add_mapping_title": "Add Mapping",
     "datalayer.edit_mapping_title": "Edit Mapping",
-    "datalayer.payload_preview": "Payload preview",
+    "datalayer.payload_preview": "Datalayer Output",
     "common.delete": "Delete",
     // Notifications
     "notify.dl_config_err": "Error saving datalayer configuration",
@@ -3155,41 +3155,8 @@ function showMappingPayloadPreview() {
   const pre = document.getElementById("datalayer-payload-preview");
   if (!pre) return;
 
-  const transform = document.getElementById(
-    "datalayer-mapping-transform",
-  ).value;
-  const fieldName =
-    document.getElementById("datalayer-mapping-field").value.trim() ||
-    document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
-    "value";
-  const unit = document.getElementById("datalayer-mapping-unit").value.trim();
-  const ts = new Date().toISOString();
-
-  let payload;
-  if (transform === "measurement") {
-    payload = { [fieldName]: 42.0, time: ts };
-    if (unit) payload.unit = unit;
-    payload.externalId = "<device-external-id>";
-  } else if (transform === "event") {
-    payload = {
-      Text: "<datalayer-value>",
-      type: "c8y_ctrlx_Event",
-      time: ts,
-      externalId: "<device-external-id>",
-    };
-  } else if (transform === "alarm") {
-    payload = {
-      Text: "<datalayer-value>",
-      severity: "MAJOR",
-      status: "ACTIVE",
-      type: "c8y_ctrlx_Alarm",
-      time: ts,
-      externalId: "<device-external-id>",
-    };
-  } else {
-    payload = { raw: "<datalayer-value>", externalId: "<device-external-id>" };
-  }
-
+  // Show the raw Datalayer REST response format
+  const payload = { type: "double", value: 7441.35 };
   pre.textContent = JSON.stringify(payload, null, 2);
 }
 
