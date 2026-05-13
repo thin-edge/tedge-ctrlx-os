@@ -3174,12 +3174,13 @@ function showMappingPayloadPreview() {
   if (transform === "measurement") {
     payload = { [fieldName]: 42.0, time: ts };
     if (unit) payload.unit = unit;
+    payload.externalId = "<device-external-id>";
   } else if (transform === "event") {
-    payload = { [fieldName]: "<datalayer-value>", time: ts };
+    payload = { [fieldName]: "<datalayer-value>", time: ts, externalId: "<device-external-id>" };
   } else if (transform === "alarm") {
-    payload = { [fieldName]: "<datalayer-value>", severity: "MAJOR", time: ts };
+    payload = { [fieldName]: "<datalayer-value>", severity: "MAJOR", time: ts, externalId: "<device-external-id>" };
   } else {
-    payload = { [fieldName]: "<datalayer-value>" };
+    payload = { [fieldName]: "<datalayer-value>", externalId: "<device-external-id>" };
   }
 
   preMqtt.textContent = JSON.stringify(payload, null, 2);
