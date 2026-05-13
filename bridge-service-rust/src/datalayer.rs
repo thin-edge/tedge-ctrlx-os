@@ -761,6 +761,12 @@ pub async fn run_datalayer_loop(
         ))
         .await;
     }
+
+    // Clean up: release the session token on shutdown so the ctrlX session slot is freed.
+    if engine.cached_token.is_some() {
+        info!("[DATALAYER] Releasing token on shutdown");
+        engine.logout_token().await;
+    }
 }
 
 #[cfg(feature = "mqtt")]
