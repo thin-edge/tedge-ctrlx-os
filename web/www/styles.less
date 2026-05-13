@@ -41,17 +41,21 @@
 }
 
 // Vereinheitlichte Form-Feld-Styles für .form-control
-.form-control {
+body .form-control,
+body input.form-control,
+body select.form-control,
+body textarea.form-control {
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
   font-size: @font-size-base;
   font-family: @font-family-base;
-  border: 1px solid @gray-60;
+  border: 1px solid var(--c8y-palette-gray-70, #444);
   border-radius: @border-radius-base;
-  background: @palette-high;
-  color: @gray-10;
+  background: var(--c8y-palette-gray-90, #1e1e2e);
+  color: var(--c8y-palette-gray-10, #e0e0e0);
   transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
@@ -60,19 +64,19 @@
   }
 }
 
-.form-group select,
-.form-control select,
-select.form-control,
-select {
+body .form-group select,
+body .form-control select,
+body select.form-control,
+body select {
   width: 100%;
   max-width: 420px;
   padding: 6px 10px;
   font-size: @font-size-base;
   font-family: @font-family-base;
-  border: 1px solid @gray-60;
+  border: 1px solid var(--c8y-palette-gray-70, #444);
   border-radius: @border-radius-base;
-  background: @palette-high;
-  color: @gray-10;
+  background: var(--c8y-palette-gray-90, #1e1e2e);
+  color: var(--c8y-palette-gray-10, #e0e0e0);
   transition: border-color 0.15s, box-shadow 0.15s;
   appearance: none;
   -webkit-appearance: none;
@@ -80,10 +84,10 @@ select {
   box-sizing: border-box;
 }
 
-.form-group select:focus,
-.form-control select:focus,
-select.form-control:focus,
-select:focus {
+body .form-group select:focus,
+body .form-control select:focus,
+body select.form-control:focus,
+body select:focus {
   outline: none;
   border-color: @brand-primary;
   box-shadow: 0 0 0 3px rgba(23, 118, 191, 0.18);
@@ -600,7 +604,7 @@ main {
 }
 
 // ── Formulare ─────────────────────────────────────────────────
-.form-group {
+body .form-group {
   margin-bottom: 16px;
 
   label {
@@ -612,17 +616,20 @@ main {
   }
 
   input[type="text"],
-  input[type="password"] {
+  input[type="password"],
+  input[type="number"],
+  input[type="email"] {
     width:         100%;
     max-width:     420px;
     padding:       6px 10px;
     font-size:     var(--c8y-font-size-base);
     font-family:   var(--c8y-font-family-base);
-    border:        1px solid var(--c8y-palette-gray-60);
+    border:        1px solid var(--c8y-palette-gray-70, #444);
     border-radius: var(--c8y-border-radius-base);
-    background:    var(--c8y-palette-high);
-    color:         var(--c8y-palette-gray-10);
+    background:    var(--c8y-palette-gray-90, #1e1e2e);
+    color:         var(--c8y-palette-gray-10, #e0e0e0);
     transition:    border-color 0.15s, box-shadow 0.15s;
+    box-sizing:    border-box;
 
     &:focus {
       outline:      none;
@@ -1227,7 +1234,39 @@ footer {
     align-items: center;
     margin-top: 10px;
     flex-wrap: wrap;
-    input { flex: 1; max-width: 360px; }
+
+    input {
+        flex: 1;
+        max-width: 360px;
+        background: var(--c8y-palette-gray-90, #1e1e2e);
+        border: 1px solid var(--c8y-palette-gray-70, #444);
+        border-radius: 4px;
+        color: var(--c8y-palette-gray-10, #e0e0e0);
+        padding: 5px 10px;
+        font-size: 13px;
+
+        &::placeholder {
+            color: var(--c8y-palette-gray-50, #777);
+        }
+
+        &:focus {
+            outline: none;
+            border-color: var(--brand-primary, #f5a623);
+            box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.2);
+        }
+    }
+
+    .btn {
+        background: transparent;
+        border-color: var(--c8y-palette-gray-60, #555);
+        color: var(--c8y-palette-gray-20, #ccc);
+
+        &:hover {
+            background: var(--c8y-palette-gray-80, #2a2a2a);
+            border-color: var(--brand-primary, #f5a623);
+            color: var(--brand-primary, #f5a623);
+        }
+    }
 }
 
 .node-list-box {
@@ -1574,4 +1613,67 @@ footer {
 
 @keyframes ca-spin {
   to { transform: rotate(360deg); }
+}
+
+/* Tedge command accordion blocks */
+.tedge-cmd-block {
+  border: 1px solid var(--c8y-palette-gray-70, #444);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.tedge-cmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--c8y-palette-gray-90, #22223a);
+  cursor: pointer;
+  user-select: none;
+  &:hover {
+    background: var(--c8y-palette-gray-80, #2a2a45);
+  }
+}
+
+.tedge-cmd-title {
+  font-size: 13px;
+  code {
+    background: transparent;
+    color: var(--c8y-palette-yellow-50, #f0c040);
+    font-family: monospace;
+  }
+}
+
+.tedge-cmd-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tedge-cmd-chevron {
+  font-size: 11px;
+  color: var(--c8y-palette-gray-40, #aaa);
+  transition: transform 0.2s;
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.tedge-cmd-output {
+  display: none;
+  background: var(--c8y-palette-gray-100, #1a1a2e);
+  border-top: 1px solid var(--c8y-palette-gray-70, #444);
+  padding: 12px;
+  font-size: 12px;
+  font-family: monospace;
+  max-height: 60vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--c8y-palette-gray-20, #ccc);
+  margin: 0;
+  &.open {
+    display: block;
+  }
 }

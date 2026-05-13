@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.145
+version: 0.0.159
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -73,6 +73,8 @@ apps:
   # Main CLI tool
   tedge:
     command: scripts/tedge-wrapper.sh
+    aliases:
+      - tedge
     environment:
       TZ: Europe/Berlin
       PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
@@ -85,6 +87,8 @@ apps:
   # Device ID management script
   manage-device-id:
     command: scripts/manage-device-id.sh
+    aliases:
+      - tedge-manage-device-id
     environment:
       TZ: Europe/Berlin
       TEDGE_CONFIG_DIR: $SNAP_DATA/tedge
@@ -95,6 +99,8 @@ apps:
 
   tedge-connect:
     command: scripts/connect-wrapper.sh
+    aliases:
+      - tedge-connect
     environment:
       TZ: Europe/Berlin
       PATH: $SNAP/scripts:$SNAP/usr/local/bin:$SNAP/usr/bin:$SNAP/bin:$PATH
@@ -106,6 +112,8 @@ apps:
   # Build information display
   build-info:
     command: scripts/show-build-info.sh
+    aliases:
+      - tedge-build-info
     environment:
       TZ: Europe/Berlin
 
@@ -205,12 +213,16 @@ apps:
   # Plugins
   c8y-remote-access-plugin:
     command: scripts/tedge-service-wrapper.sh c8y-remote-access-plugin
+    aliases:
+      - c8y-remote-access-plugin
     plugs:
       - network
       - network-bind
 
   tedge-file-config-plugin:
     command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
+    aliases:
+      - tedge-file-config-plugin
     plugs:
       - network
 
@@ -351,7 +363,7 @@ parts:
     plugin: nil
     source: https://github.com/thin-edge/thin-edge.io.git
     source-type: git
-    source-commit: e7f31dcd5702b01f0400df3b899840240d6fbb26
+    source-commit: dbfd5d9f225d3d8b08d9363ef879d5736410b48e
     build-packages:
       - pkg-config
       - libssl-dev
@@ -608,3 +620,10 @@ parts:
       craftctl default
       # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
       cp $CRAFT_PRIME/web/www/pictures/thin-edge-avatar.png $CRAFT_PRIME/meta/icon.png
+
+  # Default flows — shipped read-only in $SNAP, copied to $SNAP_DATA on install/refresh
+  default-flows:
+    plugin: dump
+    source: ./mappings/c8y
+    organize:
+      '*': tedge-flows/mappers/c8y/

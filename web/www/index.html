@@ -225,7 +225,7 @@
                   onclick="showNav('sec-tedge-config', this)"
                 >
                   <i class="nav-icon fas fa-sliders"></i>
-                  <span data-i18n="nav.tedge_config">Tedge Config</span>
+                  <span data-i18n="nav.tedge_config">Tedge</span>
                 </a>
               </li>
               <li>
@@ -1454,32 +1454,56 @@ Click "Load Logs" to load the latest entries.</pre
 
           <!-- Tedge Configuration -->
           <section id="sec-tedge-config" class="card" data-page="tedge-config">
-            <h2 data-i18n="section.tedgeconfig">Tedge Configuration</h2>
+            <h2 data-i18n="section.tedgeconfig">Tedge</h2>
             <div
               style="
                 display: flex;
                 gap: 8px;
                 align-items: center;
                 margin-bottom: 14px;
+                flex-wrap: wrap;
               "
             >
+              <select
+                id="tedge-cmd-select"
+                class="form-control"
+                style="
+                  max-width: 320px;
+                  font-family: monospace;
+                  font-size: 13px;
+                  background: var(--c8y-palette-gray-90, #1e1e2e);
+                  border: 1px solid var(--c8y-palette-gray-70, #444);
+                  color: var(--c8y-palette-gray-10, #e0e0e0);
+                "
+              >
+                <option value="api/tedge-config-list">tedge config list</option>
+                <option value="api/tedge-config-list-all">
+                  tedge config list --all
+                </option>
+                <option value="api/tedge-config-list-doc">
+                  tedge config list --doc
+                </option>
+                <option value="api/tedge-bridge-inspect">
+                  tedge bridge inspect c8y
+                </option>
+              </select>
               <button
                 class="btn btn-primary btn-sm"
-                onclick="loadTedgeConfig()"
+                onclick="loadTedgeCmdFromSelect()"
                 data-i18n="tedgeconfig.load"
               >
-                Konfiguration laden
+                Laden
               </button>
               <button
                 class="btn btn-outline-secondary btn-sm"
-                onclick="copyTedgeConfig()"
+                onclick="copyTedgeCmd('tedge-cmd-output')"
                 data-i18n="tedgeconfig.copy"
               >
                 Kopieren
               </button>
             </div>
             <pre
-              id="tedge-config-viewer"
+              id="tedge-cmd-output"
               style="
                 background: var(--c8y-palette-gray-100, #1a1a2e);
                 border: 1px solid var(--c8y-palette-gray-70, #444);
@@ -1487,7 +1511,7 @@ Click "Load Logs" to load the latest entries.</pre
                 padding: 12px;
                 font-size: 12px;
                 font-family: monospace;
-                height: calc(100vh - 220px);
+                height: calc(100vh - 260px);
                 overflow-y: auto;
                 white-space: pre-wrap;
                 word-break: break-all;
@@ -1496,7 +1520,7 @@ Click "Load Logs" to load the latest entries.</pre
               "
               data-i18n="tedgeconfig.placeholder"
             >
-Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pre
+Befehl auswählen und "Laden" klicken…</pre
             >
           </section>
 
@@ -1520,11 +1544,11 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   id="snapconfig-file-select"
                   style="
                     padding: 6px 10px;
-                    border: 1px solid var(--c8y-palette-gray-60);
+                    border: 1px solid var(--c8y-palette-gray-60, #555);
                     border-radius: 4px;
                     font-size: 14px;
-                    background: var(--c8y-palette-high);
-                    color: var(--c8y-palette-gray-10);
+                    background: var(--c8y-palette-gray-90, #1e1e2e);
+                    color: var(--c8y-palette-gray-10, #e0e0e0);
                     font-family: var(--c8y-font-family-base);
                   "
                 >
@@ -1784,7 +1808,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   display: flex;
                   align-items: center;
                   gap: 8px;
-                  margin-bottom: 15px;
+                  margin-bottom: 8px;
                   color: var(--brand-primary);
                 "
               >
@@ -1801,7 +1825,66 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                 >
               </div>
 
+              <!-- Mapping-Typ Toggle (label + switch, direkt unter Titel) -->
+              <div class="tedge-switch-group" style="margin-bottom: 8px">
+                <label class="tedge-switch">
+                  <input
+                    type="checkbox"
+                    id="datalayer-mapping-type-chk"
+                    onchange="
+                      setMappingTypeBtn(this.checked ? 'flow' : 'datalayer');
+                      showMappingPayloadPreview();
+                    "
+                  />
+                  <span class="tedge-switch-slider"></span>
+                </label>
+                <span
+                  id="mtype-label"
+                  data-i18n="mappingmode.bridge"
+                  style="font-size: 13px; cursor: pointer"
+                  onclick="
+                    const c = document.getElementById(
+                      'datalayer-mapping-type-chk',
+                    );
+                    c.checked = !c.checked;
+                    setMappingTypeBtn(c.checked ? 'flow' : 'datalayer');
+                    showMappingPayloadPreview();
+                  "
+                  >ctrlX Datalayer Mapping</span
+                >
+                <input
+                  type="hidden"
+                  id="datalayer-mapping-type"
+                  value="datalayer"
+                />
+              </div>
+
+              <!-- Hint for datalayer mode -->
+              <div
+                id="mtype-datalayer-hint"
+                style="
+                  font-size: 11px;
+                  color: var(--c8y-palette-gray-40, #aaa);
+                  margin-bottom: 14px;
+                  padding: 6px 10px;
+                  border-left: 2px solid var(--c8y-brand-primary, #1776bf);
+                  background: var(--c8y-palette-gray-90, #1e1e2e);
+                "
+              >
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="margin-right: 5px; opacity: 0.7"
+                ></i>
+                <span data-i18n="datalayer.cloud_mapping_hint"
+                  >Stelle bitte sicher, dass ein entsprechendes Data Mapping in
+                  der Cloud konfiguriert ist – sei es durch Data Preparation,
+                  den Dynamic Mapper, einen Microservice oder ein anderes
+                  Mapping-Tool deiner Wahl.</span
+                >
+              </div>
+
               <div class="status-columns">
+                <!-- LEFT: Datalayer Pfad, Feldname, Einheit -->
                 <div class="status-col">
                   <div class="form-group">
                     <label
@@ -1847,33 +1930,56 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       oninput="showMappingPayloadPreview()"
                     />
                   </div>
-                  <div class="form-group">
-                    <label data-i18n="datalayer.payload_preview"
-                      >Cloud Payload Preview</label
+                  <div class="form-group" id="datalayer-unit-group">
+                    <label
+                      for="datalayer-mapping-unit"
+                      data-i18n="datalayer.unit"
+                      >Unit (optional)</label
                     >
-                    <pre
-                      id="datalayer-payload-preview"
-                      style="
-                        background: var(--c8y-palette-gray-90, #f5f5f5);
-                        border: 1px solid var(--c8y-palette-gray-70, #ddd);
-                        border-radius: 4px;
-                        padding: 8px;
-                        font-size: 11px;
-                        min-height: 72px;
-                        white-space: pre-wrap;
-                        word-break: break-all;
-                        color: var(--c8y-palette-gray-20, #333);
-                        margin: 0;
-                      "
-                    ></pre>
+                    <input
+                      type="text"
+                      id="datalayer-mapping-unit"
+                      class="form-control"
+                      placeholder="°C, bar, ..."
+                      oninput="showMappingPayloadPreview()"
+                    />
                   </div>
                 </div>
+
+                <!-- RIGHT: Flow auswählen, tedge MQTT Topic, Transform, Datalayer Output, Buttons -->
                 <div class="status-col">
+                  <!-- Flow selector (only visible in flow mode) -->
+                  <div
+                    id="mtype-flow-select-wrap"
+                    class="form-group"
+                    style="display: none"
+                  >
+                    <label
+                      for="datalayer-flow-select"
+                      data-i18n="datalayer.flow_select_label"
+                      >Flow auswählen</label
+                    >
+                    <select
+                      id="datalayer-flow-select"
+                      class="form-control"
+                      style="font-family: monospace"
+                      onchange="onDatalayerFlowSelected()"
+                    >
+                      <option
+                        value=""
+                        data-i18n="datalayer.flow_select_placeholder"
+                      >
+                        — Flow auswählen —
+                      </option>
+                    </select>
+                  </div>
+
                   <div class="form-group">
                     <label
+                      id="datalayer-topic-label"
                       for="datalayer-mapping-topic"
-                      data-i18n="datalayer.topic"
-                      >tedge MQTT Topic</label
+                      data-i18n="datalayer.topic_out"
+                      >tedge MQTT Topic - out</label
                     >
                     <input
                       type="text"
@@ -1893,6 +1999,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       class="form-control"
                       onchange="
                         updateTopicPrefix();
+                        _toggleUnitField();
                         showMappingPayloadPreview();
                       "
                     >
@@ -1902,20 +2009,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       <option value="alarm">Alarm</option>
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label
-                      for="datalayer-mapping-unit"
-                      data-i18n="datalayer.unit"
-                      >Unit (optional)</label
-                    >
-                    <input
-                      type="text"
-                      id="datalayer-mapping-unit"
-                      class="form-control"
-                      placeholder="°C, bar, ..."
-                      oninput="showMappingPayloadPreview()"
-                    />
-                  </div>
+
                   <div
                     class="action-buttons"
                     style="
@@ -1958,6 +2052,64 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- Preview row: both previews side by side, always same height -->
+              <div style="display: flex; gap: 16px; margin-top: 16px">
+                <div style="flex: 1; display: flex; flex-direction: column">
+                  <label
+                    id="datalayer-output-label"
+                    style="
+                      font-size: 12px;
+                      font-weight: 600;
+                      margin-bottom: 4px;
+                    "
+                    >Datalayer Output</label
+                  >
+                  <pre
+                    id="datalayer-payload-preview"
+                    style="
+                      flex: 1;
+                      background: var(--c8y-palette-gray-90, #f5f5f5);
+                      border: 1px solid var(--c8y-palette-gray-70, #ddd);
+                      border-radius: 4px;
+                      padding: 8px;
+                      font-size: 11px;
+                      min-height: 100px;
+                      white-space: pre-wrap;
+                      word-break: break-all;
+                      color: var(--c8y-palette-gray-20, #333);
+                      margin: 0;
+                    "
+                  ></pre>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column">
+                  <label
+                    id="datalayer-mqtt-preview-label"
+                    style="
+                      font-size: 12px;
+                      font-weight: 600;
+                      margin-bottom: 4px;
+                    "
+                    >Payload Preview</label
+                  >
+                  <pre
+                    id="datalayer-mqtt-payload-preview"
+                    style="
+                      flex: 1;
+                      background: var(--c8y-palette-gray-90, #f5f5f5);
+                      border: 1px solid var(--c8y-palette-gray-70, #ddd);
+                      border-radius: 4px;
+                      padding: 8px;
+                      font-size: 11px;
+                      min-height: 100px;
+                      white-space: pre-wrap;
+                      word-break: break-all;
+                      color: var(--c8y-palette-gray-20, #333);
+                      margin: 0;
+                    "
+                  ></pre>
                 </div>
               </div>
             </div>
@@ -2011,14 +2163,10 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                   <tr>
                     <th data-i18n="datalayer.path">Pfad</th>
                     <th data-i18n="datalayer.topic">Topic</th>
-                    <th
-                      class="text-center"
-                      style="width: 32px"
-                      data-i18n="datalayer.direction"
-                    >
-                      Richtung
+                    <th>Typ</th>
+                    <th style="width: 100px" data-i18n="mappingmode.col_label">
+                      Mapping-Typ
                     </th>
-                    <th>Typ · Feld</th>
                     <th
                       class="text-center"
                       style="width: 52px"
@@ -2136,11 +2284,26 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
           <section id="sec-flows" class="card" data-page="flows">
             <h2 data-i18n="section.flows">Flows</h2>
 
+            <!-- "Flow" label above Mapper -->
+            <div
+              style="
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--c8y-palette-gray-40, #999);
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 6px;
+              "
+            >
+              <span data-i18n="flows.flow_label">Flow</span>
+            </div>
+
             <!-- Toolbar -->
             <div
               style="
                 display: flex;
                 align-items: center;
+                justify-content: flex-start;
                 gap: 10px;
                 margin-bottom: 12px;
                 flex-wrap: wrap;
@@ -2151,8 +2314,8 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
               </label>
               <select
                 id="flows-mapper-select"
-                class="input-field"
-                style="width: 160px; padding: 5px 8px"
+                class="form-control"
+                style="width: 160px"
                 onchange="loadFlows()"
               >
                 <option value="c8y">Cumulocity (c8y)</option>
@@ -2224,7 +2387,7 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
               </div>
             </div>
 
-            <!-- Split layout: tree left, editor right -->
+            <!-- Split layout: trees left, editor right -->
             <div
               style="
                 display: flex;
@@ -2233,47 +2396,120 @@ Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.</pr
                 min-height: 340px;
               "
             >
-              <!-- LEFT: Flow tree -->
-              <div style="width: 240px; flex-shrink: 0">
-                <div
-                  id="flows-loading"
-                  style="
-                    font-size: 13px;
-                    color: var(--c8y-palette-gray-40, #999);
-                    padding: 4px 0;
-                  "
-                >
-                  <span data-i18n="flows.loading">Wird geladen...</span>
+              <!-- LEFT: Active + Archived flows side by side -->
+              <div
+                style="
+                  display: flex;
+                  gap: 10px;
+                  align-items: flex-start;
+                  flex-shrink: 0;
+                "
+              >
+                <!-- Active Flows tree -->
+                <div style="width: 240px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--c8y-palette-gray-40, #999);
+                      letter-spacing: 0.06em;
+                      text-transform: uppercase;
+                      margin-bottom: 6px;
+                    "
+                    data-i18n="flows.active_label"
+                  >
+                    Aktive Flows
+                  </div>
+                  <div
+                    id="flows-loading"
+                    style="
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.loading">Wird geladen...</span>
+                  </div>
+                  <div
+                    id="flows-empty"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+                  </div>
+                  <div
+                    id="flows-error"
+                    style="
+                      display: none;
+                      font-size: 12px;
+                      color: var(--c8y-brand-danger, #e74c3c);
+                      padding: 4px 0;
+                    "
+                  ></div>
+                  <div
+                    id="flows-tree"
+                    style="
+                      display: none;
+                      border: 1px solid var(--c8y-palette-gray-70, #333);
+                      border-radius: 4px;
+                      overflow: hidden;
+                    "
+                  ></div>
                 </div>
-                <div
-                  id="flows-empty"
-                  style="
-                    display: none;
-                    font-size: 13px;
-                    color: var(--c8y-palette-gray-40, #999);
-                    padding: 4px 0;
-                  "
-                >
-                  <span data-i18n="flows.empty">Keine Flows vorhanden.</span>
+
+                <!-- Archived Flows tree -->
+                <div style="width: 240px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: var(--c8y-palette-gray-40, #999);
+                      letter-spacing: 0.06em;
+                      text-transform: uppercase;
+                      margin-bottom: 6px;
+                    "
+                    data-i18n="flows.archived_label"
+                  >
+                    Archivierte Flows
+                  </div>
+                  <div
+                    id="flows-archived-loading"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.loading">Wird geladen...</span>
+                  </div>
+                  <div
+                    id="flows-archived-empty"
+                    style="
+                      display: none;
+                      font-size: 13px;
+                      color: var(--c8y-palette-gray-40, #999);
+                      padding: 4px 0;
+                    "
+                  >
+                    <span data-i18n="flows.archived_empty"
+                      >Keine archivierten Flows.</span
+                    >
+                  </div>
+                  <div
+                    id="flows-archived-tree"
+                    style="
+                      display: none;
+                      border: 1px solid var(--c8y-palette-gray-70, #333);
+                      border-radius: 4px;
+                      overflow: hidden;
+                    "
+                  ></div>
                 </div>
-                <div
-                  id="flows-error"
-                  style="
-                    display: none;
-                    font-size: 12px;
-                    color: var(--c8y-brand-danger, #e74c3c);
-                    padding: 4px 0;
-                  "
-                ></div>
-                <div
-                  id="flows-tree"
-                  style="
-                    display: none;
-                    border: 1px solid var(--c8y-palette-gray-70, #333);
-                    border-radius: 4px;
-                    overflow: hidden;
-                  "
-                ></div>
               </div>
 
               <!-- RIGHT: Editor area (three exclusive states) -->

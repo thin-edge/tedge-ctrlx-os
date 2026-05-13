@@ -51,6 +51,10 @@ pub struct DatalayerMapping {
     pub unit: Option<String>,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Which pipeline handles this mapping: "datalayer" (bridge) or "flow" (tedge-flows).
+    /// Used by the UI to label mappings; the bridge skips mappings with mapping_type == "flow".
+    #[serde(default = "default_mapping_type")]
+    pub mapping_type: String,
 }
 
 // Helper function for Serde
@@ -60,6 +64,9 @@ fn generate_uuid() -> String {
 
 fn default_direction() -> MappingDirection {
     MappingDirection::DatalayerToTedge
+}
+fn default_mapping_type() -> String {
+    "datalayer".to_string()
 }
 fn default_true() -> bool {
     true
@@ -284,8 +291,13 @@ impl DatalayerEngine {
             }
         }
 
-        // Try to logout any existing session first to free up the session slot
-        self.logout_token().await;
+        // Try to logout any existing session first to free up the session slot.
+        // Only attempt logout if we actually have a cached token — otherwise
+        // we'd just be firing a DELETE with no bearer token which does nothing.
+        if self.cached_token.is_some() {
+            self.logout_token().await;
+        }
+
         let user = match &self.credentials.username {
             Some(u) if !u.is_empty() => u.clone(),
             _ => return false,
@@ -322,6 +334,12 @@ impl DatalayerEngine {
                 } else {
                     let body = r.text().await.unwrap_or_default();
                     warn!("[DATALAYER] Token fetch failed: HTTP {status} — {body}");
+                    // For "Too many sessions" (HTTP 400) use a longer backoff to
+                    // give the ctrlX time to expire old sessions on its own.
+                    let backoff_secs = if status.as_u16() == 400 { 300 } else { 60 };
+                    self.token_fail_until =
+                        Some(Instant::now() + std::time::Duration::from_secs(backoff_secs));
+                    return false;
                 }
                 // Back off for 60s before retrying
                 self.token_fail_until = Some(Instant::now() + std::time::Duration::from_secs(60));
@@ -398,10 +416,13 @@ impl DatalayerEngine {
                 }
                 Ok(resp) => {
                     if resp.status() == 401 {
-                        // Token expired — reset cache and backoff so a new token is fetched immediately
+                        // Token expired — clear cache but respect existing backoff.
+                        // Only reset the backoff if there is none yet (first 401).
                         self.cached_token = None;
-                        self.token_fail_until = None;
-                        // Fetch a new token and retry immediately
+                        if self.token_fail_until.is_none() {
+                            self.token_fail_until = None; // allow immediate retry once
+                        }
+                        // Fetch a new token and retry immediately (only if no backoff active)
                         if self.credentials.username.is_some() {
                             self.fetch_token().await;
                             let new_token = self.effective_token();
@@ -476,6 +497,22 @@ impl DatalayerEngine {
         }
         to_publish
     }
+
+    /// Returns true when token auth is configured but currently in a failure backoff
+    pub fn is_token_failing(&self) -> bool {
+        if self
+            .credentials
+            .username
+            .as_deref()
+            .map(|u| !u.is_empty())
+            .unwrap_or(false)
+        {
+            if let Some(until) = self.token_fail_until {
+                return Instant::now() < until;
+            }
+        }
+        false
+    }
 }
 
 // --- Loops & Handler ---
@@ -499,13 +536,18 @@ pub async fn run_datalayer_loop(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs_f64();
-            let health_up = format!(r#"{{"pid":{pid},"status":"up","time":{time}}}"#);
+            let health_status = if engine.is_token_failing() {
+                "down"
+            } else {
+                "up"
+            };
+            let health_msg = format!(r#"{{"pid":{pid},"status":"{health_status}","time":{time}}}"#);
             let guard = mqtt_client.lock().await;
             if let Some(cli) = guard.as_ref() {
                 let _ = cli
                     .publish(mqtt::Message::new_retained(
                         HEALTH_TOPIC,
-                        health_up.as_str(),
+                        health_msg.as_str(),
                         1,
                     ))
                     .await;
@@ -600,18 +642,19 @@ pub async fn run_datalayer_loop(
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    // Core MQTT (8883): thin-edge format
-                                    let json_data = serde_json::json!({
-                                        "text": format!("Event: {} is {}", field_name, payload),
-                                        "type": "ctrlx_event"
-                                    })
-                                    .to_string();
-                                    let ev_topic = if mapping.topic.contains("events") {
-                                        mapping.topic.clone()
-                                    } else {
-                                        "tedge/events/ctrlx_event".to_string()
-                                    };
-                                    (ev_topic, json_data)
+                                    // Core MQTT (8883): publish to dl/ for flow processing
+                                    let mut json_obj =
+                                        serde_json::json!({ &field_name: parsed_value });
+                                    let now = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_millis();
+                                    json_obj["time"] = serde_json::json!(format_iso8601(
+                                        (now / 1000) as u64,
+                                        (now % 1000) as u32
+                                    ));
+                                    let ev_topic = format!("dl/device/main///e/{}", field_name);
+                                    (ev_topic, json_obj.to_string())
                                 }
                             }
                             MappingTransform::Alarm => {
@@ -651,21 +694,58 @@ pub async fn run_datalayer_loop(
                                     }
                                     (mapping.topic.clone(), json_obj.to_string())
                                 } else {
-                                    // Core MQTT (8883): thin-edge format
-                                    let json_data = serde_json::json!({
-                                        "text": format!("Alarm at {}: value is {}", field_name, payload),
-                                        "severity": "major"
-                                    })
-                                    .to_string();
-                                    let al_topic = if mapping.topic.contains("alarms") {
-                                        mapping.topic.clone()
-                                    } else {
-                                        "tedge/alarms/major/ctrlx_alarm".to_string()
-                                    };
-                                    (al_topic, json_data)
+                                    // Core MQTT (8883): publish to dl/ for flow processing
+                                    let mut json_obj =
+                                        serde_json::json!({ &field_name: parsed_value });
+                                    if let Some(sev) =
+                                        parsed_value.get("severity").and_then(|v| v.as_str())
+                                    {
+                                        json_obj["severity"] = serde_json::json!(sev);
+                                    }
+                                    let now = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_millis();
+                                    json_obj["time"] = serde_json::json!(format_iso8601(
+                                        (now / 1000) as u64,
+                                        (now % 1000) as u32
+                                    ));
+                                    let al_topic = format!("dl/device/main///a/{}", field_name);
+                                    (al_topic, json_obj.to_string())
                                 }
                             }
-                            _ => (mapping.topic.clone(), payload),
+                            _ => {
+                                // For "flow" mapping_type: publish to dl/device/main///m/<field>
+                                // The "dl/" prefix is a dedicated datalayer-to-flow namespace:
+                                // - Flows subscribe to "dl/+/+/+/+/m/+" (not "te/+/+/+/+/m/+")
+                                // - Flows transform and re-publish to "te/device/main///m/<field>"
+                                // - The c8y mapper built-in then adds source.id and forwards to C8y
+                                // This avoids device-ID lookups in flow scripts and infinite loops.
+                                let mut parsed_value: serde_json::Value =
+                                    serde_json::from_str(&payload)
+                                        .unwrap_or_else(|_| serde_json::json!(payload));
+                                if let Some(obj) = parsed_value.as_object() {
+                                    if let Some(val) = obj.values().next() {
+                                        parsed_value = val.clone();
+                                    }
+                                }
+                                let mut json_obj = serde_json::json!({ &field_name: parsed_value });
+                                if let Some(unit) = &mapping.unit {
+                                    if !unit.is_empty() {
+                                        json_obj["unit"] = serde_json::json!(unit);
+                                    }
+                                }
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis();
+                                json_obj["time"] = serde_json::json!(format_iso8601(
+                                    (now / 1000) as u64,
+                                    (now % 1000) as u32
+                                ));
+                                let dl_topic = format!("dl/device/main///m/{}", field_name);
+                                (dl_topic, json_obj.to_string())
+                            }
                         };
 
                         // 3. Publish the message
@@ -680,6 +760,12 @@ pub async fn run_datalayer_loop(
             engine.config.poll_interval_ms as u64,
         ))
         .await;
+    }
+
+    // Clean up: release the session token on shutdown so the ctrlX session slot is freed.
+    if engine.cached_token.is_some() {
+        info!("[DATALAYER] Releasing token on shutdown");
+        engine.logout_token().await;
     }
 }
 

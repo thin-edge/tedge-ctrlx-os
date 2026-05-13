@@ -23,7 +23,7 @@ const I18N = {
     "nav.connect": "Verbinden",
     "nav.logs": "Logs",
     "nav.tedge_config": "Tedge Config",
-    "nav.device": "Gerät",
+    "nav.device": "Geräte Konfig",
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Lizenzierung",
@@ -64,12 +64,20 @@ const I18N = {
     "licensing.col.quantity": "Anzahl",
     // Flows
     "section.flows": "Flows (JavaScript-Transformationen)",
+    "flows.flow_label": "Flow",
+    "flows.active_label": "Aktive Flows",
+    "flows.archived_label": "Archivierte Flows",
     "flows.mapper_label": "Mapper",
     "flows.refresh": "Aktualisieren",
     "flows.upload_btn": "Flow hochladen (.toml)",
     "flows.new_btn": "Neu",
     "flows.loading": "Flows werden geladen...",
     "flows.empty": "Keine Flows vorhanden.",
+    "flows.archived_empty": "Keine archivierten Flows.",
+    "flows.restore_flow_btn": "Flow wiederherstellen",
+    "flows.archive_flow_btn": "Flow archivieren",
+    "datalayer.flow_select_label": "Flow auswählen",
+    "datalayer.flow_select_placeholder": "— Flow auswählen —",
     "flows.editor_placeholder":
       'Flow in der Liste auswählen oder "Neu" klicken.',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
@@ -186,15 +194,15 @@ const I18N = {
     "logs.copy": "Kopieren",
     "logs.copied": "Logs in Zwischenablage kopiert",
     "logs.placeholder": 'Klicke „Logs laden" um die letzten Einträge zu laden.',
-    // Tedge Config
-    "section.tedgeconfig": "Tedge Konfiguration",
-    "tedgeconfig.load": "Konfiguration laden",
+    // Tedge
+    "section.tedgeconfig": "Tedge",
+    "nav.tedge_config": "Tedge",
+    "tedgeconfig.load": "Laden",
     "tedgeconfig.copy": "Kopieren",
-    "tedgeconfig.placeholder":
-      'Auf "Konfiguration laden" klicken, um die aktuelle Konfiguration anzuzeigen.',
-    "tedgeconfig.loading": "Lade Konfiguration…",
-    "tedgeconfig.error": (msg) => `Fehler beim Laden der Konfiguration: ${msg}`,
-    "tedgeconfig.copied": "Konfiguration in Zwischenablage kopiert",
+    "tedgeconfig.placeholder": 'Auf "Laden" klicken…',
+    "tedgeconfig.loading": "Lade…",
+    "tedgeconfig.error": (msg) => `Fehler: ${msg}`,
+    "tedgeconfig.copied": "In Zwischenablage kopiert",
     // Sysinfo
     "sysinfo.version": "Version:",
     "sysinfo.build": "Build:",
@@ -284,8 +292,23 @@ const I18N = {
     "cert.create_err": "Fehler beim Erstellen des Zertifikats",
     // Datalayer section
     "section.datalayer": "ctrlX Datenpunkte (Datalayer)",
+    // Mapping Mode
+    "mappingmode.label": "Mapping-Modus",
+    "mappingmode.col_label": "Mapping-Typ",
+    "mappingmode.bridge": "ctrlX Datalayer Mapping",
+    "mappingmode.flows": "Tedge Flow Mapping",
+    "mappingmode.conflict": "⚠ Konflikt – beide aktiv",
+    "mappingmode.warning":
+      "⚠ Beide Modi sind aktiv — Daten werden doppelt an Cumulocity gesendet!",
+    "mappingmode.hint":
+      "ctrlX Datalayer Mapping: Datalayer → MQTT direkt · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.applied": "Modus gespeichert.",
+    "mappingmode.error": "Fehler beim Speichern des Modus.",
+    "datalayer.topic_out": "tedge MQTT Topic - out",
+    "datalayer.topic_in": "tedge MQTT Flow Topic - in",
+    "datalayer.cloud_mapping_hint":
+      "Stelle bitte sicher, dass ein entsprechendes Data Mapping in der Cloud konfiguriert ist – sei es durch Data Preparation, den Dynamic Mapper, einen Microservice oder ein anderes Mapping-Tool deiner Wahl.",
     // Snap Config Editor
-    "section.snapconfig": "Snap Konfigurationsdateien",
     "snapconfig.file": "Datei",
     "snapconfig.load": "Laden",
     "snapconfig.save": "Speichern",
@@ -344,7 +367,7 @@ const I18N = {
       "Dieses Mapping verwendet ein 'te/'-Topic. Beim MQTT Service muss stattdessen 'c8y/mqtt/out/...' verwendet werden.",
     "datalayer.topic_hint_core": "z.B. te/device/main///m/meinWert",
     "datalayer.topic_hint_service": "z.B. c8y/mqtt/out/meinTopic",
-    "datalayer.payload_preview": "Payload preview",
+    "datalayer.payload_preview": "Datalayer Output",
   },
   en: {
     // Header
@@ -361,8 +384,8 @@ const I18N = {
     "nav.certificate": "Certificate",
     "nav.connect": "Connect",
     "nav.logs": "Logs",
-    "nav.tedge_config": "Tedge Config",
-    "nav.device": "Device",
+    "nav.tedge_config": "Tedge",
+    "nav.device": "Device Config",
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Licensing",
@@ -403,12 +426,20 @@ const I18N = {
     "licensing.col.quantity": "Qty",
     // Flows
     "section.flows": "Flows (JavaScript Transformations)",
+    "flows.flow_label": "Flow",
+    "flows.active_label": "Active Flows",
+    "flows.archived_label": "Archived Flows",
     "flows.mapper_label": "Mapper",
     "flows.refresh": "Refresh",
     "flows.upload_btn": "Upload Flow (.toml)",
     "flows.new_btn": "New",
     "flows.loading": "Loading flows...",
     "flows.empty": "No flows configured.",
+    "flows.archived_empty": "No archived flows.",
+    "flows.restore_flow_btn": "Restore flow",
+    "flows.archive_flow_btn": "Archive flow",
+    "datalayer.flow_select_label": "Select flow",
+    "datalayer.flow_select_placeholder": "— Select flow —",
     "flows.editor_placeholder": 'Select a flow from the list or click "New".',
     "flows.editor_placeholder_toml": "# TOML flow configuration",
     "flows.col.name": "Filename",
@@ -606,17 +637,32 @@ const I18N = {
     "cert.create_err": "Error creating certificate",
     // Datalayer section
     "section.datalayer": "ctrlX Data Points (Datalayer)",
+    // Mapping Mode
+    "mappingmode.label": "Mapping Mode",
+    "mappingmode.col_label": "Mapping Type",
+    "mappingmode.bridge": "ctrlX Datalayer Mapping",
+    "mappingmode.flows": "Tedge Flow Mapping",
+    "mappingmode.conflict": "⚠ Conflict – both active",
+    "mappingmode.warning":
+      "⚠ Both modes are active — data will be sent twice to Cumulocity!",
+    "mappingmode.hint":
+      "ctrlX Datalayer Mapping: Datalayer → MQTT direct · Tedge Flow Mapping: Datalayer → te/… → Flows → c8y/…",
+    "mappingmode.applied": "Mode saved.",
+    "mappingmode.error": "Error saving mode.",
+    "datalayer.topic_out": "tedge MQTT Topic - out",
+    "datalayer.topic_in": "tedge MQTT Flow Topic - in",
+    "datalayer.cloud_mapping_hint":
+      "Please ensure that you have data mapping in place in the Cloud, using either Data Preparation, the Dynamic Mapper, a Microservice, or any other mapping tool.",
     // Snap Config Editor
-    "section.snapconfig": "Snap Configuration Files",
-    // Tedge Config section
-    "section.tedgeconfig": "Tedge Configuration",
-    "tedgeconfig.load": "Load Configuration",
+    // Tedge section
+    "section.tedgeconfig": "Tedge",
+    "nav.tedge_config": "Tedge",
+    "tedgeconfig.load": "Load",
     "tedgeconfig.copy": "Copy",
-    "tedgeconfig.placeholder":
-      'Click "Load Configuration" to view all tedge settings.',
-    "tedgeconfig.loading": "Loading configuration…",
-    "tedgeconfig.error": (msg) => `Error loading configuration: ${msg}`,
-    "tedgeconfig.copied": "Configuration copied to clipboard",
+    "tedgeconfig.placeholder": 'Click "Load"…',
+    "tedgeconfig.loading": "Loading…",
+    "tedgeconfig.error": (msg) => `Error: ${msg}`,
+    "tedgeconfig.copied": "Copied to clipboard",
     "snapconfig.file": "File",
     "snapconfig.load": "Load",
     "snapconfig.save": "Save",
@@ -665,7 +711,7 @@ const I18N = {
     "datalayer.col_direction": "Direction",
     "datalayer.add_mapping_title": "Add Mapping",
     "datalayer.edit_mapping_title": "Edit Mapping",
-    "datalayer.payload_preview": "Payload preview",
+    "datalayer.payload_preview": "Datalayer Output",
     "common.delete": "Delete",
     // Notifications
     "notify.dl_config_err": "Error saving datalayer configuration",
@@ -1618,49 +1664,65 @@ async function applyLogLevel() {
   }
 }
 
-// Load tedge config list
-async function loadTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  if (!viewer) return;
-  viewer.textContent = t("tedgeconfig.loading");
+// Tedge command blocks: toggle accordion
+function toggleTedgeCmd(id) {
+  const pre = document.getElementById(id);
+  const chevron = document.getElementById(id + "-chevron");
+  if (!pre) return;
+  const isOpen = pre.classList.toggle("open");
+  if (chevron) chevron.classList.toggle("open", isOpen);
+}
+
+// Load command selected from the dropdown
+async function loadTedgeCmdFromSelect() {
+  const sel = document.getElementById("tedge-cmd-select");
+  if (!sel) return;
+  loadTedgeCmd("tedge-cmd-output", sel.value);
+}
+
+// Load output for a tedge command block
+async function loadTedgeCmd(id, endpoint) {
+  const pre = document.getElementById(id);
+  if (!pre) return;
+  pre.textContent = t("tedgeconfig.loading");
   try {
-    const response = await fetchWithAuth("api/tedge-config-list");
+    const response = await fetchWithAuth(endpoint);
     if (response.status === 403) {
-      viewer.textContent = t("tedgeconfig.error", "Keine Berechtigung");
+      pre.textContent = t("tedgeconfig.error", "Keine Berechtigung");
       return;
     }
     const data = await response.json();
-    if (data.output) {
-      viewer.textContent = data.output;
-    } else {
-      viewer.textContent = t(
-        "tedgeconfig.error",
-        data.error || "Unbekannter Fehler",
-      );
-    }
-  } catch (error) {
-    viewer.textContent = t("tedgeconfig.error", error.message);
+    pre.textContent =
+      data.output || t("tedgeconfig.error", data.error || "Unbekannter Fehler");
+  } catch (err) {
+    pre.textContent = t("tedgeconfig.error", err.message);
   }
 }
 
-function copyTedgeConfig() {
-  const viewer = document.getElementById("tedge-config-viewer");
-  if (!viewer || !viewer.textContent) return;
+function copyTedgeCmd(id) {
+  const pre = document.getElementById(id);
+  if (!pre || !pre.textContent) return;
   navigator.clipboard
-    .writeText(viewer.textContent)
-    .then(() => {
-      showNotification(t("tedgeconfig.copied"), "success");
-    })
+    .writeText(pre.textContent)
+    .then(() => showNotification(t("tedgeconfig.copied"), "success"))
     .catch(() => {
       const sel = window.getSelection();
       const range = document.createRange();
-      range.selectNodeContents(viewer);
+      range.selectNodeContents(pre);
       sel.removeAllRanges();
       sel.addRange(range);
       document.execCommand("copy");
       sel.removeAllRanges();
       showNotification(t("tedgeconfig.copied"), "success");
     });
+}
+
+// Legacy aliases (kept for backwards compatibility)
+function loadTedgeConfig() {
+  loadTedgeCmd("tedge-cmd-output", "api/tedge-config-list");
+}
+function copyTedgeConfig() {
+  copyTedgeCmd("tedge-cmd-output");
 }
 
 function copyLogs() {
@@ -2496,6 +2558,262 @@ function _initDatalayerUI() {
   }, 150);
 }
 
+// ─── Mapping Mode ──────────────────────────────────────────────────────────
+
+/** Sets the active mapping_type toggle (checkbox + label) in the edit form */
+function setMappingTypeBtn(type) {
+  const chk = document.getElementById("datalayer-mapping-type-chk");
+  const label = document.getElementById("mtype-label");
+  const hidden = document.getElementById("datalayer-mapping-type");
+  const hint = document.getElementById("mtype-datalayer-hint");
+  const flowWrap = document.getElementById("mtype-flow-select-wrap");
+
+  if (chk) chk.checked = type === "flow";
+  if (hidden) hidden.value = type;
+
+  if (label) {
+    label.setAttribute(
+      "data-i18n",
+      type === "flow" ? "mappingmode.flows" : "mappingmode.bridge",
+    );
+    label.textContent =
+      type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+  }
+
+  // Show cloud-mapping hint only for datalayer mode
+  if (hint) hint.style.display = type === "flow" ? "none" : "";
+
+  // Show flow selector only in flow mode
+  if (flowWrap) {
+    flowWrap.style.display = type === "flow" ? "" : "none";
+    if (type === "flow") _loadFlowsDropdown(null);
+  }
+
+  // Topic field: readonly in flow mode (filled from dropdown)
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  if (topicInput) topicInput.readOnly = type === "flow";
+
+  // Auto-update topic + placeholder based on selected type
+  _applyMappingTypeToTopic(type);
+}
+
+/** Like setMappingTypeBtn but does NOT touch the topic field.
+ *  Use this when loading an existing mapping so the stored topic is preserved. */
+function _setMappingTypeVisual(type, existingTopic) {
+  const chk = document.getElementById("datalayer-mapping-type-chk");
+  const label = document.getElementById("mtype-label");
+  const hidden = document.getElementById("datalayer-mapping-type");
+  const hint = document.getElementById("mtype-datalayer-hint");
+  const flowWrap = document.getElementById("mtype-flow-select-wrap");
+
+  if (chk) chk.checked = type === "flow";
+  if (hidden) hidden.value = type;
+
+  if (label) {
+    label.setAttribute(
+      "data-i18n",
+      type === "flow" ? "mappingmode.flows" : "mappingmode.bridge",
+    );
+    label.textContent =
+      type === "flow" ? t("mappingmode.flows") : t("mappingmode.bridge");
+  }
+
+  if (hint) hint.style.display = type === "flow" ? "none" : "";
+
+  // Show flow selector in flow mode; preselect matching flow if possible
+  if (flowWrap) {
+    flowWrap.style.display = type === "flow" ? "" : "none";
+    if (type === "flow") _loadFlowsDropdown(existingTopic || null);
+  }
+
+  // Topic field: readonly in flow mode
+  const topicInputVis = document.getElementById("datalayer-mapping-topic");
+  if (topicInputVis) topicInputVis.readOnly = type === "flow";
+
+  // Update placeholder only, not the value
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  if (topicInput) {
+    const transform =
+      document.getElementById("datalayer-mapping-transform")?.value ||
+      "measurement";
+    if (type === "flow") {
+      if (transform === "event") topicInput.placeholder = "e.g. te/+/+/+/+/e/+";
+      else if (transform === "alarm")
+        topicInput.placeholder = "e.g. te/+/+/+/+/a/+";
+      else topicInput.placeholder = "e.g. te/+/+/+/+/m/+";
+    } else {
+      if (transform === "event")
+        topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+      else if (transform === "alarm")
+        topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+      else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+    }
+  }
+}
+
+// ─── Flow dropdown for Datalayer mapping form ─────────────────────────────────
+
+/** Cached flows data for the dropdown (set by _loadFlowsDropdown) */
+let _dlFlowsCache = [];
+
+/**
+ * Loads active flows and populates the #datalayer-flow-select dropdown.
+ * @param {string|null} matchTopic - if set, preselect the flow whose flow.toml topic matches
+ */
+async function _loadFlowsDropdown(matchTopic) {
+  const sel = document.getElementById("datalayer-flow-select");
+  if (!sel) return;
+
+  // Keep current selection if dropdown already has options beyond the placeholder
+  const currentSel = sel.value;
+
+  sel.innerHTML = `<option value="">${t("datalayer.flow_select_placeholder") || "— Flow auswählen —"}</option>`;
+
+  try {
+    const mapper =
+      document.getElementById("flows-mapper-select")?.value || "c8y";
+    const resp = await fetch(
+      `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const flows = data.flows || [];
+    _dlFlowsCache = flows;
+
+    flows.forEach((flow) => {
+      const opt = document.createElement("option");
+      opt.value = flow.name;
+      opt.textContent = "📁 " + flow.name;
+      sel.appendChild(opt);
+    });
+
+    // Try to preselect: first by matchTopic, then restore previous selection
+    if (matchTopic) {
+      const matched = flows.find((flow) => {
+        const toml = (flow.files || []).find((f) => f.name === "flow.toml");
+        if (!toml) return false;
+        const extracted = _extractFlowTopic(toml.content || "");
+        return extracted === matchTopic;
+      });
+      if (matched) {
+        sel.value = matched.name;
+        return; // don't update topic — it's already set (visual mode)
+      }
+    }
+
+    // Restore previous selection if still valid
+    if (currentSel && flows.find((f) => f.name === currentSel)) {
+      sel.value = currentSel;
+    }
+
+    // If exactly one flow, auto-select and fill topic
+    if (flows.length === 1 && !matchTopic) {
+      sel.value = flows[0].name;
+      onDatalayerFlowSelected();
+    }
+  } catch (err) {
+    console.warn("[DL] Could not load flows for dropdown:", err);
+  }
+}
+
+/**
+ * Extracts the first topic from the flow.toml content string.
+ * Handles both: input.mqtt.topics = ["te/+/..."]  and  topics = ["te/+/..."]
+ */
+function _extractFlowTopic(tomlContent) {
+  // Match: input.mqtt.topics = ["<topic>"] or topics = ["<topic>"]
+  const m = tomlContent.match(/input\.mqtt\.topics\s*=\s*\[\s*"([^"]+)"/);
+  if (m) return m[1];
+  // Also try bare topics = [...]
+  const m2 = tomlContent.match(/^topics\s*=\s*\[\s*"([^"]+)"/m);
+  if (m2) return m2[1];
+  return null;
+}
+
+/** Called when the user selects a flow from the dropdown. */
+function onDatalayerFlowSelected() {
+  const sel = document.getElementById("datalayer-flow-select");
+  if (!sel || !sel.value) return;
+
+  const flow = _dlFlowsCache.find((f) => f.name === sel.value);
+  if (!flow) return;
+
+  const tomlFile = (flow.files || []).find((f) => f.name === "flow.toml");
+  if (!tomlFile) return;
+
+  const topic = _extractFlowTopic(tomlFile.content || "");
+  if (topic) {
+    const topicInput = document.getElementById("datalayer-mapping-topic");
+    if (topicInput) topicInput.value = topic;
+    showMappingPayloadPreview();
+  }
+}
+
+/**
+ * Infers the effective mapping_type from stored value + topic pattern.
+ * Existing mappings without mapping_type default to "datalayer", but if their
+ * topic is a flow wildcard (dl/+/+/+/+/m|e|a/+), treat them as "flow".
+ */
+function inferMappingType(m) {
+  if (m.mapping_type === "flow") return "flow";
+  const topic = m.topic || m.tedge_topic || "";
+  if (/^dl\/\+\/\+\/\+\/\+\/[mea]\/\+$/.test(topic)) return "flow";
+  return "datalayer";
+}
+
+/**
+ * Sets the MQTT topic field based on the selected mapping type and transform.
+ * - "datalayer": c8y/mqtt/out/<lastPathSegment>  (placeholder only if topic empty)
+ * - "flow":      wildcard topic matching the transform type (always override)
+ */
+function _applyMappingTypeToTopic(type) {
+  const topicInput = document.getElementById("datalayer-mapping-topic");
+  const topicLabel = document.getElementById("datalayer-topic-label");
+  if (!topicInput) return;
+
+  // Update label
+  if (topicLabel) {
+    const key = type === "flow" ? "datalayer.topic_in" : "datalayer.topic_out";
+    topicLabel.setAttribute("data-i18n", key);
+    topicLabel.textContent = t(key);
+  }
+
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
+  const path = document.getElementById("datalayer-mapping-path")?.value || "";
+  const lastPart = path.split("/").filter(Boolean).pop() || "myMeasurement";
+
+  if (type === "flow") {
+    // For flow mode: always use the canonical wildcard subscription topic
+    let flowTopic;
+    if (transform === "event") flowTopic = "dl/+/+/+/+/e/+";
+    else if (transform === "alarm") flowTopic = "dl/+/+/+/+/a/+";
+    else flowTopic = "dl/+/+/+/+/m/+";
+
+    topicInput.value = flowTopic;
+    if (transform === "event") topicInput.placeholder = "e.g. dl/+/+/+/+/e/+";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. dl/+/+/+/+/a/+";
+    else topicInput.placeholder = "e.g. dl/+/+/+/+/m/+";
+  } else {
+    // For datalayer mode: c8y/mqtt/out/<lastSegment>
+    const suggested = "c8y/mqtt/out/" + lastPart;
+    // Only overwrite if field is empty or already a flow-wildcard topic
+    if (!topicInput.value || topicInput.value.startsWith("dl/+/")) {
+      topicInput.value = suggested;
+    }
+    if (transform === "event")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
+    else if (transform === "alarm")
+      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
+    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
+  }
+
+  showMappingPayloadPreview();
+}
+
 /** 2. Status laden (Abgestimmt auf deine i18n mit Emojis) */
 async function loadDatalayerStatus() {
   const text = document.getElementById("datalayer-status-text");
@@ -2819,110 +3137,168 @@ function isMqttServiceActive() {
 
 /** 4. Topic automatisch basierend auf Transform setzen */
 function updateTopicPrefix() {
-  const direction = document.getElementById(
-    "datalayer-mapping-direction",
-  ).value;
-  const transform = document.getElementById(
-    "datalayer-mapping-transform",
-  ).value;
-  const topicInput = document.getElementById("datalayer-mapping-topic");
-  const path = document.getElementById("datalayer-mapping-path").value;
+  const mappingType =
+    document.getElementById("datalayer-mapping-type")?.value || "datalayer";
 
-  const lastPart = path.split("/").pop() || "value";
-
-  if (isMqttServiceActive()) {
-    // MQTT Service (9883): enforce c8y/mqtt/out/ prefix
-    const prefix = "c8y/mqtt/out/";
-    let topic = prefix;
-    if (direction === "tedge_to_dl") {
-      topic += "cmd/" + lastPart;
-    } else {
-      topic += lastPart;
-    }
-    topicInput.value = topic;
-    // Placeholder shows the matching example for 9883
-    if (transform === "event")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myEvent";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. c8y/mqtt/out/myAlarm";
-    else topicInput.placeholder = "e.g. c8y/mqtt/out/myMeasurement";
-  } else {
-    // Core MQTT (8883): te/ prefix
-    let topic = "te/device/main///";
-    if (direction === "tedge_to_dl") {
-      topic += "cmd/plc/" + lastPart;
-    } else {
-      if (transform === "measurement") topic += "m/" + lastPart;
-      else if (transform === "event") topic += "e/" + lastPart;
-      else if (transform === "alarm") topic += "a/" + lastPart;
-      else topic += "m/" + lastPart;
-    }
-    topicInput.value = topic;
-    // Placeholder shows the matching example for 8883
-    if (transform === "event")
-      topicInput.placeholder = "e.g. te/device/main///e/myValue";
-    else if (transform === "alarm")
-      topicInput.placeholder = "e.g. te/device/main///a/myValue";
-    else topicInput.placeholder = "e.g. te/device/main///m/myValue";
+  // For flow mode, always use the canonical wildcard — delegate to _applyMappingTypeToTopic
+  if (mappingType === "flow") {
+    _applyMappingTypeToTopic("flow");
+    return;
   }
-  // Live-update preview whenever topic changes
-  showMappingPayloadPreview();
+
+  // For datalayer mode: delegate to _applyMappingTypeToTopic
+  _applyMappingTypeToTopic("datalayer");
 }
 
 /** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
-function showMappingPayloadPreview() {
-  const pre = document.getElementById("datalayer-payload-preview");
-  if (!pre) return;
+function _toggleUnitField() {
+  const group = document.getElementById("datalayer-unit-group");
+  if (!group) return;
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
+  group.style.display = transform === "measurement" ? "" : "none";
+}
 
-  const transform = document.getElementById(
-    "datalayer-mapping-transform",
-  ).value;
+function _buildMqttServicePayload(transform, fieldName, unit, ts) {
+  if (transform === "measurement") {
+    const p = { [fieldName]: 42, time: ts };
+    if (unit) p.unit = unit;
+    p.externalId = "<device-external-id>";
+    return p;
+  } else if (transform === "event") {
+    return {
+      Text: "<datalayer-value>",
+      type: "c8y_ctrlx_Event",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
+  } else if (transform === "alarm") {
+    return {
+      Text: "<datalayer-value>",
+      severity: "MAJOR",
+      status: "ACTIVE",
+      type: "c8y_ctrlx_Alarm",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
+  } else {
+    return { raw: "<datalayer-value>", externalId: "<device-external-id>" };
+  }
+}
+
+function _buildFlowOutputPayload(transform, fieldName, unit, ts) {
+  if (transform === "measurement") {
+    // Published directly to c8y/measurement/measurements/create
+    const series = unit ? { value: 42.0, unit } : { value: 42.0 };
+    return { time: ts, type: fieldName, [fieldName]: { [fieldName]: series } };
+  } else if (transform === "event") {
+    // After thin-edge c8y mapper (adds type from topic path)
+    const text = JSON.stringify({ [fieldName]: "<datalayer-value>", time: ts });
+    return { type: fieldName, text, time: ts };
+  } else if (transform === "alarm") {
+    // After thin-edge c8y mapper (adds type from topic path)
+    const text = JSON.stringify({ [fieldName]: "<datalayer-value>", time: ts });
+    return {
+      type: fieldName,
+      text,
+      severity: "MAJOR",
+      status: "ACTIVE",
+      time: ts,
+    };
+  } else {
+    return { [fieldName]: "<datalayer-value>" };
+  }
+}
+
+async function showMappingPayloadPreview() {
+  const preDl = document.getElementById("datalayer-payload-preview");
+  const preMqtt = document.getElementById("datalayer-mqtt-payload-preview");
+
+  const isFlow =
+    document.getElementById("datalayer-mapping-type")?.value === "flow";
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
+  const path =
+    document.getElementById("datalayer-mapping-path")?.value.trim() || "";
   const fieldName =
     document.getElementById("datalayer-mapping-field").value.trim() ||
-    document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
+    path.split("/").pop() ||
     "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
-  const topic = document.getElementById("datalayer-mapping-topic").value.trim();
-  const isC8yService = topic.startsWith("c8y/mqtt/out/");
   const ts = new Date().toISOString();
 
-  let payload;
-  if (transform === "measurement") {
-    payload = { [fieldName]: 42.0, time: ts };
-    if (unit) payload.unit = unit;
-    if (isC8yService) payload.externalId = "<device-external-id>";
-  } else if (transform === "event") {
-    if (isC8yService) {
-      payload = {
-        Text: "<datalayer-value>",
-        type: "c8y_ctrlx_Event",
-        time: ts,
-      };
-      payload.externalId = "<device-external-id>";
-    } else {
-      payload = { text: `Event: ${fieldName} is <value>`, type: "ctrlx_event" };
+  if (!isFlow) {
+    // ── DATALAYER MODE ──
+    const lblDl = document.getElementById("datalayer-output-label");
+    const lblMqtt = document.getElementById("datalayer-mqtt-preview-label");
+    if (lblDl) lblDl.textContent = "Datalayer Output";
+    if (lblMqtt) lblMqtt.textContent = "Payload Preview";
+    // Left: live REST call to datalayer (fallback to static example)
+    if (preDl) {
+      preDl.textContent = "…";
+      if (path) {
+        try {
+          const r = await fetchWithAuth(
+            `api/datalayer/node?path=${encodeURIComponent(path)}`,
+          );
+          if (r.ok) {
+            const data = await r.json();
+            preDl.textContent = JSON.stringify(data, null, 2);
+          } else {
+            preDl.textContent = JSON.stringify(
+              { type: "double", value: 7441.35 },
+              null,
+              2,
+            );
+          }
+        } catch {
+          preDl.textContent = JSON.stringify(
+            { type: "double", value: 7441.35 },
+            null,
+            2,
+          );
+        }
+      } else {
+        preDl.textContent = JSON.stringify(
+          { type: "double", value: 7441.35 },
+          null,
+          2,
+        );
+      }
     }
-  } else if (transform === "alarm") {
-    if (isC8yService) {
-      payload = {
-        Text: "<datalayer-value>",
-        severity: "MAJOR",
-        status: "ACTIVE",
-        type: "c8y_ctrlx_Alarm",
-        time: ts,
-      };
-      payload.externalId = "<device-external-id>";
-    } else {
-      payload = {
-        text: `Alarm at ${fieldName}: value is <value>`,
-        severity: "major",
-      };
+    // Right: MQTT Service / c8y output format
+    if (preMqtt) {
+      preMqtt.textContent = JSON.stringify(
+        _buildMqttServicePayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
     }
   } else {
-    payload = { raw: "<datalayer-value>" };
+    // ── FLOW MODE ──
+    const lblDl = document.getElementById("datalayer-output-label");
+    const lblMqtt = document.getElementById("datalayer-mqtt-preview-label");
+    if (lblDl) lblDl.textContent = "Bridge Output";
+    if (lblMqtt) lblMqtt.textContent = "Flow Output (main.js)";
+    // Left: MQTT Service / c8y format (what the bridge-equivalent would produce)
+    if (preDl) {
+      preDl.textContent = JSON.stringify(
+        _buildMqttServicePayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
+    }
+    // Right: flow output (what main.js produces → te/ topic format)
+    if (preMqtt) {
+      preMqtt.textContent = JSON.stringify(
+        _buildFlowOutputPayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
+    }
   }
-
-  pre.textContent = JSON.stringify(payload, null, 2);
 }
 
 function editDatalayerMapping(id) {
@@ -2936,19 +3312,7 @@ function editDatalayerMapping(id) {
   document.getElementById("datalayer-mapping-path").value =
     mapping.path || mapping.datalayer_path || "";
   const existingTopic = mapping.topic || mapping.tedge_topic || "";
-  let loadedTopic = existingTopic;
-  // In MQTT Service mode: ensure prefix is correct
-  if (
-    isMqttServiceActive() &&
-    loadedTopic &&
-    !loadedTopic.startsWith("c8y/mqtt/out/")
-  ) {
-    setTimeout(
-      () => showNotification(t("notify.dl_topic_te_warning"), "warning"),
-      200,
-    );
-  }
-  document.getElementById("datalayer-mapping-topic").value = loadedTopic;
+  document.getElementById("datalayer-mapping-topic").value = existingTopic;
   document.getElementById("datalayer-mapping-direction").value =
     mapping.direction || "dl_to_tedge";
 
@@ -2966,6 +3330,9 @@ function editDatalayerMapping(id) {
     mapping.field_name || "";
   document.getElementById("datalayer-mapping-unit").value = mapping.unit || "";
 
+  // Mapping-Typ toggle — infer from stored value + topic pattern, preserve stored topic
+  _setMappingTypeVisual(inferMappingType(mapping), existingTopic);
+  _toggleUnitField();
   showMappingPayloadPreview();
 
   const titleEl = document.getElementById("mapping-form-title");
@@ -3016,24 +3383,6 @@ async function saveNewMapping() {
     topicRaw = topicRaw.replace(/\/+$/, "");
   }
 
-  // Im MQTT-Service-Modus (9883) sicherstellen dass c8y/mqtt/out/ vorangestellt ist
-  if (isMqttServiceActive()) {
-    const prefix = "c8y/mqtt/out/";
-    if (!topicRaw.startsWith(prefix)) {
-      // Old te/ topic or other: prepend prefix
-      const bare = topicRaw.replace(
-        /^(te\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/[^/]*\/|c8y\/[^/]*\/[^/]*\/)/,
-        "",
-      );
-      topicRaw = prefix + (bare || topicRaw.replace(/\//g, "_"));
-      document.getElementById("datalayer-mapping-topic").value = topicRaw;
-      showNotification(
-        `Topic auf "${topicRaw}" korrigiert (MQTT Service erfordert c8y/mqtt/out/ Präfix)`,
-        "warning",
-      );
-    }
-  }
-
   const body = {
     id: idInput,
     path: document.getElementById("datalayer-mapping-path").value.trim(),
@@ -3044,6 +3393,8 @@ async function saveNewMapping() {
       document.getElementById("datalayer-mapping-field").value.trim() || null,
     unit:
       document.getElementById("datalayer-mapping-unit").value.trim() || null,
+    mapping_type:
+      document.getElementById("datalayer-mapping-type")?.value || "datalayer",
     enabled: true,
   };
 
@@ -3107,6 +3458,9 @@ function cancelMapping() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  // Reset mapping-type toggle to default
+  setMappingTypeBtn("datalayer");
+  _toggleUnitField();
   // Delete-Button wieder ausblenden
   const delBtn = document.getElementById("delete-mapping-btn");
   if (delBtn) delBtn.style.display = "none";
@@ -3214,28 +3568,22 @@ function renderDatalayerMappings() {
     }
     tdTopic.appendChild(document.createTextNode(t_topic));
 
-    const tdDir = document.createElement("td");
-    tdDir.className = "text-center";
-    tdDir.title = dirTitle;
-    tdDir.style.cssText = `font-size:16px; color:${dirColor}; width:32px;`;
-    const dirI = document.createElement("i");
-    dirI.className = `fa-solid ${dirIcon}`;
-    tdDir.appendChild(dirI);
-
     const tdField = document.createElement("td");
     tdField.style.whiteSpace = "nowrap";
     const transSpan = document.createElement("span");
     transSpan.className = `label ${labelClass}`;
-    transSpan.style.fontSize = "10px";
-    transSpan.textContent = trans.toUpperCase();
+    transSpan.style.cssText = "font-size:10px; padding:1px 6px;";
+    transSpan.title = fieldName || "";
+    transSpan.textContent =
+      trans.charAt(0).toUpperCase() + trans.slice(1).toLowerCase(); // Measurement / Event / Alarm / Raw
     tdField.appendChild(transSpan);
-    if (fieldName) {
-      tdField.appendChild(document.createTextNode(" "));
-      const fnSpan = document.createElement("span");
-      fnSpan.style.fontSize = "12px";
-      fnSpan.textContent = fieldName;
-      tdField.appendChild(fnSpan);
-    }
+
+    // Mapping-Typ column
+    const mtype = inferMappingType(m);
+    const tdMtype = document.createElement("td");
+    tdMtype.style.cssText =
+      "width:90px; font-size:12px; color:var(--c8y-palette-gray-30,#ccc); white-space:nowrap;";
+    tdMtype.textContent = mtype === "flow" ? "Tedge Flow" : "ctrlX DL";
 
     const tdToggle = document.createElement("td");
     tdToggle.className = "text-center";
@@ -3259,21 +3607,22 @@ function renderDatalayerMappings() {
     tdDel.className = "text-right";
     tdDel.style.width = "36px";
     const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-dot text-danger";
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer";
     delBtn.title = "Löschen";
     delBtn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       deleteDatalayerMapping(mappingId);
     });
     const delI = document.createElement("i");
-    delI.className = "fa-solid fa-trash";
+    delI.className = "fas fa-trash";
     delBtn.appendChild(delI);
     tdDel.appendChild(delBtn);
 
     tr.appendChild(tdPath);
     tr.appendChild(tdTopic);
-    tr.appendChild(tdDir);
     tr.appendChild(tdField);
+    tr.appendChild(tdMtype);
     tr.appendChild(tdToggle);
     tr.appendChild(tdDel);
     tbody.appendChild(tr);
@@ -3590,11 +3939,17 @@ async function loadFlows() {
   const tree = document.getElementById("flows-tree");
   const empty = document.getElementById("flows-empty");
   const errDiv = document.getElementById("flows-error");
+  const archivedLoading = document.getElementById("flows-archived-loading");
+  const archivedTree = document.getElementById("flows-archived-tree");
+  const archivedEmpty = document.getElementById("flows-archived-empty");
 
   if (loading) loading.style.display = "";
   if (tree) tree.style.display = "none";
   if (empty) empty.style.display = "none";
   if (errDiv) errDiv.style.display = "none";
+  if (archivedLoading) archivedLoading.style.display = "";
+  if (archivedTree) archivedTree.style.display = "none";
+  if (archivedEmpty) archivedEmpty.style.display = "none";
 
   try {
     const mapper = _flowsMapper();
@@ -3604,6 +3959,7 @@ async function loadFlows() {
     );
     if (resp.status === 403) {
       if (loading) loading.style.display = "none";
+      if (archivedLoading) archivedLoading.style.display = "none";
       if (errDiv) {
         errDiv.textContent = t("notify.no_perm_status");
         errDiv.style.display = "";
@@ -3613,21 +3969,28 @@ async function loadFlows() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     const flows = data.flows || [];
+    const archivedFlows = data.archived_flows || [];
 
     if (loading) loading.style.display = "none";
+    if (archivedLoading) archivedLoading.style.display = "none";
 
     if (flows.length === 0) {
       if (empty) empty.style.display = "";
-      return;
-    }
-
-    if (tree) {
+    } else if (tree) {
       _renderFlowsTree(flows, tree);
       tree.style.display = "";
       _highlightFlowFile(_flowsCurrentFlow, _flowsCurrentFile);
     }
+
+    if (archivedFlows.length === 0) {
+      if (archivedEmpty) archivedEmpty.style.display = "";
+    } else if (archivedTree) {
+      _renderArchivedFlowsTree(archivedFlows, archivedTree);
+      archivedTree.style.display = "";
+    }
   } catch (err) {
     if (loading) loading.style.display = "none";
+    if (archivedLoading) archivedLoading.style.display = "none";
     if (errDiv) {
       errDiv.textContent = `${t("flows.err_load")}: ${err.message}`;
       errDiv.style.display = "";
@@ -3675,6 +4038,18 @@ function _renderFlowsTree(flows, container) {
     };
     header.appendChild(addBtn);
 
+    // archive button
+    const archiveBtn = document.createElement("button");
+    archiveBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-palette-gray-30,#bbb); border:1px solid var(--c8y-palette-gray-60,#555); border-radius:3px; cursor:pointer; margin-left:2px";
+    archiveBtn.title = t("flows.archive_flow_btn") || "Flow archivieren";
+    archiveBtn.innerHTML = '<i class="fas fa-archive"></i>';
+    archiveBtn.onclick = (e) => {
+      e.stopPropagation();
+      archiveFlow(flow.name);
+    };
+    header.appendChild(archiveBtn);
+
     // delete flow button
     const delBtn = document.createElement("button");
     delBtn.style.cssText =
@@ -3711,6 +4086,111 @@ function _renderFlowsTree(flows, container) {
       container.appendChild(row);
     });
   });
+}
+
+function _renderArchivedFlowsTree(archivedFlows, container) {
+  container.innerHTML = "";
+  archivedFlows.forEach((flow) => {
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display:flex; align-items:center; gap:4px;
+      padding:7px 10px;
+      background:var(--c8y-palette-gray-80,#252525);
+      border-bottom:1px solid var(--c8y-palette-gray-70,#333);
+      font-size:12px; font-weight:600;
+    `;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.style.cssText =
+      "flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:monospace; color:var(--c8y-palette-gray-40,#999);";
+    nameSpan.textContent = "📁 " + flow.name;
+    nameSpan.title = flow.name;
+    header.appendChild(nameSpan);
+
+    // Restore button
+    const restoreBtn = document.createElement("button");
+    restoreBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-success,#27ae60); border:1px solid var(--c8y-brand-success,#27ae60); border-radius:3px; cursor:pointer";
+    restoreBtn.title = t("flows.restore_flow_btn") || "Flow wiederherstellen";
+    restoreBtn.innerHTML = '<i class="fas fa-undo"></i>';
+    restoreBtn.onclick = (e) => {
+      e.stopPropagation();
+      restoreFlow(flow.name);
+    };
+    header.appendChild(restoreBtn);
+
+    // Delete archived button
+    const delBtn = document.createElement("button");
+    delBtn.style.cssText =
+      "font-size:11px; padding:2px 7px; background:transparent; color:var(--c8y-brand-danger,#c0392b); border:1px solid var(--c8y-brand-danger,#c0392b); border-radius:3px; cursor:pointer; margin-left:2px";
+    delBtn.title = t("flows.delete_flow_btn");
+    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteArchivedFlow(flow.name);
+    };
+    header.appendChild(delBtn);
+
+    container.appendChild(header);
+  });
+}
+
+async function restoreFlow(flowName) {
+  const mapper = _flowsMapper();
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/restore?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "POST", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Flow "${flowName}" wiederhergestellt.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
+}
+
+async function archiveFlow(flowName) {
+  const mapper = _flowsMapper();
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "POST", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Flow "${flowName}" archiviert.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
+}
+
+async function deleteArchivedFlow(flowName) {
+  const mapper = _flowsMapper();
+  if (!confirm(`Archivierten Flow "${flowName}" endgültig löschen?`)) return;
+  try {
+    const resp = await fetch(
+      `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      showNotification(d.error || `HTTP ${resp.status}`, "danger");
+      return;
+    }
+    showNotification(`Archivierter Flow "${flowName}" gelöscht.`, "success");
+    await loadFlows();
+  } catch (err) {
+    showNotification(`Fehler: ${err.message}`, "danger");
+  }
 }
 
 function _highlightFlowFile(flowName, fileName) {

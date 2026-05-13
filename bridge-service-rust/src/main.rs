@@ -16,86 +16,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-/// Reads the Common Name (CN) from a PEM certificate.
-/// Returns None if the cert cannot be read or contains no CN.
-fn get_device_id_from_cert(cert_path: &std::path::Path) -> Option<String> {
-    let pem = std::fs::read_to_string(cert_path).ok()?;
-    // Look for "Subject: CN = <value>" or "Subject: ... CN=<value>"
-    // The cert encodes the Subject as Base64-DER, so we parse the PEM text
-    // using a simple OpenSSL-free method: search the decoded Subject for the CN.
-    // Simplest approach without an external crate: Subject line from `openssl x509` is unavailable —
-    // instead, look for the CN in a PEM header comment (not always present).
-    // More robust method: extract the CN from the DER-encoded Subject.
-    let cn = parse_cn_from_pem(&pem)?;
-    if cn.is_empty() {
-        None
-    } else {
-        Some(cn)
-    }
-}
-
-/// Extracts the CN from a PEM certificate via minimal DER parsing.
-fn parse_cn_from_pem(pem: &str) -> Option<String> {
-    // PEM → Base64 → DER
-    let b64: String = pem.lines().filter(|l| !l.starts_with("-----")).collect();
-    let der = base64_decode(&b64)?;
-
-    // CN OID: 2.5.4.3 → DER: 55 04 03
-    let cn_oid: &[u8] = &[0x55, 0x04, 0x03];
-    let pos = der.windows(3).position(|w| w == cn_oid)?;
-    // After the OID: SET { SEQUENCE { OID, STRING } }
-    // Structure: OID(3) then Tag+Len+Value of the string
-    let after_oid = pos + 3;
-    if after_oid + 2 > der.len() {
-        return None;
-    }
-    // Tag (UTF8String=0x0C, PrintableString=0x13, IA5String=0x16)
-    let tag = der[after_oid];
-    if !matches!(tag, 0x0C | 0x13 | 0x16 | 0x1E) {
-        return None;
-    }
-    let len = der[after_oid + 1] as usize;
-    let start = after_oid + 2;
-    if start + len > der.len() {
-        return None;
-    }
-    String::from_utf8(der[start..start + len].to_vec()).ok()
-}
-
-fn base64_decode(input: &str) -> Option<Vec<u8>> {
-    let input: Vec<u8> = input.bytes().filter(|b| !b" \t\r\n".contains(b)).collect();
-    let table: &[i8; 256] = &{
-        let mut t = [-1i8; 256];
-        for (i, &c) in b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            .iter()
-            .enumerate()
-        {
-            t[c as usize] = i as i8;
-        }
-        t
-    };
-    let mut out = Vec::with_capacity(input.len() * 3 / 4);
-    let mut i = 0;
-    while i + 3 < input.len() {
-        let a = table[input[i] as usize];
-        let b = table[input[i + 1] as usize];
-        let c = table[input[i + 2] as usize];
-        let d = table[input[i + 3] as usize];
-        if a < 0 || b < 0 {
-            return None;
-        }
-        out.push(((a as u8) << 2) | ((b as u8) >> 4));
-        if input[i + 2] != b'=' && c >= 0 {
-            out.push(((b as u8) << 4) | ((c as u8) >> 2));
-        }
-        if input[i + 3] != b'=' && d >= 0 {
-            out.push(((c as u8) << 6) | (d as u8));
-        }
-        i += 4;
-    }
-    Some(out)
-}
-
 /// Reads the device serial number directly from sysfs/machine-id.
 /// Same priority chain as manage-device-id.sh, but without a subprocess.
 fn get_device_serial() -> String {
@@ -210,16 +130,12 @@ async fn main() -> Result<()> {
     let mut config = DatalayerEngine::load_config(&config_path);
     let credentials = DatalayerEngine::load_credentials(&credentials_path);
 
-    // Read device_external_id from cert CN (= what Cumulocity knows as externalId).
-    // Fallback: get_device_serial() (sysfs/machine-id)
-    let external_id = if is_snap {
-        let snap_common = env::var("SNAP_COMMON").unwrap_or_default();
-        let cert_path = PathBuf::from(&snap_common)
-            .join("package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem");
-        get_device_id_from_cert(&cert_path).unwrap_or_else(get_device_serial)
-    } else {
-        get_device_serial()
-    };
+    // Read device_external_id from hardware serial (sysfs DMI).
+    // The ctrlX package certificate at package-certificates/thin-edge-io/... has CN = Cumulocity
+    // tenant ID (e.g. t10452223), NOT the device hardware UUID. Reading the cert CN would produce
+    // the wrong externalId. Instead, read the serial directly from sysfs — this matches the
+    // manage-device-id.sh get-serial output and the expected ctrlx-<UUID> format.
+    let external_id = get_device_serial();
     if !external_id.is_empty() {
         info!(
             "[BRIDGE] Device external ID registered ({} chars)",

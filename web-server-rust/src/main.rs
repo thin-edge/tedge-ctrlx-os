@@ -12,7 +12,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[path = "../../bridge-service-rust/src/datalayer.rs"]
 pub mod datalayer;
-use crate::datalayer::{DatalayerConfig, DatalayerCredentials, DatalayerMapping};
+use crate::datalayer::{
+    DatalayerConfig, DatalayerCredentials, DatalayerMapping, MappingDirection, MappingTransform,
+};
 
 /// Returns the snap instance name at runtime.
 /// snapd always sets SNAP_INSTANCE_NAME inside the snap environment.
@@ -3014,6 +3016,140 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
     }
 }
 
+async fn get_tedge_config_list_all(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "config", "list", "--all"]);
+        info!("[TEDGE-CONFIG] Running: tedge config list --all");
+        match cmd.output() {
+            Ok(out) => {
+                if out.status.success() {
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                } else {
+                    format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+async fn get_tedge_config_list_doc(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "config", "list", "--doc"]);
+        info!("[TEDGE-CONFIG] Running: tedge config list --doc");
+        match cmd.output() {
+            Ok(out) => {
+                if out.status.success() {
+                    String::from_utf8_lossy(&out.stdout).to_string()
+                } else {
+                    format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+async fn get_tedge_bridge_inspect(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+    let is_snap = env::var("SNAP").is_ok();
+    let snap_bin = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let result = web::block(move || {
+        let tedge_bin_owned;
+        let tedge_bin = if is_snap {
+            tedge_bin_owned = format!("{}/bin/tedge", snap_bin);
+            tedge_bin_owned.as_str()
+        } else {
+            "tedge"
+        };
+        let config_dir = if is_snap && !snap_data.is_empty() {
+            format!("{}/tedge", snap_data)
+        } else {
+            "/etc/tedge".to_string()
+        };
+        let mut cmd = Command::new(tedge_bin);
+        cmd.args(["--config-dir", &config_dir, "bridge", "inspect", "c8y"]);
+        info!("[TEDGE-CONFIG] Running: tedge bridge inspect c8y");
+        match cmd.output() {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                if !stdout.is_empty() {
+                    stdout
+                } else {
+                    format!("[Fehler]\n{}", stderr.trim())
+                }
+            }
+            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+        }
+    })
+    .await;
+    match result {
+        Ok(text) => Ok(HttpResponse::Ok().json(serde_json::json!({"output": text}))),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
 async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
     let (_user, role, _token) = extract_user_info(&req);
     if !role.can_read() {
@@ -3450,13 +3586,34 @@ async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Res
         return Ok(HttpResponse::Forbidden().finish());
     }
 
-    let has_license = std::path::Path::new(LICENSE_ID_FILE).exists()
-        && std::fs::read_to_string(LICENSE_ID_FILE) // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false);
+    // Check the persisted license file written by the background license loop.
+    let file_content = std::fs::read_to_string(LICENSE_ID_FILE) // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
+        .unwrap_or_default();
+    let trimmed = file_content.trim();
+    let has_license = !trimmed.is_empty();
+
+    if has_license {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({
+            "licensed": true,
+            "required": LICENSE_NAMES[0],
+        })));
+    }
+
+    // File missing or empty (e.g. right after snap install before the background task runs).
+    // Do a live check for engineering/demo licenses via capabilities — these are never
+    // acquired/released and therefore never written to the file until the loop runs.
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let socket_path = if !snap_data.is_empty() {
+        format!("{}/licensing-service/licensing-service.sock", snap_data)
+    } else {
+        "/tmp/licensing-service.sock".to_string()
+    };
+    let has_engineering = check_engineering_license_in_capabilities(&socket_path)
+        .await
+        .is_some();
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "licensed": has_license,
+        "licensed": has_engineering,
         "required": LICENSE_NAMES[0],
     })))
 }
@@ -4164,7 +4321,32 @@ async fn list_flows(req: HttpRequest) -> Result<HttpResponse> {
             .cmp(b["name"].as_str().unwrap_or(""))
     });
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({"flows": flows})))
+    // Collect archived flows from mappers/archived/<mapper>/flows/
+    let archived_dir = format!("{}/tedge/mappers/archived/{}/flows", snap_data, mapper);
+    let mut archived_flows: Vec<serde_json::Value> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&archived_dir) {
+        // codeql[rust/path-injection] - archived_dir constructed from validated mapper name
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let flow_name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) if validate_flow_dir_name(n) => n.to_string(),
+                _ => continue,
+            };
+            archived_flows.push(serde_json::json!({"name": flow_name}));
+        }
+    }
+    archived_flows.sort_by(|a, b| {
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
+    });
+
+    Ok(HttpResponse::Ok()
+        .json(serde_json::json!({"flows": flows, "archived_flows": archived_flows})))
 }
 
 /// POST /api/flows/file?mapper=<m>&flow=<f>&file=<n>  — saves a file within a flow directory
@@ -4279,6 +4461,175 @@ async fn delete_flow_dir(req: HttpRequest) -> Result<HttpResponse> {
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// DELETE /api/flows/archive?mapper=<m>&flow=<f>  — permanently deletes a flow from the archive
+async fn delete_archived_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_dir = format!(
+        "{}/tedge/mappers/archived/{}/flows/{}",
+        snap_data, mapper, flow
+    );
+
+    match std::fs::remove_dir_all(&archived_dir) {
+        // codeql[rust/path-injection] - archived_dir constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Deleted archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound()
+                .json(serde_json::json!({"error": "Archived flow not found"})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// POST /api/flows/archive?mapper=<m>&flow=<f>  — moves an active flow to mappers/archived/<mapper>/flows/<flow>
+async fn archive_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_base = format!("{}/tedge/mappers/archived/{}/flows", snap_data, mapper);
+    let archived_dir = format!("{}/{}", archived_base, flow);
+
+    if !std::path::Path::new(&active_dir).is_dir() {
+        return Ok(HttpResponse::NotFound().json(serde_json::json!({"error": "Flow not found"})));
+    }
+    // codeql[rust/path-injection] - archived_base constructed from validated components
+    if let Err(e) = std::fs::create_dir_all(&archived_base) {
+        return Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("Cannot create archive dir: {}", e)})));
+    }
+    match std::fs::rename(&active_dir, &archived_dir) {
+        // codeql[rust/path-injection] - paths constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .json(serde_json::json!({"error": format!("{}", e)}))),
+    }
+}
+
+/// POST /api/flows/restore?mapper=<m>&flow=<f>  — moves an archived flow back to active mappers/<mapper>/flows/<flow>
+async fn restore_flow(req: HttpRequest) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let qs = req.query_string().to_string();
+    let mapper = qs
+        .split('&')
+        .find(|s| s.starts_with("mapper="))
+        .and_then(|s| s.strip_prefix("mapper="))
+        .unwrap_or("")
+        .to_string();
+    let flow = qs
+        .split('&')
+        .find(|s| s.starts_with("flow="))
+        .and_then(|s| s.strip_prefix("flow="))
+        .unwrap_or("")
+        .to_string();
+
+    if !validate_mapper_name(&mapper) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid mapper name"}))
+        );
+    }
+    if !validate_flow_dir_name(&flow) {
+        return Ok(
+            HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid flow name"}))
+        );
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    // codeql[rust/path-injection] - mapper and flow are validated above
+    let archived_dir = format!(
+        "{}/tedge/mappers/archived/{}/flows/{}",
+        snap_data, mapper, flow
+    );
+    let active_dir = format!("{}/tedge/mappers/{}/flows/{}", snap_data, mapper, flow);
+
+    match std::fs::rename(&archived_dir, &active_dir) {
+        // codeql[rust/path-injection] - paths constructed from validated components
+        Ok(_) => {
+            info!("[FLOWS] Restored archived flow: {}/{}", mapper, flow);
+            Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true})))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(HttpResponse::NotFound()
+                .json(serde_json::json!({"error": "Archived flow not found"})))
         }
         Err(e) => Ok(HttpResponse::InternalServerError()
             .json(serde_json::json!({"error": format!("{}", e)}))),
@@ -4571,6 +4922,148 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     })))
 }
 
+// ─── Mapping Mode API ────────────────────────────────────────────────────────
+
+/// Returns the current mapping mode:
+/// - "bridge"  → Datalayer Bridge Mappings active (transform ≠ Raw, enabled=true, direction=dl_to_tedge)
+/// - "flows"   → Tedge Flows active (ctrlx-* flow dirs present in SNAP_DATA)
+/// - "both"    → Both active simultaneously (conflict / double-publishing)
+/// - "none"    → Neither active
+async fn get_mapping_mode(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_read() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let dl_cfg = data.load_datalayer_config();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+
+    // Bridge active: datalayer enabled AND at least one active transform mapping
+    let bridge_active = dl_cfg.enabled
+        && dl_cfg.mappings.iter().any(|m| {
+            m.enabled
+                && m.direction == MappingDirection::DatalayerToTedge
+                && m.transform != MappingTransform::Raw
+        });
+
+    // Flows active: ctrlx-* flow directories exist under SNAP_DATA/tedge/mappers/c8y/flows/
+    let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
+    let flow_dirs = ["ctrlx-measurements", "ctrlx-events", "ctrlx-alarms"];
+    let flows_active = flow_dirs.iter().any(|d| flows_base.join(d).is_dir());
+
+    let mode = match (bridge_active, flows_active) {
+        (true, true) => "both",
+        (true, false) => "bridge",
+        (false, true) => "flows",
+        (false, false) => "none",
+    };
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "mode": mode,
+        "bridge_active": bridge_active,
+        "flows_active": flows_active,
+    })))
+}
+
+#[derive(serde::Deserialize)]
+struct SetMappingModeRequest {
+    mode: String, // "bridge" | "flows" | "none"
+}
+
+/// Switch mapping mode:
+/// - "bridge" → disable flows (remove ctrlx-* dirs), keep bridge mappings as-is
+/// - "flows"  → disable bridge transform mappings (set enabled=false for all non-Raw dl_to_tedge)
+/// - "none"   → disable both
+async fn set_mapping_mode(
+    req: HttpRequest,
+    data: web::Data<AppState>,
+    body: web::Json<SetMappingModeRequest>,
+) -> Result<HttpResponse> {
+    let (_user, role, _token) = extract_user_info(&req);
+    if !role.can_write() {
+        return Ok(HttpResponse::Forbidden()
+            .json(serde_json::json!({"error": "Insufficient permissions"})));
+    }
+
+    let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
+    let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
+    let flow_dirs = ["ctrlx-measurements", "ctrlx-events", "ctrlx-alarms"];
+
+    match body.mode.as_str() {
+        "bridge" => {
+            // Disable flows: move ctrlx-* dirs to mappers/archived/c8y/flows/
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let _ = std::fs::create_dir_all(&archived_base);
+            for dir in &flow_dirs {
+                let src = flows_base.join(dir);
+                let dst = archived_base.join(dir);
+                if src.exists() {
+                    if let Err(e) = std::fs::rename(&src, &dst) {
+                        warn!("[MAPPING-MODE] Could not archive flow {}: {}", dir, e);
+                    } else {
+                        info!("[MAPPING-MODE] Flow archived: {}", dir);
+                    }
+                }
+            }
+        }
+        "flows" => {
+            // Re-enable flows: move from mappers/archived/c8y/flows/ back
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            for dir in &flow_dirs {
+                let src = archived_base.join(dir);
+                let dst = flows_base.join(dir);
+                if src.exists() {
+                    if let Err(e) = std::fs::rename(&src, &dst) {
+                        warn!("[MAPPING-MODE] Could not enable flow {}: {}", dir, e);
+                    } else {
+                        info!("[MAPPING-MODE] Flow enabled: {}", dir);
+                    }
+                }
+            }
+            // Disable bridge transform mappings (set enabled=false for non-Raw dl_to_tedge)
+            let mut dl_cfg = data.load_datalayer_config();
+            for m in dl_cfg.mappings.iter_mut() {
+                if m.direction == MappingDirection::DatalayerToTedge
+                    && m.transform != MappingTransform::Raw
+                {
+                    m.enabled = false;
+                }
+            }
+            if let Err(e) = data.save_datalayer_config(&dl_cfg) {
+                warn!("[MAPPING-MODE] Could not save datalayer config: {}", e);
+            }
+        }
+        "none" => {
+            // Disable both: move ctrlx-* dirs to mappers/archived/c8y/flows/
+            let archived_base = PathBuf::from(&snap_data).join("tedge/mappers/archived/c8y/flows");
+            let _ = std::fs::create_dir_all(&archived_base);
+            for dir in &flow_dirs {
+                let src = flows_base.join(dir);
+                let dst = archived_base.join(dir);
+                if src.exists() {
+                    let _ = std::fs::rename(&src, &dst);
+                }
+            }
+            let mut dl_cfg = data.load_datalayer_config();
+            for m in dl_cfg.mappings.iter_mut() {
+                if m.direction == MappingDirection::DatalayerToTedge
+                    && m.transform != MappingTransform::Raw
+                {
+                    m.enabled = false;
+                }
+            }
+            let _ = data.save_datalayer_config(&dl_cfg);
+        }
+        _ => {
+            return Ok(HttpResponse::BadRequest()
+                .json(serde_json::json!({"error": "Invalid mode. Use: bridge, flows, none"})));
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"ok": true, "mode": body.mode})))
+}
+
 /// Sanitize a path derived from environment variables (e.g. SNAP_DATA) to prevent
 /// path traversal: remove any `..` components before constructing file paths.
 fn sanitize_snap_path(path: &str) -> String {
@@ -4689,6 +5182,20 @@ async fn main() -> io::Result<()> {
                             .route("/device-id/cert-info", web::get().to(show_certificate))
                             .route("/logs", web::get().to(get_logs))
                             .route("/tedge-config-list", web::get().to(get_tedge_config_list))
+                            .route(
+                                "/tedge-config-list-all",
+                                web::get().to(get_tedge_config_list_all),
+                            )
+                            .route(
+                                "/tedge-config-list-doc",
+                                web::get().to(get_tedge_config_list_doc),
+                            )
+                            .route(
+                                "/tedge-bridge-inspect",
+                                web::get().to(get_tedge_bridge_inspect),
+                            )
+                            .route("/mapping-mode", web::get().to(get_mapping_mode))
+                            .route("/mapping-mode", web::post().to(set_mapping_mode))
                             .route("/me", web::get().to(get_me))
                             .route("/build-info", web::get().to(get_build_info))
                             .route("/log-level", web::get().to(get_log_level))
@@ -4704,6 +5211,9 @@ async fn main() -> io::Result<()> {
                             .route("/flows", web::delete().to(delete_flow_dir))
                             .route("/flows/file", web::post().to(save_flow_file))
                             .route("/flows/file", web::delete().to(delete_flow_file_handler))
+                            .route("/flows/archive", web::post().to(archive_flow))
+                            .route("/flows/archive", web::delete().to(delete_archived_flow))
+                            .route("/flows/restore", web::post().to(restore_flow))
                             // Datalayer API
                             .service(
                                 web::scope("/datalayer")

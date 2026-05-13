@@ -33,7 +33,7 @@ function onMessage(inputMsg, context) {
         var payload = inputMsg.getPayload();
 
         // GraalVM Java-Map: Zugriff über .get()
-        var externalId   = payload.get("externalId") || context.getClientId();
+        var externalId   = payload.get("externalId");
         var time         = payload.get("time");
         var type         = payload.get("type");
         var status       = payload.get("status");

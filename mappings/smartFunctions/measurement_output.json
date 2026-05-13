@@ -1,0 +1,15 @@
+{
+  "cumulocityType": "measurement",
+  "action": "create",
+  "payload": {
+    "time": "2026-05-11T10:00:00Z",
+    "type": "memavailable-mb",
+    "memavailable-mb": {
+      "memavailable-mb": {
+        "unit": "mb",
+        "value": 7458.87
+      }
+    }
+  },
+  "externalSource": [{"type": "c8y_Serial", "externalId": "ctrlx-48FC8D56-..."}]
+}
