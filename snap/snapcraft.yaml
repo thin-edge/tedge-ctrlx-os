@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.159
+version: 0.0.165
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -219,6 +219,20 @@ apps:
       - network
       - network-bind
 
+  c8y-firmware-plugin:
+    command: scripts/tedge-service-wrapper.sh c8y-firmware-plugin
+    daemon: simple
+    restart-condition: always
+    after:
+      - setup-directories
+      - mosquitto
+      - tedge-agent
+    aliases:
+      - c8y-firmware-plugin
+    plugs:
+      - network
+      - network-bind
+
   tedge-file-config-plugin:
     command: scripts/tedge-service-wrapper.sh tedge-file-config-plugin
     aliases:
@@ -418,9 +432,17 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-watchdog
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-write
       ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-remote-access-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/c8y-firmware-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-config-plugin
+      ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-file-log-plugin
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-flows-plugin
-      
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins
+      ln -sf ../../../../bin/tedge-file-config-plugin $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins/file
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/log-plugins
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/diag-plugins
+      # Note: log-plugins and diag-plugins are provided by scripts/log-plugins
+      # and scripts/diag-plugins in the snap (included via the scripts part).
+
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
 
@@ -455,11 +477,26 @@ parts:
     source: ./scripts
     organize:
       '*': scripts/
+    override-prime: |
+      craftctl default
+      # tedge diag collect refuses to run plugins writable by non-root users.
+      # The source files are 0775 (group-writable); strip group/world write bits.
+      chmod 755 $CRAFT_PRIME/scripts/log-plugins/*
+      chmod 755 $CRAFT_PRIME/scripts/diag-plugins/*
     stage:
       - scripts/*
       - scripts/log-plugins/
       - scripts/log-plugins/file
       - scripts/log-plugins/journald
+      - scripts/diag-plugins/
+      - scripts/diag-plugins/01_tedge.sh
+      - scripts/diag-plugins/02_os.sh
+      - scripts/diag-plugins/03_mqtt.sh
+      - scripts/diag-plugins/04_workflow.sh
+      - scripts/diag-plugins/05_entities.sh
+      - scripts/diag-plugins/06_internal.sh
+      - scripts/diag-plugins/07_mosquitto.sh
+      - scripts/diag-plugins/08_truststore.sh
 
   hooks:
     plugin: dump

@@ -122,13 +122,7 @@ fi
 
 echo "=== Setup completed successfully ==="
 
-# ── tedge system.toml: owned by root ────────────────────────────────────────────
-# ctrlX snapd supports neither system-usernames nor does AppArmor allow
-# useradd in the snap context. tedge tries to chown directories to the
-# "tedge" user when connecting/writing the bridge config — which fails.
-# Solution: create system.toml with user="root"/group="root" before tedge
-# runs for the first time. This causes tedge to chown all directories to
-# root:root, which always succeeds in the snap context.
+
 SYSTEM_TOML="$SNAP_DATA_PATH/tedge/system.toml"
 if [ ! -f "$SYSTEM_TOML" ]; then
     cat > "$SYSTEM_TOML" << 'EOF'
@@ -142,3 +136,39 @@ EOF
 else
     echo "system.toml already exists, not overwriting"
 fi
+
+
+TEDGE_BIN="$SNAP/bin/tedge"
+TEDGE_CFG_DIR="$SNAP_DATA/tedge"
+
+CONFIG_PLUGINS_PATH="$SNAP_DATA/tedge/config-plugins"
+LOG_PLUGINS_PATH="$SNAP/scripts/log-plugins"
+DIAG_PLUGINS_PATH="$SNAP/scripts/diag-plugins"
+
+
+mkdir -p "$CONFIG_PLUGINS_PATH"
+cat > "$CONFIG_PLUGINS_PATH/file" << WRAPPER
+#!/bin/sh
+exec "$SNAP/bin/tedge-file-config-plugin" "\$@"
+WRAPPER
+chmod +x "$CONFIG_PLUGINS_PATH/file"
+
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set device.type "thin-edge.io" \
+    && echo "device.type set to thin-edge.io" \
+    || echo "WARNING: could not set device.type (ignored)"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
+    && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
+    || echo "WARNING: could not set configuration.plugin_paths (ignored)"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set log.plugin_paths "$LOG_PLUGINS_PATH" \
+    && echo "log.plugin_paths set to $LOG_PLUGINS_PATH" \
+    || echo "WARNING: could not set log.plugin_paths (ignored)"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set diag.plugin_paths "$DIAG_PLUGINS_PATH" \
+    && echo "diag.plugin_paths set to $DIAG_PLUGINS_PATH" \
+    || echo "WARNING: could not set diag.plugin_paths (ignored)"
+
+echo "Registering c8y-remote-access-plugin ..."
+"$SNAP/bin/c8y-remote-access-plugin" --init && echo "c8y-remote-access-plugin registered" || echo "WARNING: c8y-remote-access-plugin --init failed (ignored)"
+
+# Register c8y-firmware-plugin (c8y_Firmware operation for child devices)
+echo "Registering c8y-firmware-plugin ..."
+"$SNAP/bin/c8y-firmware-plugin" --init && echo "c8y-firmware-plugin registered" || echo "WARNING: c8y-firmware-plugin --init failed (ignored)"

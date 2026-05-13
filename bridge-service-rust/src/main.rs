@@ -130,17 +130,49 @@ async fn main() -> Result<()> {
     let mut config = DatalayerEngine::load_config(&config_path);
     let credentials = DatalayerEngine::load_credentials(&credentials_path);
 
-    // Read device_external_id from hardware serial (sysfs DMI).
-    // The ctrlX package certificate at package-certificates/thin-edge-io/... has CN = Cumulocity
-    // tenant ID (e.g. t10452223), NOT the device hardware UUID. Reading the cert CN would produce
-    // the wrong externalId. Instead, read the serial directly from sysfs — this matches the
-    // manage-device-id.sh get-serial output and the expected ctrlx-<UUID> format.
-    let external_id = get_device_serial();
-    if !external_id.is_empty() {
+    // Determine device_external_id:
+    // Priority 1: tedge config get device.id (matches the registered Cumulocity device)
+    // Priority 2: hardware serial from sysfs DMI (fallback for VMs/unconfigured devices)
+    let tedge_device_id = if is_snap {
+        let snap = env::var("SNAP").unwrap_or_default();
+        let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+        let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
+        let tedge_config_dir = PathBuf::from(&snap_data).join("tedge");
+        std::process::Command::new(&tedge_bin)
+            .args([
+                "--config-dir",
+                tedge_config_dir.to_str().unwrap_or(""),
+                "config",
+                "get",
+                "device.id",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let external_id = if !tedge_device_id.is_empty() {
         info!(
-            "[BRIDGE] Device external ID registered ({} chars)",
-            external_id.len()
+            "[BRIDGE] Device external ID from tedge config: {}",
+            tedge_device_id
         );
+        tedge_device_id
+    } else {
+        let serial = get_device_serial();
+        if !serial.is_empty() {
+            info!(
+                "[BRIDGE] Device external ID from hardware serial ({} chars)",
+                serial.len()
+            );
+        }
+        serial
+    };
+    if !external_id.is_empty() {
         config.device_external_id = external_id;
     }
 
