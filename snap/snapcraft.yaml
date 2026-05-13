@@ -440,6 +440,8 @@ parts:
       ln -sf ../../../../bin/tedge-file-config-plugin $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins/file
       mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/log-plugins
       mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/diag-plugins
+      # Note: log-plugins and diag-plugins are provided by scripts/log-plugins
+      # and scripts/diag-plugins in the snap (included via the scripts part).
 
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
@@ -480,6 +482,15 @@ parts:
       - scripts/log-plugins/
       - scripts/log-plugins/file
       - scripts/log-plugins/journald
+      - scripts/diag-plugins/
+      - scripts/diag-plugins/01_tedge.sh
+      - scripts/diag-plugins/02_os.sh
+      - scripts/diag-plugins/03_mqtt.sh
+      - scripts/diag-plugins/04_workflow.sh
+      - scripts/diag-plugins/05_entities.sh
+      - scripts/diag-plugins/06_internal.sh
+      - scripts/diag-plugins/07_mosquitto.sh
+      - scripts/diag-plugins/08_truststore.sh
 
   hooks:
     plugin: dump

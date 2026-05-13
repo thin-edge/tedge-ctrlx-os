@@ -149,32 +149,25 @@ TEDGE_BIN="$SNAP/bin/tedge"
 TEDGE_CFG_DIR="$SNAP_DATA/tedge"
 # Use a writable SNAP_DATA directory for config-plugins so only the 'file' symlink
 # is present — tedge-agent tests every binary in the directory with 'list'.
+# Plugin paths:
+# - config-plugins: writable $SNAP_DATA dir, wrapper script needed because the
+#   multicall binary dispatches via argv[0] (calling it as 'file' is not recognized).
+# - log-plugins/diag-plugins: $SNAP/scripts/* already contain complete, snap-aware
+#   scripts (file, journald for log; 01_tedge..08_truststore for diag).
+#   $SNAP path is updated on every restart by this oneshot service.
 CONFIG_PLUGINS_PATH="$SNAP_DATA/tedge/config-plugins"
-LOG_PLUGINS_PATH="$SNAP_DATA/tedge/log-plugins"
-DIAG_PLUGINS_PATH="$SNAP_DATA/tedge/diag-plugins"
+LOG_PLUGINS_PATH="$SNAP/scripts/log-plugins"
+DIAG_PLUGINS_PATH="$SNAP/scripts/diag-plugins"
 
-# Create writable plugin directories (SNAP is read-only)
-mkdir -p "$LOG_PLUGINS_PATH"
-mkdir -p "$DIAG_PLUGINS_PATH"
-
-# Create config-plugins dir with only the 'file' entry
-# A wrapper script is needed (not a symlink) because the multicall binary
-# determines its mode from argv[0] — calling it as "file" would not be recognized.
-# The wrapper sets argv[0] to "tedge-file-config-plugin" via exec.
+# Create config-plugins dir with only the 'file' wrapper script.
+# A wrapper is needed because the multicall binary determines its mode from
+# argv[0] — calling it as 'file' would not be recognized.
 mkdir -p "$CONFIG_PLUGINS_PATH"
 cat > "$CONFIG_PLUGINS_PATH/file" << WRAPPER
 #!/bin/sh
 exec "$SNAP/bin/tedge-file-config-plugin" "\$@"
 WRAPPER
 chmod +x "$CONFIG_PLUGINS_PATH/file"
-
-# Create log-plugins dir with 'file' wrapper (same argv[0] issue)
-mkdir -p "$LOG_PLUGINS_PATH"
-cat > "$LOG_PLUGINS_PATH/file" << WRAPPER
-#!/bin/sh
-exec "$SNAP/bin/tedge-file-log-plugin" "\$@"
-WRAPPER
-chmod +x "$LOG_PLUGINS_PATH/file"
 
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
