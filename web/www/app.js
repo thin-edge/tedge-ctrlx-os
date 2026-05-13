@@ -23,7 +23,7 @@ const I18N = {
     "nav.connect": "Verbinden",
     "nav.logs": "Logs",
     "nav.tedge_config": "Tedge Config",
-    "nav.device": "Gerät",
+    "nav.device": "Geräte Konfig",
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Lizenzierung",
@@ -385,7 +385,7 @@ const I18N = {
     "nav.connect": "Connect",
     "nav.logs": "Logs",
     "nav.tedge_config": "Tedge",
-    "nav.device": "Device",
+    "nav.device": "Device Config",
     "nav.snap_config": "Snap Config",
     "nav.datalayer": "Datalayer",
     "nav.licensing": "Licensing",
@@ -3154,7 +3154,9 @@ function updateTopicPrefix() {
 function _toggleUnitField() {
   const group = document.getElementById("datalayer-unit-group");
   if (!group) return;
-  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
   group.style.display = transform === "measurement" ? "" : "none";
 }
 
@@ -3165,9 +3167,21 @@ function _buildMqttServicePayload(transform, fieldName, unit, ts) {
     p.externalId = "<device-external-id>";
     return p;
   } else if (transform === "event") {
-    return { Text: "<datalayer-value>", type: "c8y_ctrlx_Event", time: ts, externalId: "<device-external-id>" };
+    return {
+      Text: "<datalayer-value>",
+      type: "c8y_ctrlx_Event",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
   } else if (transform === "alarm") {
-    return { Text: "<datalayer-value>", severity: "MAJOR", status: "ACTIVE", type: "c8y_ctrlx_Alarm", time: ts, externalId: "<device-external-id>" };
+    return {
+      Text: "<datalayer-value>",
+      severity: "MAJOR",
+      status: "ACTIVE",
+      type: "c8y_ctrlx_Alarm",
+      time: ts,
+      externalId: "<device-external-id>",
+    };
   } else {
     return { raw: "<datalayer-value>", externalId: "<device-external-id>" };
   }
@@ -3185,7 +3199,13 @@ function _buildFlowOutputPayload(transform, fieldName, unit, ts) {
   } else if (transform === "alarm") {
     // After thin-edge c8y mapper (adds type from topic path)
     const text = JSON.stringify({ [fieldName]: "<datalayer-value>", time: ts });
-    return { type: fieldName, text, severity: "MAJOR", status: "ACTIVE", time: ts };
+    return {
+      type: fieldName,
+      text,
+      severity: "MAJOR",
+      status: "ACTIVE",
+      time: ts,
+    };
   } else {
     return { [fieldName]: "<datalayer-value>" };
   }
@@ -3195,9 +3215,13 @@ async function showMappingPayloadPreview() {
   const preDl = document.getElementById("datalayer-payload-preview");
   const preMqtt = document.getElementById("datalayer-mqtt-payload-preview");
 
-  const isFlow = document.getElementById("datalayer-mapping-type")?.value === "flow";
-  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
-  const path = document.getElementById("datalayer-mapping-path")?.value.trim() || "";
+  const isFlow =
+    document.getElementById("datalayer-mapping-type")?.value === "flow";
+  const transform =
+    document.getElementById("datalayer-mapping-transform")?.value ||
+    "measurement";
+  const path =
+    document.getElementById("datalayer-mapping-path")?.value.trim() || "";
   const fieldName =
     document.getElementById("datalayer-mapping-field").value.trim() ||
     path.split("/").pop() ||
@@ -3216,23 +3240,41 @@ async function showMappingPayloadPreview() {
       preDl.textContent = "…";
       if (path) {
         try {
-          const r = await fetchWithAuth(`api/datalayer/node?path=${encodeURIComponent(path)}`);
+          const r = await fetchWithAuth(
+            `api/datalayer/node?path=${encodeURIComponent(path)}`,
+          );
           if (r.ok) {
             const data = await r.json();
             preDl.textContent = JSON.stringify(data, null, 2);
           } else {
-            preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+            preDl.textContent = JSON.stringify(
+              { type: "double", value: 7441.35 },
+              null,
+              2,
+            );
           }
         } catch {
-          preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+          preDl.textContent = JSON.stringify(
+            { type: "double", value: 7441.35 },
+            null,
+            2,
+          );
         }
       } else {
-        preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+        preDl.textContent = JSON.stringify(
+          { type: "double", value: 7441.35 },
+          null,
+          2,
+        );
       }
     }
     // Right: MQTT Service / c8y output format
     if (preMqtt) {
-      preMqtt.textContent = JSON.stringify(_buildMqttServicePayload(transform, fieldName, unit, ts), null, 2);
+      preMqtt.textContent = JSON.stringify(
+        _buildMqttServicePayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
     }
   } else {
     // ── FLOW MODE ──
@@ -3242,11 +3284,19 @@ async function showMappingPayloadPreview() {
     if (lblMqtt) lblMqtt.textContent = "Flow Output (main.js)";
     // Left: MQTT Service / c8y format (what the bridge-equivalent would produce)
     if (preDl) {
-      preDl.textContent = JSON.stringify(_buildMqttServicePayload(transform, fieldName, unit, ts), null, 2);
+      preDl.textContent = JSON.stringify(
+        _buildMqttServicePayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
     }
     // Right: flow output (what main.js produces → te/ topic format)
     if (preMqtt) {
-      preMqtt.textContent = JSON.stringify(_buildFlowOutputPayload(transform, fieldName, unit, ts), null, 2);
+      preMqtt.textContent = JSON.stringify(
+        _buildFlowOutputPayload(transform, fieldName, unit, ts),
+        null,
+        2,
+      );
     }
   }
 }
