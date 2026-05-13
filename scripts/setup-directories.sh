@@ -148,9 +148,17 @@ fi
 TEDGE_BIN="$SNAP/bin/tedge"
 TEDGE_CFG_DIR="$SNAP_DATA/tedge"
 CONFIG_PLUGINS_PATH="$SNAP/usr/share/tedge/config-plugins"
+LOG_PLUGINS_PATH="$SNAP/usr/share/tedge/log-plugins"
+DIAG_PLUGINS_PATH="$SNAP/usr/share/tedge/diag-plugins"
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
     || echo "WARNING: could not set configuration.plugin_paths (ignored)"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set log.plugin_paths "$LOG_PLUGINS_PATH" \
+    && echo "log.plugin_paths set to $LOG_PLUGINS_PATH" \
+    || echo "WARNING: could not set log.plugin_paths (ignored)"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set diag.plugin_paths "$DIAG_PLUGINS_PATH" \
+    && echo "diag.plugin_paths set to $DIAG_PLUGINS_PATH" \
+    || echo "WARNING: could not set diag.plugin_paths (ignored)"
 
 # Register c8y-remote-access-plugin operation (c8y_RemoteAccessConnect)
 # This creates /etc/tedge/operations/c8y/c8y_RemoteAccessConnect so that

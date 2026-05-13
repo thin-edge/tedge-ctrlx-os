@@ -437,6 +437,8 @@ parts:
       ln -sf tedge $CRAFT_PART_INSTALL/bin/tedge-flows-plugin
       mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins
       ln -sf ../../../../bin/tedge-file-config-plugin $CRAFT_PART_INSTALL/usr/share/tedge/config-plugins/file
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/log-plugins
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/tedge/diag-plugins
 
       # Strip binaries to reduce size
       aarch64-linux-gnu-strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server 2>/dev/null || strip $CRAFT_PART_INSTALL/bin/tedge $CRAFT_PART_INSTALL/bin/tedge-p11-server
