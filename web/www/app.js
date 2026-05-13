@@ -3152,12 +3152,37 @@ function updateTopicPrefix() {
 
 /** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
 function showMappingPayloadPreview() {
-  const pre = document.getElementById("datalayer-payload-preview");
-  if (!pre) return;
+  const preDl = document.getElementById("datalayer-payload-preview");
+  const preMqtt = document.getElementById("datalayer-mqtt-payload-preview");
 
-  // Show the raw Datalayer REST response format
-  const payload = { type: "double", value: 7441.35 };
-  pre.textContent = JSON.stringify(payload, null, 2);
+  // Left: raw Datalayer REST response format
+  if (preDl) {
+    preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+  }
+
+  // Right: computed MQTT payload preview
+  if (!preMqtt) return;
+  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const fieldName =
+    document.getElementById("datalayer-mapping-field").value.trim() ||
+    document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
+    "value";
+  const unit = document.getElementById("datalayer-mapping-unit").value.trim();
+  const ts = new Date().toISOString();
+
+  let payload;
+  if (transform === "measurement") {
+    payload = { [fieldName]: 42.0, time: ts };
+    if (unit) payload.unit = unit;
+  } else if (transform === "event") {
+    payload = { [fieldName]: "<datalayer-value>", time: ts };
+  } else if (transform === "alarm") {
+    payload = { [fieldName]: "<datalayer-value>", severity: "MAJOR", time: ts };
+  } else {
+    payload = { [fieldName]: "<datalayer-value>" };
+  }
+
+  preMqtt.textContent = JSON.stringify(payload, null, 2);
 }
 
 function editDatalayerMapping(id) {
