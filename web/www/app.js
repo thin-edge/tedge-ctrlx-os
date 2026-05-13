@@ -3151,6 +3151,13 @@ function updateTopicPrefix() {
 }
 
 /** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
+function _toggleUnitField() {
+  const group = document.getElementById("datalayer-unit-group");
+  if (!group) return;
+  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+  group.style.display = transform === "measurement" ? "" : "none";
+}
+
 function _buildMqttServicePayload(transform, fieldName, unit, ts) {
   if (transform === "measurement") {
     const p = { [fieldName]: 42, time: ts };
@@ -3270,7 +3277,7 @@ function editDatalayerMapping(id) {
 
   // Mapping-Typ toggle — infer from stored value + topic pattern, preserve stored topic
   _setMappingTypeVisual(inferMappingType(mapping), existingTopic);
-
+  _toggleUnitField();
   showMappingPayloadPreview();
 
   const titleEl = document.getElementById("mapping-form-title");
@@ -3398,6 +3405,7 @@ function cancelMapping() {
   });
   // Reset mapping-type toggle to default
   setMappingTypeBtn("datalayer");
+  _toggleUnitField();
   // Delete-Button wieder ausblenden
   const delBtn = document.getElementById("delete-mapping-btn");
   if (delBtn) delBtn.style.display = "none";
