@@ -154,8 +154,15 @@ LOG_PLUGINS_PATH="$SNAP/usr/share/tedge/log-plugins"
 DIAG_PLUGINS_PATH="$SNAP/usr/share/tedge/diag-plugins"
 
 # Create config-plugins dir with only the 'file' entry
+# A wrapper script is needed (not a symlink) because the multicall binary
+# determines its mode from argv[0] — calling it as "file" would not be recognized.
+# The wrapper sets argv[0] to "tedge-file-config-plugin" via exec.
 mkdir -p "$CONFIG_PLUGINS_PATH"
-ln -sf "$SNAP/bin/tedge-file-config-plugin" "$CONFIG_PLUGINS_PATH/file"
+cat > "$CONFIG_PLUGINS_PATH/file" << WRAPPER
+#!/bin/sh
+exec "$SNAP/bin/tedge-file-config-plugin" "\$@"
+WRAPPER
+chmod +x "$CONFIG_PLUGINS_PATH/file"
 
 "$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
     && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
