@@ -143,6 +143,15 @@ else
     echo "system.toml already exists, not overwriting"
 fi
 
+# Configure tedge to find config-plugins inside the snap
+# Default path /usr/share/tedge/config-plugins does not exist in snap confinement.
+TEDGE_BIN="$SNAP/bin/tedge"
+TEDGE_CFG_DIR="$SNAP_DATA/tedge"
+CONFIG_PLUGINS_PATH="$SNAP/usr/share/tedge/config-plugins"
+"$TEDGE_BIN" --config-dir "$TEDGE_CFG_DIR" config set configuration.plugin_paths "$CONFIG_PLUGINS_PATH" \
+    && echo "configuration.plugin_paths set to $CONFIG_PLUGINS_PATH" \
+    || echo "WARNING: could not set configuration.plugin_paths (ignored)"
+
 # Register c8y-remote-access-plugin operation (c8y_RemoteAccessConnect)
 # This creates /etc/tedge/operations/c8y/c8y_RemoteAccessConnect so that
 # tedge-agent recognises remote access operations from Cumulocity.
