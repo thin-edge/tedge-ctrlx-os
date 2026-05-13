@@ -6,7 +6,7 @@
 const decoder = new TextDecoder();
 
 function mapSeverity(ctrlxSeverity) {
-    if (!ctrlxSeverity) return "MAJOR";
+    if (!ctrlxSeverity) return "MINOR";
     switch (ctrlxSeverity.toUpperCase()) {
         case "EMERGENCY":
         case "FATAL":
@@ -21,7 +21,7 @@ function mapSeverity(ctrlxSeverity) {
         case "NOTICE":
             return "WARNING";
         default:
-            return "MAJOR";
+            return "MINOR";
     }
 }
 
