@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.0.164
+version: 0.0.165
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -477,6 +477,12 @@ parts:
     source: ./scripts
     organize:
       '*': scripts/
+    override-prime: |
+      craftctl default
+      # tedge diag collect refuses to run plugins writable by non-root users.
+      # The source files are 0775 (group-writable); strip group/world write bits.
+      chmod 755 $CRAFT_PRIME/scripts/log-plugins/*
+      chmod 755 $CRAFT_PRIME/scripts/diag-plugins/*
     stage:
       - scripts/*
       - scripts/log-plugins/
