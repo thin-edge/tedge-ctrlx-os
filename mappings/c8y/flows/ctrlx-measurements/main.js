@@ -1,8 +1,7 @@
 // thin-edge.io flows API (ES2020 module)
 // Receives dl/+/+/+/+/m/+ messages from the ctrlX Datalayer bridge
-// and re-publishes them as thin-edge measurements on te/device/main///m/+
-// The c8y mapper built-in then converts them to Cumulocity measurements
-// (adding source.id automatically — no device ID lookup needed here).
+// and publishes them directly to c8y/measurement/measurements/create
+// with the full Cumulocity measurement format including value and unit.
 
 const decoder = new TextDecoder();
 
@@ -20,10 +19,10 @@ export function onMessage(message, context) {
     // Extract field name from topic: dl/device/main///m/<field_name>
     const topicParts = message.topic.split("/");
     const fieldName = topicParts[topicParts.length - 1];
-    const unit = payload.unit != null ? String(payload.unit) : "";  // kept for potential future use
+    const unit = payload.unit != null ? String(payload.unit) : "";
     const time = payload.time != null ? String(payload.time) : new Date().toISOString();
 
-    // Build thin-edge measurement: { "<fragment>": { "<series>": <number> } }
+    // Build Cumulocity measurement: { "<fragment>": { "<series>": { value, unit } } }
     const measurementKeys = Object.keys(payload).filter(k => SKIP_KEYS.indexOf(k) === -1);
     if (measurementKeys.length === 0) return [];
 
@@ -31,16 +30,16 @@ export function onMessage(message, context) {
     for (const key of measurementKeys) {
         const val = payload[key];
         if (typeof val === "number") {
-            // thin-edge only accepts plain numbers at the series level — no {value, unit} objects
-            fragments[key] = { [key]: val };
+            const series = unit ? { value: val, unit } : { value: val };
+            fragments[key] = { [key]: series };
         }
     }
 
     const type = fieldName || measurementKeys[0];
 
-    // Re-publish to te/ topic — the c8y mapper built-in adds source.id
+    // Publish directly to c8y — thin-edge cloud connector forwards to Cumulocity
     return [{
-        topic: `te/device/main///m/${type}`,
-        payload: JSON.stringify(Object.assign({ time }, fragments))
+        topic: `c8y/measurement/measurements/create`,
+        payload: JSON.stringify(Object.assign({ time, type }, fragments))
     }];
 }

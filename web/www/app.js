@@ -3175,12 +3175,17 @@ function _buildMqttServicePayload(transform, fieldName, unit, ts) {
 
 function _buildFlowOutputPayload(transform, fieldName, unit, ts) {
   if (transform === "measurement") {
-    // thin-edge format: {time, <fragment>: {<series>: <number>}}
-    return { time: ts, [fieldName]: { [fieldName]: 42.0 } };
+    // Published directly to c8y/measurement/measurements/create
+    const series = unit ? { value: 42.0, unit } : { value: 42.0 };
+    return { time: ts, type: fieldName, [fieldName]: { [fieldName]: series } };
   } else if (transform === "event") {
-    return { text: "<datalayer-value>", time: ts };
+    // After thin-edge c8y mapper (adds type from topic path)
+    const text = JSON.stringify({ [fieldName]: "<datalayer-value>", time: ts });
+    return { type: fieldName, text, time: ts };
   } else if (transform === "alarm") {
-    return { text: "<datalayer-value>", severity: "MINOR", time: ts, status: "ACTIVE" };
+    // After thin-edge c8y mapper (adds type from topic path)
+    const text = JSON.stringify({ [fieldName]: "<datalayer-value>", time: ts });
+    return { type: fieldName, text, severity: "MAJOR", status: "ACTIVE", time: ts };
   } else {
     return { [fieldName]: "<datalayer-value>" };
   }
