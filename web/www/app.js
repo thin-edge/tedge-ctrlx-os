@@ -3151,38 +3151,92 @@ function updateTopicPrefix() {
 }
 
 /** Zeigt eine Vorschau des Cloud-Payloads basierend auf aktuellen Formularwerten */
-function showMappingPayloadPreview() {
+function _buildMqttServicePayload(transform, fieldName, unit, ts) {
+  if (transform === "measurement") {
+    const p = { [fieldName]: 42, time: ts };
+    if (unit) p.unit = unit;
+    p.externalId = "<device-external-id>";
+    return p;
+  } else if (transform === "event") {
+    return { Text: "<datalayer-value>", type: "c8y_ctrlx_Event", time: ts, externalId: "<device-external-id>" };
+  } else if (transform === "alarm") {
+    return { Text: "<datalayer-value>", severity: "MAJOR", status: "ACTIVE", type: "c8y_ctrlx_Alarm", time: ts, externalId: "<device-external-id>" };
+  } else {
+    return { raw: "<datalayer-value>", externalId: "<device-external-id>" };
+  }
+}
+
+function _buildFlowOutputPayload(transform, fieldName, unit, ts) {
+  if (transform === "measurement") {
+    // thin-edge format: {time, <fragment>: {<series>: <number>}}
+    return { time: ts, [fieldName]: { [fieldName]: 42.0 } };
+  } else if (transform === "event") {
+    return { text: "<datalayer-value>", time: ts };
+  } else if (transform === "alarm") {
+    return { text: "<datalayer-value>", severity: "MINOR", time: ts, status: "ACTIVE" };
+  } else {
+    return { [fieldName]: "<datalayer-value>" };
+  }
+}
+
+async function showMappingPayloadPreview() {
   const preDl = document.getElementById("datalayer-payload-preview");
   const preMqtt = document.getElementById("datalayer-mqtt-payload-preview");
 
-  // Left: raw Datalayer REST response format
-  if (preDl) {
-    preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
-  }
-
-  // Right: computed MQTT payload preview
-  if (!preMqtt) return;
-  const transform = document.getElementById("datalayer-mapping-transform").value;
+  const isFlow = document.getElementById("datalayer-mapping-type")?.value === "flow";
+  const transform = document.getElementById("datalayer-mapping-transform")?.value || "measurement";
+  const path = document.getElementById("datalayer-mapping-path")?.value.trim() || "";
   const fieldName =
     document.getElementById("datalayer-mapping-field").value.trim() ||
-    document.getElementById("datalayer-mapping-path").value.split("/").pop() ||
+    path.split("/").pop() ||
     "value";
   const unit = document.getElementById("datalayer-mapping-unit").value.trim();
   const ts = new Date().toISOString();
 
-  let payload;
-  if (transform === "measurement") {
-    payload = { [fieldName]: 42.0, time: ts };
-    if (unit) payload.unit = unit;
-  } else if (transform === "event") {
-    payload = { [fieldName]: "<datalayer-value>", time: ts };
-  } else if (transform === "alarm") {
-    payload = { [fieldName]: "<datalayer-value>", severity: "MAJOR", time: ts };
+  if (!isFlow) {
+    // ── DATALAYER MODE ──
+    const lblDl = document.getElementById("datalayer-output-label");
+    const lblMqtt = document.getElementById("datalayer-mqtt-preview-label");
+    if (lblDl) lblDl.textContent = "Datalayer Output";
+    if (lblMqtt) lblMqtt.textContent = "Payload Preview";
+    // Left: live REST call to datalayer (fallback to static example)
+    if (preDl) {
+      preDl.textContent = "…";
+      if (path) {
+        try {
+          const r = await fetchWithAuth(`api/datalayer/node?path=${encodeURIComponent(path)}`);
+          if (r.ok) {
+            const data = await r.json();
+            preDl.textContent = JSON.stringify(data, null, 2);
+          } else {
+            preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+          }
+        } catch {
+          preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+        }
+      } else {
+        preDl.textContent = JSON.stringify({ type: "double", value: 7441.35 }, null, 2);
+      }
+    }
+    // Right: MQTT Service / c8y output format
+    if (preMqtt) {
+      preMqtt.textContent = JSON.stringify(_buildMqttServicePayload(transform, fieldName, unit, ts), null, 2);
+    }
   } else {
-    payload = { [fieldName]: "<datalayer-value>" };
+    // ── FLOW MODE ──
+    const lblDl = document.getElementById("datalayer-output-label");
+    const lblMqtt = document.getElementById("datalayer-mqtt-preview-label");
+    if (lblDl) lblDl.textContent = "Bridge Output";
+    if (lblMqtt) lblMqtt.textContent = "Flow Output (main.js)";
+    // Left: MQTT Service / c8y format (what the bridge-equivalent would produce)
+    if (preDl) {
+      preDl.textContent = JSON.stringify(_buildMqttServicePayload(transform, fieldName, unit, ts), null, 2);
+    }
+    // Right: flow output (what main.js produces → te/ topic format)
+    if (preMqtt) {
+      preMqtt.textContent = JSON.stringify(_buildFlowOutputPayload(transform, fieldName, unit, ts), null, 2);
+    }
   }
-
-  preMqtt.textContent = JSON.stringify(payload, null, 2);
 }
 
 function editDatalayerMapping(id) {

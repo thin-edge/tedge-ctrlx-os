@@ -1832,7 +1832,8 @@ Befehl auswählen und "Laden" klicken…</pre
                     type="checkbox"
                     id="datalayer-mapping-type-chk"
                     onchange="
-                      setMappingTypeBtn(this.checked ? 'flow' : 'datalayer')
+                      setMappingTypeBtn(this.checked ? 'flow' : 'datalayer');
+                      showMappingPayloadPreview();
                     "
                   />
                   <span class="tedge-switch-slider"></span>
@@ -1847,6 +1848,7 @@ Befehl auswählen und "Laden" klicken…</pre
                     );
                     c.checked = !c.checked;
                     setMappingTypeBtn(c.checked ? 'flow' : 'datalayer');
+                    showMappingPayloadPreview();
                   "
                   >ctrlX Datalayer Mapping</span
                 >
@@ -1943,7 +1945,7 @@ Befehl auswählen und "Laden" klicken…</pre
                     />
                   </div>
                   <div class="form-group">
-                    <label data-i18n="datalayer.payload_preview">Datalayer Output</label>
+                    <label id="datalayer-output-label" data-i18n="datalayer.payload_preview">Datalayer Output</label>
                     <pre
                       id="datalayer-payload-preview"
                       style="
@@ -2026,7 +2028,7 @@ Befehl auswählen und "Laden" klicken…</pre
                   </div>
 
                   <div class="form-group">
-                    <label>Payload Preview</label>
+                    <label id="datalayer-mqtt-preview-label">Payload Preview</label>
                     <pre
                       id="datalayer-mqtt-payload-preview"
                       style="
