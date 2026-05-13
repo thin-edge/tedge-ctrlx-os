@@ -483,6 +483,7 @@ parts:
       # The source files are 0775 (group-writable); strip group/world write bits.
       chmod 755 $CRAFT_PRIME/scripts/log-plugins/*
       chmod 755 $CRAFT_PRIME/scripts/diag-plugins/*
+      chmod 755 $CRAFT_PRIME/scripts/diag-upload.sh
     stage:
       - scripts/*
       - scripts/log-plugins/
@@ -497,6 +498,15 @@ parts:
       - scripts/diag-plugins/06_internal.sh
       - scripts/diag-plugins/07_mosquitto.sh
       - scripts/diag-plugins/08_truststore.sh
+      - scripts/diag-upload.sh
+
+  # Default operation workflows - shipped read-only in $SNAP,
+  # copied to $SNAP_DATA/tedge/operations/ on install/refresh by setup-directories.sh
+  default-operations:
+    plugin: dump
+    source: ./tedge/operations
+    organize:
+      '*': tedge/operations/
 
   hooks:
     plugin: dump

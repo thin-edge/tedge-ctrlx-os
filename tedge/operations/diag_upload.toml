@@ -1,0 +1,16 @@
+operation = "diag_upload"
+
+[init]
+  action = "proceed"
+  on_success = "executing"
+
+[executing]
+  script = "${SNAP}/scripts/diag-upload.sh"
+  on_success = "successful"
+  on_error = { status = "failed", reason = "Diagnostic collection or upload failed" }
+
+[successful]
+  action = "cleanup"
+
+[failed]
+  action = "cleanup"
