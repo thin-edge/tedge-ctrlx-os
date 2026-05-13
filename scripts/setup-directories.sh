@@ -150,8 +150,12 @@ TEDGE_CFG_DIR="$SNAP_DATA/tedge"
 # Use a writable SNAP_DATA directory for config-plugins so only the 'file' symlink
 # is present — tedge-agent tests every binary in the directory with 'list'.
 CONFIG_PLUGINS_PATH="$SNAP_DATA/tedge/config-plugins"
-LOG_PLUGINS_PATH="$SNAP/usr/share/tedge/log-plugins"
-DIAG_PLUGINS_PATH="$SNAP/usr/share/tedge/diag-plugins"
+LOG_PLUGINS_PATH="$SNAP_DATA/tedge/log-plugins"
+DIAG_PLUGINS_PATH="$SNAP_DATA/tedge/diag-plugins"
+
+# Create writable plugin directories (SNAP is read-only)
+mkdir -p "$LOG_PLUGINS_PATH"
+mkdir -p "$DIAG_PLUGINS_PATH"
 
 # Create config-plugins dir with only the 'file' entry
 # A wrapper script is needed (not a symlink) because the multicall binary
