@@ -195,7 +195,8 @@ const I18N = {
     "logs.copied": "Logs in Zwischenablage kopiert",
     "logs.diag_upload": "Diag Upload",
     "logs.diag_uploading": "Sammeln...",
-    "logs.diag_upload_started": "Diagnose wird gesammelt und zu Cumulocity hochgeladen",
+    "logs.diag_upload_started":
+      "Diagnose wird gesammelt und zu Cumulocity hochgeladen",
     "logs.diag_upload_error": "Diag-Upload fehlgeschlagen",
     "logs.placeholder": 'Klicke „Logs laden" um die letzten Einträge zu laden.',
     // Tedge
@@ -313,6 +314,7 @@ const I18N = {
     "datalayer.cloud_mapping_hint":
       "Stelle bitte sicher, dass ein entsprechendes Data Mapping in der Cloud konfiguriert ist – sei es durch Data Preparation, den Dynamic Mapper, einen Microservice oder ein anderes Mapping-Tool deiner Wahl.",
     // Snap Config Editor
+    "section.snapconfig": "Konfigurationsdateien",
     "snapconfig.file": "Datei",
     "snapconfig.load": "Laden",
     "snapconfig.save": "Speichern",
@@ -332,6 +334,9 @@ const I18N = {
     "datalayer.node_browser": "Datalayer Knoten-Browser",
     "datalayer.browse_placeholder": "z.B. plc/app/Application",
     "datalayer.browser_hint": 'Pfad eingeben und „Durchsuchen" klicken.',
+    "datalayer.browse_not_configured":
+      "Datalayer Bridge ist deaktiviert oder keine Base-URL konfiguriert.",
+    "datalayer.browse_error": "Fehler beim Laden:",
     "datalayer.mappings_title": "Datenpunkt-Mappings",
     "datalayer.add_mapping_btn": "+ Mapping",
     "datalayer.path": "Datalayer-Pfad",
@@ -558,7 +563,8 @@ const I18N = {
     "logs.copied": "Logs copied to clipboard",
     "logs.diag_upload": "Diag Upload",
     "logs.diag_uploading": "Collecting...",
-    "logs.diag_upload_started": "Diagnostic collection started \u2014 file will be uploaded to Cumulocity",
+    "logs.diag_upload_started":
+      "Diagnostic collection started \u2014 file will be uploaded to Cumulocity",
     "logs.diag_upload_error": "Diag upload failed",
     "logs.placeholder": 'Click "Load Logs" to load the latest entries.',
     // Sysinfo
@@ -662,6 +668,7 @@ const I18N = {
     "datalayer.cloud_mapping_hint":
       "Please ensure that you have data mapping in place in the Cloud, using either Data Preparation, the Dynamic Mapper, a Microservice, or any other mapping tool.",
     // Snap Config Editor
+    "section.snapconfig": "Configuration Files",
     // Tedge section
     "section.tedgeconfig": "Tedge",
     "nav.tedge_config": "Tedge",
@@ -690,6 +697,9 @@ const I18N = {
     "datalayer.node_browser": "Datalayer Node Browser",
     "datalayer.browse_placeholder": "e.g. plc/app/Application",
     "datalayer.browser_hint": 'Enter a path and click "Browse".',
+    "datalayer.browse_not_configured":
+      "Datalayer Bridge is disabled or no Base URL configured.",
+    "datalayer.browse_error": "Error loading:",
     "datalayer.mappings_title": "Data Point Mappings",
     "datalayer.add_mapping_btn": "+ Mapping",
     "datalayer.path": "Datalayer Path",
@@ -1763,12 +1773,22 @@ async function runDiagUpload() {
     const res = await fetchWithAuth("api/diag-upload", { method: "POST" });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.success) {
-      showNotification(t("logs.diag_upload_started") || "Diagnostic collection started — file will be uploaded to Cumulocity", "success");
+      showNotification(
+        t("logs.diag_upload_started") ||
+          "Diagnostic collection started — file will be uploaded to Cumulocity",
+        "success",
+      );
     } else {
-      showNotification((json.error || t("logs.diag_upload_error") || "Diag upload failed"), "error");
+      showNotification(
+        json.error || t("logs.diag_upload_error") || "Diag upload failed",
+        "error",
+      );
     }
   } catch (e) {
-    showNotification(t("logs.diag_upload_error") || "Diag upload failed", "error");
+    showNotification(
+      t("logs.diag_upload_error") || "Diag upload failed",
+      "error",
+    );
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -3723,8 +3743,22 @@ async function loadDatalayerMappings() {
 async function browseDatalayer() {
   const pathInput = document.getElementById("datalayer-browse-path");
   const listBox = document.getElementById("datalayer-node-list");
-  let path = pathInput.value.trim();
 
+  // Guard: Datalayer must be enabled and base_url configured
+  const enabled =
+    document.getElementById("datalayer-enabled")?.checked || false;
+  const baseUrl =
+    document.getElementById("datalayer-base-url")?.value?.trim() || "";
+  if (!enabled || !baseUrl) {
+    listBox.innerHTML = "";
+    const hint = document.createElement("div");
+    hint.className = "node-empty-hint text-danger";
+    hint.textContent = t("datalayer.browse_not_configured");
+    listBox.appendChild(hint);
+    return;
+  }
+
+  let path = pathInput.value.trim();
   if (!path.startsWith("/")) path = "/" + path;
   if (path === "/") path = "";
 
@@ -3750,7 +3784,7 @@ async function browseDatalayer() {
     listBox.innerHTML = "";
     const errHint = document.createElement("div");
     errHint.className = "node-empty-hint text-danger";
-    errHint.textContent = "Fehler: " + e.message;
+    errHint.textContent = t("datalayer.browse_error") + " " + e.message;
     listBox.appendChild(errHint);
   }
 }
