@@ -23,9 +23,10 @@
     - [Node Browser](#102-node-browser)
     - [Mapping Form](#103-mapping-form)
     - [Mapping Table](#104-mapping-table)
-11. [ctrlX Licensing](#11-ctrlx-licensing)
-12. [System Information](#12-system-information)
-13. [Screenshots Checklist](#screenshots-checklist)
+11. [C8y Operations & Remote Management](#11-c8y-operations--remote-management)
+12. [ctrlX Licensing](#12-ctrlx-licensing)
+13. [System Information](#13-system-information)
+14. [Screenshots Checklist](#screenshots-checklist)
 
 ---
 
@@ -168,7 +169,7 @@ After connecting, the [Connection Status](#2-connection-status) section will sho
 
 **Section**: "Logs & Diagnostics"
 
-View live log output from all services.
+View live log output from all services and upload diagnostics to Cumulocity.
 
 > **Screenshot**: "Logs & Diagnostics" section — service dropdown open + log output visible
 >
@@ -180,6 +181,18 @@ View live log output from all services.
 | **Log level** | Set verbosity (trace / debug / info / warn / error) — takes effect on next restart |
 | **Refresh** | Fetch the latest log lines |
 | **Download** | Save the full log file |
+| **Diagnose hochladen** | Collect a diagnostics bundle (journalctl logs, snap info, network) and upload it to Cumulocity as an event binary attachment |
+
+### Diagnostics Upload
+
+Clicking **"Diagnose hochladen"** triggers the `diag_upload` operation:
+
+1. Collects logs from all snap services via `journalctl`
+2. Includes `snap info`, network interfaces, and routing tables
+3. Packages everything into a `.tar.gz` archive
+4. Uploads the archive to Cumulocity as a binary attachment on a `c8y_Upload` event
+
+The operation requires an active Cumulocity connection. The upload status is shown in the log viewer.
 
 ---
 
@@ -387,7 +400,48 @@ Overview of all configured mappings.
 
 ---
 
-## 11. ctrlX Licensing
+## 11. C8y Operations & Remote Management
+
+This snap supports several Cumulocity operations that can be triggered remotely from the Cumulocity IoT platform.
+
+### Remote Access
+
+The `c8y-remote-access-plugin` is automatically registered at snap startup.  
+It enables SSH or VNC connections directly from the Cumulocity UI under **Device → Remote Access** without any manual configuration.
+
+**Requirements**: The Cumulocity tenant must have the Remote Access microservice enabled.
+
+### Firmware Updates
+
+The `c8y-firmware-plugin` runs as a snap daemon and handles Cumulocity firmware update operations.  
+Firmware can be pushed from **Device Management → Firmware** in the Cumulocity UI.
+
+### Log File Upload
+
+The `c8y-log-upload` operation allows Cumulocity to request log files from the device.  
+Supported log sources are configured via the `log-plugins` directory and `tedge-file-log-plugin`.
+
+Available log types (configurable):
+- `tedge-agent`
+- `tedge-mapper-c8y`
+- `tedge-datalayer-bridge`
+- `mosquitto`
+
+Trigger via **Device Management → Logs** in Cumulocity or use the **Logs & Diagnostics** section in the web UI.
+
+### Configuration Management
+
+The `c8y-config-management` operation allows reading and updating configuration files remotely.  
+Supported files are registered via `config-plugins` and `tedge-file-config-plugin`.
+
+### Diagnostics Upload
+
+The `diag_upload` custom operation collects a full diagnostics bundle (logs, snap info, network) and uploads it as an event binary attachment to Cumulocity.  
+Can be triggered from the **Logs & Diagnostics** section in the web UI.
+
+---
+
+## 12. ctrlX Licensing
 
 **Section**: "ctrlX Licensing"
 
@@ -412,7 +466,7 @@ If no valid license is held, a **red warning banner** appears at the top of the 
 
 ---
 
-## 12. System Information
+## 13. System Information
 
 **Section**: "System Information"
 

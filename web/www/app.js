@@ -193,6 +193,10 @@ const I18N = {
     "logs.load": "Logs laden",
     "logs.copy": "Kopieren",
     "logs.copied": "Logs in Zwischenablage kopiert",
+    "logs.diag_upload": "Diag Upload",
+    "logs.diag_uploading": "Sammeln...",
+    "logs.diag_upload_started": "Diagnose wird gesammelt und zu Cumulocity hochgeladen",
+    "logs.diag_upload_error": "Diag-Upload fehlgeschlagen",
     "logs.placeholder": 'Klicke „Logs laden" um die letzten Einträge zu laden.',
     // Tedge
     "section.tedgeconfig": "Tedge",
@@ -552,6 +556,10 @@ const I18N = {
     "logs.load": "Load Logs",
     "logs.copy": "Copy",
     "logs.copied": "Logs copied to clipboard",
+    "logs.diag_upload": "Diag Upload",
+    "logs.diag_uploading": "Collecting...",
+    "logs.diag_upload_started": "Diagnostic collection started \u2014 file will be uploaded to Cumulocity",
+    "logs.diag_upload_error": "Diag upload failed",
     "logs.placeholder": 'Click "Load Logs" to load the latest entries.',
     // Sysinfo
     "sysinfo.version": "Version:",
@@ -1743,6 +1751,30 @@ function copyLogs() {
       sel.removeAllRanges();
       showNotification(t("logs.copied") || "Logs copied", "success");
     });
+}
+
+async function runDiagUpload() {
+  const btn = document.getElementById("diag-upload-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = t("logs.diag_uploading") || "Collecting...";
+  }
+  try {
+    const res = await fetchWithAuth("api/diag-upload", { method: "POST" });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && json.success) {
+      showNotification(t("logs.diag_upload_started") || "Diagnostic collection started — file will be uploaded to Cumulocity", "success");
+    } else {
+      showNotification((json.error || t("logs.diag_upload_error") || "Diag upload failed"), "error");
+    }
+  } catch (e) {
+    showNotification(t("logs.diag_upload_error") || "Diag upload failed", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = t("logs.diag_upload") || "Diag Upload";
+    }
+  }
 }
 
 // Restart a single snap service

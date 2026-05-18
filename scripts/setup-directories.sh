@@ -80,6 +80,26 @@ else
     echo "WARNING: Default flows not found at $FLOWS_SRC" >&2
 fi
 
+# Deploy default operation workflows from $SNAP into $SNAP_DATA/tedge/operations/.
+# Only copies files that do not already exist (preserves manual edits).
+OPERATIONS_SRC="${SNAP}/tedge/operations"
+OPERATIONS_DST="$SNAP_DATA_PATH/tedge/operations"
+if [ -d "$OPERATIONS_SRC" ]; then
+    mkdir -p "$OPERATIONS_DST"
+    for toml_file in "$OPERATIONS_SRC"/*.toml; do
+        [ -f "$toml_file" ] || continue
+        dst="$OPERATIONS_DST/$(basename "$toml_file")"
+        if [ ! -f "$dst" ]; then
+            echo "Installing default operation: $(basename "$toml_file")" >&2
+            cp "$toml_file" "$dst"
+        else
+            echo "Operation already exists, skipping: $(basename "$toml_file")" >&2
+        fi
+    done
+else
+    echo "WARNING: Default operations not found at $OPERATIONS_SRC" >&2
+fi
+
 # Certificate store (ctrlX Certificate Manager integration)
 # Structure: /own/certs (certificate), /own/private (private key, 700)
 mkdir -p "$SNAP_COMMON_PATH/package-certificates/thin-edge-io/tedge/own/certs"
