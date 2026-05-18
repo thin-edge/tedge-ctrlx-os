@@ -3280,7 +3280,11 @@ async fn run_diag_upload(req: HttpRequest) -> Result<HttpResponse> {
                 if out.status.success() {
                     info!("[DIAG-UPLOAD] Completed successfully");
                 } else {
-                    warn!("[DIAG-UPLOAD] Script failed ({}): {}", out.status, output.trim());
+                    warn!(
+                        "[DIAG-UPLOAD] Script failed ({}): {}",
+                        out.status,
+                        output.trim()
+                    );
                 }
             }
             Ok(Err(e)) => warn!("[DIAG-UPLOAD] IO error: {}", e),
