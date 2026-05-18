@@ -1,5 +1,40 @@
 # thin-edge.io CTRLX App - Release Notes
 
+## Version 2.0.0 - May 2026 (feature/controls)
+
+### C8y Remote Access
+- Auto-register `c8y-remote-access-plugin` at snap startup (`setup-directories.sh`)
+- Enables Cumulocity Remote Access (VNC/SSH) without manual configuration
+
+### C8y Firmware Plugin
+- Added `c8y-firmware-plugin` as a snap daemon
+- Handles firmware update operations sent from Cumulocity
+
+### Log Upload Plugin
+- Added `tedge-file-log-plugin` and a `log-plugins/file` wrapper script
+- `log.plugin_paths` is set to `SNAP_DATA/tedge/log-plugins` on startup
+- Plugin directory and symlinks are created automatically in `setup-directories.sh`
+
+### Diagnostics Upload Plugin
+- New `diag_upload` operation: collects snap diagnostics and uploads them to Cumulocity as an event binary attachment
+- Script: `scripts/diag-upload.sh` — collects journalctl logs, snap info, network status into a `.tar.gz` and uploads via `tedge mqtt pub`
+- Operation descriptor: `tedge/operations/diag_upload.toml`
+- Web UI button **"Diagnose hochladen"** added to the Logs & Diagnostics section
+- Backend API endpoint `POST /api/diag-upload` triggers the upload
+
+### Configuration Plugin
+- `configuration.plugin_paths` is set to `SNAP_DATA/tedge/config-plugins` on startup
+- Wrapper script `config-plugins/file` preserves `argv[0]` for the tedge multicall binary
+- Avoids scanning all `bin/` binaries — only the explicit wrapper directory is registered
+
+### Fixes
+- `device.type` is always set to `thin-edge.io` on startup
+- `device.id` is used as `externalId` (fallback to hardware serial) for consistent Cumulocity device identity
+- `chmod 755` applied to `diag/log-plugins` directories to pass tedge root-write check
+- Corrected relative symlink depth for `config-plugins/file`
+
+---
+
 ## Version 2.0.0 - April 2026
 
 ### Build Versioning
