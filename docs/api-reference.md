@@ -37,6 +37,9 @@ All endpoints require a valid **ctrlX Bearer Token** (passed automatically by th
 | POST | `/config/device` | rw | Save device configuration (name, ID) |
 | POST | `/set-mqtt-port` | rw | Set MQTT port (`8883` = Core MQTT, `9883` = MQTT Service) |
 | GET | `/tedge-config-list` | r | Full `tedge config list` output |
+| GET | `/tedge-config-list-all` | r | Full `tedge config list --all` output (includes defaults) |
+| GET | `/tedge-config-list-doc` | r | Full `tedge config list --doc` output (with documentation) |
+| GET | `/tedge-bridge-inspect` | r | `tedge bridge inspect c8y` output (Mosquitto bridge config) |
 
 ---
 
@@ -45,8 +48,10 @@ All endpoints require a valid **ctrlX Bearer Token** (passed automatically by th
 | Method | Endpoint | Scope | Description |
 |--------|----------|-------|-------------|
 | GET | `/device-id` | r | Get current device ID |
-| POST | `/device-id` | rw | Set device ID |
-| POST | `/device-id/recreate` | rwx | Recreate device certificate |
+| POST | `/device-id` | rw | Set device ID / create self-signed certificate |
+| POST | `/device-id/ca-request` | rwx | Start CA certificate download job (async); returns `{"job_id": "<uuid>"}` |
+| GET | `/device-id/ca-request/{job_id}` | r | Poll status of a running CA certificate job |
+| POST | `/device-id/recreate` | rwx | Recreate self-signed device certificate |
 | POST | `/device-id/create-auto` | rwx | Auto-create certificate from current device ID |
 | GET | `/device-id/cert-info` | r | Show certificate details (subject, issuer, validity, fingerprint) |
 | POST | `/cert/upload/c8y` | rwx | Upload certificate to Cumulocity tenant |
@@ -71,6 +76,7 @@ All endpoints require a valid **ctrlX Bearer Token** (passed automatically by th
 | GET | `/logs?service=<name>` | r | Fetch recent log lines for a service |
 | GET | `/log-level?service=<name>` | r | Get configured log level for a service |
 | POST | `/log-level` | rw | Set log level (`error`/`warn`/`info`/`debug`/`trace`); restarts service to apply |
+| POST | `/diag-upload` | rwx | Trigger diagnostics upload to Cumulocity (collects journalctl logs + snap info into tar.gz, uploads via MQTT) |
 
 **Service names** (for `?service=` parameter):
 
@@ -85,6 +91,7 @@ All endpoints require a valid **ctrlX Bearer Token** (passed automatically by th
 | `log-upload` | Log upload manager |
 | `mosquitto` | Local MQTT broker |
 | `webserver` | Configuration UI server |
+| `snap-hooks` | Snap lifecycle hooks (install/refresh/remove) |
 
 ---
 
@@ -94,6 +101,46 @@ All endpoints require a valid **ctrlX Bearer Token** (passed automatically by th
 |--------|----------|-------|-------------|
 | POST | `/restart` | rwx | Restart all snap services |
 | POST | `/restart-service` | rwx | Restart a single named service |
+| POST | `/start-service` | rwx | Start a single named service |
+| POST | `/stop-service` | rwx | Stop a single named service |
+
+---
+
+## Device Inventory
+
+| Method | Endpoint | Scope | Description |
+|--------|----------|-------|-------------|
+| GET | `/inventory` | r | Get device inventory JSON (`inventory.json`) |
+| POST | `/inventory` | rw | Save and publish device inventory to cloud |
+
+---
+
+## Mapping Mode
+
+| Method | Endpoint | Scope | Description |
+|--------|----------|-------|-------------|
+| GET | `/mapping-mode` | r | Get current datalayer mapping mode (`datalayer` or `flow`) |
+| POST | `/mapping-mode` | rw | Set datalayer mapping mode |
+
+---
+
+## Flows
+
+Manages thin-edge.io flow scripts stored under `$SNAP_DATA/flows/<mapper>/`.
+
+| Method | Endpoint | Scope | Description |
+|--------|----------|-------|-------------|
+| GET | `/flows?mapper=<name>` | r | List all flows for a mapper with file tree and content |
+| DELETE | `/flows?mapper=<name>&flow=<name>` | rw | Delete an entire flow directory |
+| POST | `/flows/file?mapper=<name>&flow=<name>&file=<name>` | rw | Create or update a file in a flow |
+| DELETE | `/flows/file?mapper=<name>&flow=<name>&file=<name>` | rw | Delete a file from a flow |
+| POST | `/flows/archive?mapper=<name>&flow=<name>` | rw | Archive a flow (moves to archived directory) |
+| DELETE | `/flows/archive?mapper=<name>&flow=<name>` | rw | Permanently delete an archived flow |
+| POST | `/flows/restore?mapper=<name>&flow=<name>` | rw | Restore an archived flow |
+
+**Mapper names**: `c8y`, `aws`, `az`
+
+**Allowed file extensions**: `.js`, `.toml`, `.toml.template`
 
 ---
 

@@ -58,7 +58,7 @@ ls -la /var/snap/ctrlx-cumulocity-thin-edge-io/common/package-certificates/thin-
 
 **Certificate not created**: Run `sudo ctrlx-cumulocity-thin-edge-io.manage-device-id create`.
 
-**Certificate expired**: Click **Update** in the Device Certificate section of the web UI, then **Upload** again.
+**Certificate expired**: Click **Renew** in the Device Certificate section of the web UI, then **Upload Certificate** again.
 
 **Upload fails**: Ensure the Cumulocity user has `Device management` permissions to manage trusted certificates.
 
@@ -155,7 +155,6 @@ $SNAP_DATA/tedge/run/          → tedge run.path
 $SNAP_DATA/tedge/tmp/          → tedge tmp.path
 $SNAP_DATA/tedge/log-plugins/
 $SNAP_DATA/tedge/sm-plugins/
-    apt  → $SNAP/bin/tedge-apt-plugin
     snap → $SNAP/scripts/sm-plugins/tedge-snap-plugin
 $SNAP_DATA/tedge/.agent/
 $SNAP_DATA/mosquitto/

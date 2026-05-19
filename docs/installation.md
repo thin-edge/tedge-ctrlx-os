@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide covers installing the **ctrlX Cumulocity thin-edge.io** snap on a ctrlX CORE or ctrlX COREvirtual device and performing the initial setup to connect it to a cloud platform.
+This guide covers installing the **thin-edge.io for ctrlX AUTOMATION** snap on a ctrlX CORE or ctrlX COREvirtual device and performing the initial setup to connect it to a cloud platform.
 
 ---
 
@@ -24,8 +24,8 @@ This guide covers installing the **ctrlX Cumulocity thin-edge.io** snap on a ctr
 - ctrlX CORE or ctrlX COREvirtual running **ctrlX OS 1.20 or higher**
 - Network connectivity from the device to your cloud platform
 - A snap package file — either built from source (see [building.md](building.md)) or downloaded from a release:
-  - `ctrlx-cumulocity-thin-edge-io_2.0.0_amd64.snap` — ctrlX COREvirtual (x86-64)
-  - `ctrlx-cumulocity-thin-edge-io_2.0.0_arm64.snap` — ctrlX CORE hardware (ARM64)
+  - `ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap` — ctrlX COREvirtual (x86-64)
+  - `ctrlx-cumulocity-thin-edge-io_0.1.0_arm64.snap` — ctrlX CORE hardware (ARM64)
 
 ---
 
@@ -46,7 +46,7 @@ The snap will appear in the ctrlX sidebar as **thin-edge.io** after a few second
 
 ```bash
 # Copy the snap file to the device first, then:
-snap install ctrlx-cumulocity-thin-edge-io_2.0.0_amd64.snap --dangerous
+snap install ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap --dangerous
 ```
 
 > `--dangerous` is required for locally built or unsigned snaps.
@@ -73,10 +73,11 @@ Or click **thin-edge.io** in the ctrlX sidebar.
 
 ### Step 2 — Create Device Certificate
 
-1. Open the **Device Certificate** section
+1. Open the **Device & Certificate** section
 2. The **Device ID** is auto-detected from the hardware serial number
-3. Click **Update** to create / renew the certificate
-4. Click **Upload** and enter your Cumulocity credentials to register the certificate
+3. Set the **Certificate Mode** toggle to **Self-Signed**
+4. Click **Renew** to create the self-signed certificate
+5. Click **Upload Certificate** and enter your Cumulocity credentials to register the certificate
 
 ### Step 3 — Connect
 

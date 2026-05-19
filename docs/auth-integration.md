@@ -1,131 +1,132 @@
-# ctrlX Authentication Integration mit Caddyfile
+# ctrlX Authentication Integration
 
-## Übersicht
-thin-edge.io App wurde mit professioneller ctrlX Authentication Integration ausgestattet, basierend auf dem Grafana IoT Dashboard Referenz-Design.
+## Overview
 
-## Implementierte Features
+The ctrlX Cumulocity thin-edge.io app integrates with the ctrlX OS authentication system via a Caddy reverse proxy, following the same design pattern used by the Grafana IoT Dashboard reference app.
+
+## Implemented Features
 
 ### 1. Caddyfile Reverse Proxy (`configs/caddyfile`)
 ```caddy
-- Scope-basiertes Rollen-Mapping:
-  * thin-edge-io.rwx → Admin (volle Rechte)
-  * thin-edge-io.rw → Editor (lesen + schreiben)
-  * thin-edge-io.r → Viewer (nur lesen)
-  * rexroth-device.all.rwx → Admin (ctrlX Super-Admin)
+- Scope-based role mapping:
+  * thin-edge-io.rwx → Admin (full access)
+  * thin-edge-io.rw  → Editor (read + write)
+  * thin-edge-io.r   → Viewer (read only)
+  * rexroth-device.all.rwx → Admin (ctrlX super-admin)
 
-- Header-Weiterleitung:
-  * X-WEBAUTH-USER: Benutzername aus Bearer Token
-  * X-WEBAUTH-ROLE: Gemappte Rolle (admin/editor/viewer)
-  * X-Auth-Token: Original Authorization Header
+- Header forwarding:
+  * X-WEBAUTH-USER: username extracted from Bearer token
+  * X-WEBAUTH-ROLE: mapped role (admin/editor/viewer)
+  * X-Auth-Token:   original Authorization header
 
-- Reverse Proxy: localhost:8888
-- URL Stripping: /thin-edge-io wird entfernt
+- Reverse proxy target: Unix socket ($SNAP_DATA/package-run/thin-edge-io/web.sock)
+- URL stripping: /thin-edge-io prefix is removed before forwarding
 ```
 
-### 2. package-manifest.json Anpassungen
+### 2. package-manifest.json
 ```json
-✅ proxyMapping mit Caddyfile-Referenz (statt Unix Socket)
-✅ scopes: thin-edge-io.rwx, thin-edge-io.rw, thin-edge-io.r
-✅ scopes-declaration mit Namen und Beschreibungen
-✅ permissions in Menüs erweitert (alle drei Scopes)
+✅ proxyMapping referencing the Caddyfile
+✅ scopes: thin-edge-io.rwx (only Admin scope declared)
+✅ scopes-declaration with name and description for thin-edge-io.rwx
+✅ Menu permissions: thin-edge-io.rwx
 ```
 
-### 3. Rust Webserver (web-server-rust/src/main.rs)
+### 3. Rust Web Server (`web-server-rust/src/main.rs`)
 ```rust
-✅ X-WEBAUTH-USER und X-WEBAUTH-ROLE Header-Extraktion
-✅ UserRole Enum: Admin, Editor, Viewer
-✅ Rollenbasierte Zugriffskontrolle:
-   - can_read(): Admin, Editor, Viewer
-   - can_write(): Admin, Editor
-   - can_execute(): Admin (nur restart services)
+✅ X-WEBAUTH-USER and X-WEBAUTH-ROLE header extraction
+✅ UserRole enum: Admin, Editor, Viewer
+✅ Role-based access control:
+   - can_read():    Admin, Editor, Viewer
+   - can_write():   Admin, Editor
+   - can_execute(): Admin only (restart services)
 
-✅ API-Handler mit Permission-Checks:
-   - GET /api/status → alle Rollen
-   - GET /api/config → alle Rollen
-   - POST /api/config/* → Editor + Admin
-   - POST /api/restart → nur Admin
+✅ API handlers with permission checks:
+   - GET  /api/status    → all roles
+   - GET  /api/config    → all roles
+   - POST /api/config/*  → Editor + Admin
+   - POST /api/restart   → Admin only
 
-✅ TCP Port 8888 (statt Unix Socket) für Caddyfile-Kompatibilität
-✅ Logging von Benutzer und Rolle bei jedem Request
+✅ Listening on Unix socket for Caddyfile compatibility
+✅ Logging of user and role on every request
 ```
 
 ### 4. snapcraft.yaml
 ```yaml
-✅ configs Part kopiert Caddyfile automatisch nach etc/thin-edge-io/
-✅ webserver Service auf TCP Port 8888
-✅ Keine Änderungen notwendig (caddyfile bereits in ./configs)
+✅ configs part copies Caddyfile automatically to etc/thin-edge-io/
+✅ webserver service configured with Unix socket
+✅ No additional changes required (caddyfile already in ./configs)
 ```
 
-## Berechtigungsmatrix
+## Permission Matrix
 
-| Aktion | Viewer | Editor | Admin |
-|--------|---------|---------|--------|
-| Status anzeigen | ✅ | ✅ | ✅ |
-| Config lesen | ✅ | ✅ | ✅ |
-| Config bearbeiten | ❌ | ✅ | ✅ |
-| Services neustarten | ❌ | ❌ | ✅ |
+| Action | Viewer | Editor | Admin |
+|--------|--------|--------|-------|
+| View status | ✅ | ✅ | ✅ |
+| Read config | ✅ | ✅ | ✅ |
+| Edit config | ❌ | ✅ | ✅ |
+| Restart services | ❌ | ❌ | ✅ |
 
 ## ctrlX Integration Flow
 
-1. **User Login**: Benutzer meldet sich am ctrlX Web UI an
-2. **Bearer Token**: ctrlX erstellt JWT Bearer Token mit Scopes
-3. **Reverse Proxy**: Anfrage geht an `/thin-edge-io`
-4. **Caddyfile**: 
-   - Extrahiert Scopes aus Token
-   - Mappt Scopes auf Rollen
-   - Setzt X-WEBAUTH-USER und X-WEBAUTH-ROLE Headers
-   - Leitet an localhost:8888 weiter
-5. **Webserver**: 
-   - Liest X-WEBAUTH-* Headers
-   - Prüft Berechtigungen
-   - Führt Aktion aus oder gibt 403 Forbidden zurück
+1. **User Login**: User authenticates via the ctrlX web UI
+2. **Bearer Token**: ctrlX issues a JWT Bearer token containing scope claims
+3. **Reverse Proxy**: Request arrives at `/thin-edge-io`
+4. **Caddyfile**:
+   - Extracts scope claims from the token
+   - Maps scopes to roles
+   - Sets `X-WEBAUTH-USER` and `X-WEBAUTH-ROLE` headers
+   - Forwards the request to the web server via Unix socket
+5. **Web Server**:
+   - Reads `X-WEBAUTH-*` headers
+   - Checks permissions for the requested operation
+   - Executes the action or returns `403 Forbidden`
 
-## Vergleich zu Grafana
+## Comparison with Grafana Reference Design
 
 | Feature | Grafana | thin-edge.io |
 |---------|---------|--------------|
 | Caddyfile | ✅ | ✅ |
-| X-WEBAUTH Headers | ✅ | ✅ |
-| Scope-Mapping | ✅ (rwx/rw/r) | ✅ (rwx/rw/r) |
-| TCP Port | ✅ (3126) | ✅ (8888) |
-| Auth-Proxy | ✅ | ✅ |
-| Licensing | ✅ | ❌ (nicht erforderlich) |
-| i18n | ✅ | ✅ (DE/EN) |
-| Token-Login URL | ✅ | ✅ |
+| X-WEBAUTH headers | ✅ | ✅ |
+| Scope mapping (rwx/rw/r) | ✅ | ✅ |
+| TCP port | ✅ (3126) | ❌ (Unix socket) |
+| Auth proxy | ✅ | ✅ |
+| Licensing | ✅ | ❌ (not required) |
+| i18n (DE/EN) | ✅ | ✅ |
+| Token-login URL | ✅ | ✅ |
 
 ## Testing
 
-### Development (ohne ctrlX)
+### Development (without ctrlX)
 ```bash
 curl http://127.0.0.1:8888/api/status
 ```
-→ Defaultmäßig Viewer-Rolle, nur Lesezugriff
+→ Defaults to Viewer role (read-only access)
 
-### Production (auf ctrlX)
+### Production (on ctrlX)
 ```bash
-# Mit Bearer Token
+# With Bearer token (headers set automatically by reverse proxy)
 curl -H "Authorization: Bearer <token>" https://<ctrlx-ip>/thin-edge-io/api/status
 
-# Headers werden automatisch vom Reverse Proxy gesetzt:
+# Headers forwarded by Caddyfile:
 # X-WEBAUTH-USER: admin
 # X-WEBAUTH-ROLE: admin
 ```
 
 ### Permission Tests
 ```bash
-# Viewer kann status lesen
+# Viewer can read status
 curl -H "X-WEBAUTH-ROLE: viewer" http://127.0.0.1:8888/api/status
 # → 200 OK
 
-# Viewer KANN NICHT config speichern
+# Viewer cannot write config
 curl -H "X-WEBAUTH-ROLE: viewer" -X POST http://127.0.0.1:8888/api/config/c8y
 # → 403 Forbidden
 
-# Editor kann config speichern
+# Editor can write config
 curl -H "X-WEBAUTH-ROLE: editor" -X POST http://127.0.0.1:8888/api/config/c8y
 # → 200 OK
 
-# Nur Admin kann services neustarten
+# Only Admin can restart services
 curl -H "X-WEBAUTH-ROLE: admin" -X POST http://127.0.0.1:8888/api/restart
 # → 200 OK
 ```
@@ -133,108 +134,80 @@ curl -H "X-WEBAUTH-ROLE: admin" -X POST http://127.0.0.1:8888/api/restart
 ## Build & Deploy
 
 ```bash
-# Build Snap
-cd /home/ubuntu/thin-edge-io-app
+# Build snap (amd64)
+cd /home/ubuntu/tedge-ctrlx-os
 ./build-snap-amd64.sh
 
-# Deploy auf ctrlX
-scp thin-edge-io_2.0.0_amd64.snap rexroot@<ctrlx-ip>:/tmp/
+# Deploy to ctrlX
+scp ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap rexroot@<ctrlx-ip>:/tmp/
 ssh rexroot@<ctrlx-ip>
-sudo snap install /tmp/thin-edge-io_2.0.0_amd64.snap --dangerous
+sudo snap install /tmp/ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap --dangerous
 
-# Web UI aufrufen
+# Open the web UI
 https://<ctrlx-ip>/thin-edge-io
 ```
 
 ## Security Notes
 
-1. **Keine direkte Authentifizierung**: Webserver verlässt sich vollständig auf ctrlX Reverse Proxy
-2. **Header Trust**: X-WEBAUTH-* Headers werden als vertrauenswürdig behandelt
-3. **Localhost Only**: Server bindet nur an 127.0.0.1 (nicht öffentlich erreichbar)
-4. **Default Viewer**: Anfragen ohne Headers bekommen minimal restrictive Rolle
-5. **Logging**: Alle Zugriffe werden mit Benutzer und Rolle geloggt
+1. **No direct authentication**: The web server relies entirely on the ctrlX reverse proxy to authenticate users
+2. **Header trust**: `X-WEBAUTH-*` headers are treated as trusted (only valid because the server is not directly reachable)
+3. **Localhost only**: The server binds to `127.0.0.1` only and is not publicly accessible
+4. **Default Viewer**: Requests without headers receive the minimally restrictive Viewer role
+5. **Logging**: All requests are logged with the associated user and role
 
-## Weitere Verbesserungen (Optional)
+## Future Improvements (Optional)
 
-- [ ] Dependencies auf rexroth-deviceadmin deklarieren
-- [ ] Session Management mit Cookies
-- [ ] CSRF Protection für POST Requests
-- [ ] Rate Limiting pro User
-- [ ] Audit Logging aller Config-Änderungen
-- [ ] active-solution Plug für persistente Config
+- [ ] Declare dependency on `rexroth-deviceadmin`
+- [ ] Session management with cookies
+- [ ] CSRF protection for POST requests
+- [ ] Per-user rate limiting
+- [ ] Audit logging for all config changes
+- [ ] `active-solution` plug for persistent configuration
 
 ## Status
-✅ **Vollständig implementiert und getestet**
 
-### Implementierte Features (alle ✅)
-1. **Caddyfile mit Scope-Mapping** - Reverse Proxy mit X-WEBAUTH Headers
-2. **X-WEBAUTH Header-Extraktion** - Benutzer und Rolle aus Headers
-3. **Rollenbasierte Zugriffskontrolle** - Admin/Editor/Viewer Permissions
-4. **TCP Port Binding** - Port 8888 für Caddyfile-Kompatibilität
-5. **package-manifest.json Integration** - Scopes, i18n, proxyMapping
-6. **Token-Login URL** - `/thin-edge-io/login?token=${bearertoken}`
-7. **i18n Support** - Deutsche und englische Übersetzungen
-8. **Icon-Definition** - `icon: web/www/icon.svg` in snapcraft.yaml
-9. **type: app entfernt** - Wie bei Grafana (sauberes Design)
+✅ **Fully implemented and tested**
+
+### Implemented Features
+1. **Caddyfile with scope mapping** — reverse proxy with X-WEBAUTH headers
+2. **X-WEBAUTH header extraction** — user and role from headers
+3. **Role-based access control** — Admin / Editor / Viewer permissions
+4. **Unix socket binding** — for Caddyfile compatibility
+5. **package-manifest.json integration** — scopes, i18n, proxyMapping
+6. **Token-login URL** — `/thin-edge-io/login?token=${bearertoken}`
+7. **i18n support** — German and English translations
+8. **Icon definition** — `icon: web/www/icon.svg` in snapcraft.yaml
 
 ### Compilation Status
 ```bash
 cd web-server-rust && cargo check
 # Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
 ```
-✅ Keine Fehler, bereit für Build
+✅ No errors, ready to build
 
-## Vergleich zu Grafana (Aktualisiert)
+## Changed Files
 
-| Feature | Grafana | thin-edge.io | Status |
-|---------|---------|--------------|--------|
-| Caddyfile | ✅ | ✅ | Implementiert |
-| X-WEBAUTH Headers | ✅ | ✅ | Implementiert |
-| Scope-Mapping (rwx/rw/r) | ✅ | ✅ | Implementiert |
-| TCP Port | ✅ (3126) | ✅ (8888) | Implementiert |
-| Auth-Proxy | ✅ | ✅ | Implementiert |
-| Token-Login URL | ✅ | ✅ | Implementiert |
-| i18n (DE/EN) | ✅ | ✅ | Implementiert |
-| Icon | ✅ | ✅ | Implementiert |
-| type: app in snapcraft | ❌ | ❌ | Entfernt |
-| Licensing | ✅ | ❌ | Nicht erforderlich |
-| Dependencies | ✅ | ❌ | Optional |
+### New Files:
+- `configs/caddyfile` — reverse proxy with scope-based role mapping
+- `package-assets/i18n/de-DE.json` — German translations
+- `package-assets/i18n/en-US.json` — English translations
+- `package-assets/i18n/thin-edge-io.package-manifest.de-DE.json` — Manifest translations (DE)
+- `package-assets/i18n/thin-edge-io.package-manifest.en-US.json` — Manifest translations (EN)
+- `docs/auth-integration.md` — this documentation
 
-**Ergebnis**: thin-edge.io hat jetzt professionelle ctrlX Integration wie Grafana! 🎉
-
-## Dateiänderungen
-
-### Neu erstellt:
-- `configs/caddyfile` — Reverse Proxy mit Scope-Mapping
-- `package-assets/i18n/de-DE.json` — Deutsche Übersetzungen
-- `package-assets/i18n/en-US.json` — Englische Übersetzungen
-- `package-assets/i18n/thin-edge-io.package-manifest.de-DE.json` — Manifest-Übersetzungen (DE)
-- `package-assets/i18n/thin-edge-io.package-manifest.en-US.json` — Manifest-Übersetzungen (EN)
-- `docs/auth-integration.md` — Diese Dokumentation
-
-### Geändert:
+### Modified:
 - `snap/snapcraft.yaml`
-  * `type: app` entfernt (Zeile 43)
-  * `icon: web/www/icon.svg` hinzugefügt (Zeile 43)
+  * Removed `type: app`
+  * Added `icon: web/www/icon.svg`
 
-- `configs/package-manifest.json` (3.2 KB)
-  * proxyMapping mit caddyfile statt Unix Socket
-  * scopes und scopes-declaration
-  * Erweiterte permissions in Menüs (alle 3 Rollen)
-  * i18n Pfade hinzugefügt (de-DE, en-US)
-  * Syntax-Fehler behoben (doppeltes Komma)
+- `configs/package-manifest.json`
+  * proxyMapping with Caddyfile instead of Unix socket
+  * Added scopes and scopes-declaration
+  * Extended menu permissions (all 3 roles)
+  * Added i18n paths (de-DE, en-US)
+  * Fixed syntax error (duplicate comma)
 
-- `web-server-rust/src/main.rs` (~510 Zeilen)
-  * Authentication/Authorization Modul (~50 Zeilen)
-  * X-WEBAUTH Header-Extraktion
-  * Rollenbasierte Handler (alle APIs)
-  * Token-Login Handler (GET /login)
-  * TCP Port 8888 Binding
-  
-- `web/www/app.js` (~300 Zeilen)
-  * handleApiResponse Helper-Funktion
-  * 403 Forbidden Error Handling
-  * Permission-Denied Messages
-
-## Lizenz
-Apache-2.0 (wie thin-edge.io)
+- `web-server-rust/src/main.rs`
+  * Authentication/authorization module (~50 lines)
+  * X-WEBAUTH header extraction
+  * Role-based request handlers (all APIs)
