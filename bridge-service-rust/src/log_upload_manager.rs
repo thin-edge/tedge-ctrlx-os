@@ -486,7 +486,7 @@ async fn main() -> Result<()> {
             SERVICE_REG_TOPIC,
             QoS::AtLeastOnce,
             true,
-            r#"{"@parent":"device/main//","@type":"service","name":"tedge-log-upload-manager"}"#,
+            r#"{"@parent":"device/main//","@type":"service","name":"tedge-log-upload-manager","type":"service"}"#,
         )
         .await;
     publish_health_up(&client, pid).await;

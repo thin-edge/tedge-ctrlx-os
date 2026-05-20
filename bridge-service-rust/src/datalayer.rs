@@ -524,8 +524,23 @@ pub async fn run_datalayer_loop(
 ) {
     info!("[DATALAYER] Loop started");
     const HEALTH_TOPIC: &str = "te/device/main/service/tedge-datalayer-bridge/status/health";
+    const ENTITY_TOPIC: &str = "te/device/main/service/tedge-datalayer-bridge";
     let pid = std::process::id();
     let mut health_tick: u32 = 0;
+
+    // Register service entity so it appears in the C8y Services tab
+    {
+        let guard = mqtt_client.lock().await;
+        if let Some(cli) = guard.as_ref() {
+            let _ = cli
+                .publish(mqtt::Message::new_retained(
+                    ENTITY_TOPIC,
+                    r#"{"@parent":"device/main//","@type":"service","name":"tedge-datalayer-bridge","type":"service"}"#,
+                    1,
+                ))
+                .await;
+        }
+    }
     while !shutdown.load(Ordering::Relaxed) {
         engine.reload_config();
 

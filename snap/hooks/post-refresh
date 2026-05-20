@@ -413,6 +413,18 @@ for stale_svc in "tedge-log-plugin" "c8y-firmware-plugin" "tedge-file-log-plugin
         2>/dev/null || true
 done
 
+# Ensure all thin-edge.io services are registered with type="service" so they
+# appear in the Cumulocity Services tab. Built-in services (tedge-agent,
+# tedge-mapper-c8y, tedge-mapper-bridge-c8y) publish twin/type separately but
+# the C8y mapper only sets the C8y MO type field when it is in the registration
+# payload itself.
+for svc in "tedge-agent" "tedge-mapper-c8y" "tedge-mapper-bridge-c8y" "tedge-mapper-aws" "tedge-mapper-az"; do
+    "$MQTT_PUB" -h "$MQTT_HOST" -p "$MQTT_PORT" \
+        -r -t "te/device/main/service/${svc}" \
+        -m "{\"@parent\":\"device/main//\",\"@type\":\"service\",\"name\":\"${svc}\",\"type\":\"service\"}" \
+        2>/dev/null || true
+done
+
 # Re-connect snap interfaces after update
 snapctl connect :hardware-observe 2>/dev/null || true
 snapctl connect :log-observe 2>/dev/null || true
