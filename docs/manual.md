@@ -392,6 +392,8 @@ Opened by clicking **+ Mapping** or clicking a row in the mapping table.
 > **Screenshot**: Datalayer — Add Mapping form open
 >
 > ![screenshot](pictures/08b-datalayer-mapping-form.png)
+> ![screenshot](pictures/08c-datalayer-mapping-form.png)
+
 
 **ctrlX Datalayer Mapping** toggle at the top of the form — enables/disables this specific mapping.
 

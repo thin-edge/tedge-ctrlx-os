@@ -962,6 +962,31 @@
                     Request Certificate
                   </button>
                 </div>
+                <!-- Action buttons: Self-signed mode -->
+                <div
+                  id="action-buttons-self"
+                  style="
+                    display: none;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    margin-top: 16px;
+                  "
+                >
+                  <button
+                    class="btn btn-default btn-sm"
+                    onclick="manageCertificate()"
+                    data-i18n="device.renew_cert"
+                  >
+                    Renew
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    onclick="toggleCertUploadForm()"
+                    data-i18n="cloud.upload_self_cert"
+                  >
+                    Upload Certificate
+                  </button>
+                </div>
               </div>
 
               <!-- ── Column 3: Certificate Details ── -->
