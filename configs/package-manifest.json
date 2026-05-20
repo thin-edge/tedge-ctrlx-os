@@ -19,7 +19,7 @@
         "url": "/thin-edge-io/",
         "caddyfile": "./caddyfile",
         "restricted": [
-          "/thin-edge-io/"
+          "/thin-edge-io/api/"
         ]
       }
     ]

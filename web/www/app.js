@@ -757,6 +757,21 @@ if (tokenFromUrl) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+// 2. Enforce authentication: redirect to ctrlX login if no token is present.
+//    Skip this check during local development (localhost / 127.0.0.1).
+(function enforceAuth() {
+  const isLocalDev = ["localhost", "127.0.0.1"].includes(
+    window.location.hostname
+  );
+  if (isLocalDev) return;
+  const storedToken = sessionStorage.getItem("ctrlx_token");
+  if (!storedToken && !tokenFromUrl) {
+    // No valid token — redirect to the ctrlX root, which will trigger the
+    // platform's own login redirect for unauthenticated users.
+    window.location.replace("/");
+  }
+})();
+
 /**
  * Helper function that calls fetch() and automatically
  * includes the JWT token stored in sessionStorage.
