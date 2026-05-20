@@ -789,7 +789,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
 /// Liest einen einzelnen Wert via `tedge config get <key>`.
 /// Gibt `None` zurück wenn der Befehl fehlschlägt oder leer ist.
-fn tedge_config_get(key: &str) -> Option<String> {
+async fn tedge_config_get(key: &str) -> Option<String> {
     let is_snap = env::var("SNAP").is_ok();
     let tedge_bin = if is_snap {
         let snap = env::var("SNAP").unwrap_or_default();
@@ -800,9 +800,10 @@ fn tedge_config_get(key: &str) -> Option<String> {
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
     let tedge_config_dir = format!("{}/tedge", snap_data);
 
-    let output = Command::new(&tedge_bin)
+    let output = tokio::process::Command::new(&tedge_bin)
         .args(["--config-dir", &tedge_config_dir, "config", "get", key])
         .output()
+        .await
         .ok()?;
 
     if output.status.success() {
@@ -838,9 +839,10 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
     {
         let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
         let cert_path = format!("{}/tedge/device-certs/tedge-certificate.pem", snap_data);
-        let cn = std::process::Command::new("openssl")
+        let cn = tokio::process::Command::new("openssl")
             .args(["x509", "-in", &cert_path, "-noout", "-subject"])
             .output()
+            .await
             .ok()
             .and_then(|o| {
                 if o.status.success() {
@@ -871,22 +873,27 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             // Priorität: manage-device-id.sh get-serial → tedge config get device.id → hostname
             let snap = env::var("SNAP").unwrap_or_default();
             let script = format!("{}/scripts/manage-device-id.sh", snap);
-            let preview_id = std::process::Command::new("bash")
+            let preview_id = tokio::process::Command::new("bash")
                 .args([&script, "get-serial"])
                 .output()
+                .await
                 .ok()
                 .filter(|o| o.status.success())
                 .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                .filter(|s| !s.is_empty())
-                .or_else(|| tedge_config_get("device.id"))
-                .or_else(|| {
-                    std::process::Command::new("hostname")
-                        .output()
-                        .ok()
-                        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .map(|h| format!("ctrlx-{}", h))
-                });
+                .filter(|s| !s.is_empty());
+            let preview_id = if preview_id.is_some() {
+                preview_id
+            } else if let Some(id) = tedge_config_get("device.id").await {
+                Some(id)
+            } else {
+                tokio::process::Command::new("hostname")
+                    .output()
+                    .await
+                    .ok()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .map(|h| format!("ctrlx-{}", h))
+            };
 
             if let Some(id) = preview_id {
                 info!("[CONFIG] device.id Vorschau (kein Zertifikat): {}", id);
@@ -901,7 +908,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
     // c8y.url aus tedge lesen wenn leer
     if config.c8y.url.as_deref().unwrap_or("").is_empty() {
-        if let Some(url) = tedge_config_get("c8y.url") {
+        if let Some(url) = tedge_config_get("c8y.url").await {
             info!("[CONFIG] c8y.url aus tedge gelesen: {}", url);
             config.c8y.url = Some(url);
             changed = true;
@@ -910,7 +917,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
     // aws.url aus tedge lesen wenn leer
     if config.aws.url.as_deref().unwrap_or("").is_empty() {
-        if let Some(url) = tedge_config_get("aws.url") {
+        if let Some(url) = tedge_config_get("aws.url").await {
             info!("[CONFIG] aws.url aus tedge gelesen: {}", url);
             config.aws.url = Some(url);
             changed = true;
@@ -919,7 +926,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
     // az.url aus tedge lesen wenn leer
     if config.az.url.as_deref().unwrap_or("").is_empty() {
-        if let Some(url) = tedge_config_get("az.url") {
+        if let Some(url) = tedge_config_get("az.url").await {
             info!("[CONFIG] az.url aus tedge gelesen: {}", url);
             config.az.url = Some(url);
             changed = true;
@@ -978,7 +985,7 @@ async fn save_c8y_config(
         if !url.is_empty() {
             let domain = strip_url_scheme(url);
             info!("Setting c8y.url to: {}", domain);
-            let output = Command::new(&tedge_bin)
+            let output = tokio::process::Command::new(&tedge_bin)
                 .args([
                     "--config-dir",
                     &tedge_config_dir,
@@ -987,7 +994,8 @@ async fn save_c8y_config(
                     "c8y.url",
                     domain,
                 ])
-                .output();
+                .output()
+                .await;
 
             match output {
                 Ok(result) if result.status.success() => {
@@ -1044,9 +1052,10 @@ async fn save_c8y_config(
             "[CONFIG] {}ing tedge-mapper-c8y (enabled={})",
             action, config.c8y.enabled
         );
-        match std::process::Command::new("snapctl")
+        match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-c8y")])
             .output()
+            .await
         {
             Ok(out) if out.status.success() => {
                 info!("[CONFIG] tedge-mapper-c8y {}ped successfully", action);
@@ -1116,7 +1125,7 @@ async fn save_aws_config(
         if !endpoint.is_empty() {
             let domain = strip_url_scheme(endpoint);
             info!("Setting aws.url to: {}", domain);
-            let output = Command::new(&tedge_bin)
+            let output = tokio::process::Command::new(&tedge_bin)
                 .args([
                     "--config-dir",
                     &tedge_config_dir,
@@ -1125,7 +1134,8 @@ async fn save_aws_config(
                     "aws.url",
                     domain,
                 ])
-                .output();
+                .output()
+                .await;
 
             match output {
                 Ok(result) if result.status.success() => {
@@ -1182,9 +1192,10 @@ async fn save_aws_config(
             "[CONFIG] {}ing tedge-mapper-aws (enabled={})",
             action, config.aws.enabled
         );
-        match std::process::Command::new("snapctl")
+        match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-aws")])
             .output()
+            .await
         {
             Ok(out) if out.status.success() => {
                 info!("[CONFIG] tedge-mapper-aws {}ped successfully", action);
@@ -1254,7 +1265,7 @@ async fn save_az_config(
         if !hub.is_empty() {
             let domain = strip_url_scheme(hub);
             info!("Setting az.url to: {}", domain);
-            let output = Command::new(&tedge_bin)
+            let output = tokio::process::Command::new(&tedge_bin)
                 .args([
                     "--config-dir",
                     &tedge_config_dir,
@@ -1263,7 +1274,8 @@ async fn save_az_config(
                     "az.url",
                     domain,
                 ])
-                .output();
+                .output()
+                .await;
 
             match output {
                 Ok(result) if result.status.success() => {
@@ -1320,9 +1332,10 @@ async fn save_az_config(
             "[CONFIG] {}ing tedge-mapper-az (enabled={})",
             action, config.az.enabled
         );
-        match std::process::Command::new("snapctl")
+        match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-az")])
             .output()
+            .await
         {
             Ok(out) if out.status.success() => {
                 info!("[CONFIG] tedge-mapper-az {}ped successfully", action);
@@ -1412,11 +1425,12 @@ const ALLOWED_SERVICES: &[&str] = &[
     "tedge-mapper-az",
 ];
 
-fn run_snapctl_service(action: &str, svc: &str) -> Result<HttpResponse> {
+async fn run_snapctl_service(action: &str, svc: &str) -> Result<HttpResponse> {
     let full = snap_svc(svc);
-    match std::process::Command::new("snapctl")
+    match tokio::process::Command::new("snapctl")
         .args([action, &full])
         .output()
+        .await
     {
         Ok(output) if output.status.success() => {
             Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "service": svc})))
@@ -1451,7 +1465,7 @@ async fn start_single_service(
         ));
     }
     info!("[START-SVC] Starting {} (user: {:?})", svc, user);
-    run_snapctl_service("start", &svc)
+    run_snapctl_service("start", &svc).await
 }
 
 async fn stop_single_service(
@@ -1474,7 +1488,7 @@ async fn stop_single_service(
         ));
     }
     info!("[STOP-SVC] Stopping {} (user: {:?})", svc, user);
-    run_snapctl_service("stop", &svc)
+    run_snapctl_service("stop", &svc).await
 }
 
 async fn restart_single_service(
@@ -1499,7 +1513,7 @@ async fn restart_single_service(
         })));
     }
     info!("[RESTART-SVC] Restarting {} (user: {:?})", svc, user);
-    run_snapctl_service("restart", &svc)
+    run_snapctl_service("restart", &svc).await
 }
 
 async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
@@ -1542,9 +1556,10 @@ async fn restart_services(req: HttpRequest) -> Result<HttpResponse> {
     );
     for service in &services {
         info!("[RESTART]   - Restarting {}", service);
-        match std::process::Command::new("snapctl")
+        match tokio::process::Command::new("snapctl")
             .args(["restart", &format!("{}.{}", snap_name(), service)])
             .output()
+            .await
         {
             Ok(output) => {
                 if output.status.success() {
@@ -2620,10 +2635,11 @@ async fn set_device_id(
     info!("[DEVICE-ID] Setting device ID to: {}", device_id);
     info!("[DEVICE-ID] Executing: {:?} set {}", script_path, device_id);
 
-    let output = Command::new(&script_path)
+    let output = tokio::process::Command::new(&script_path)
         .arg("set")
         .arg(device_id)
-        .output();
+        .output()
+        .await;
 
     match output {
         Ok(output) if output.status.success() => {
@@ -2676,7 +2692,7 @@ async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
 
     info!("Recreating device certificate");
 
-    let output = Command::new(&script_path).arg("recreate").output();
+    let output = tokio::process::Command::new(&script_path).arg("recreate").output().await;
 
     match output {
         Ok(output) if output.status.success() => {
@@ -2728,7 +2744,7 @@ async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
 
     info!("Creating certificate with auto-detected device ID");
 
-    let output = Command::new(&script_path).arg("create").output();
+    let output = tokio::process::Command::new(&script_path).arg("create").output().await;
 
     match output {
         Ok(output) if output.status.success() => {
