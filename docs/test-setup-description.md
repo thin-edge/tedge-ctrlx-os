@@ -1,8 +1,8 @@
-# thin-edge.io CTRLX App - Test Setup Description
+# ctrlX Cumulocity thin-edge.io App - Test Setup Description
 
-**App Name**: thin-edge.io  
-**Version**: 2.0.0  
-**Date**: February 2026  
+**App Name**: ctrlx-cumulocity-thin-edge-io  
+**Version**: 0.1.0  
+**Date**: May 2026  
 
 ---
 
@@ -32,8 +32,8 @@ One of the following cloud platforms must be available for testing:
 ### 2.1 Download Snap Package
 
 Download the appropriate snap file:
-- For ctrlX COREvirtual: `thin-edge-io_2.0.0_amd64.snap`
-- For ctrlX CORE: `thin-edge-io_2.0.0_arm64.snap`
+- For ctrlX COREvirtual: `ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap`
+- For ctrlX CORE: `ctrlx-cumulocity-thin-edge-io_0.1.0_arm64.snap`
 
 ### 2.2 Install App
 
@@ -50,8 +50,8 @@ Download the appropriate snap file:
 
 Via SSH or web terminal:
 ```bash
-snap list thin-edge-io
-snap services thin-edge-io
+snap list ctrlx-cumulocity-thin-edge-io
+snap services ctrlx-cumulocity-thin-edge-io
 ```
 
 Expected: App installed, all services in "inactive" state (normal before configuration).
@@ -72,16 +72,16 @@ ssh -p 8022 rexroot@<device-ip>
 
 ```bash
 # Set Cumulocity tenant
-thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
+ctrlx-cumulocity-thin-edge-io.tedge config set c8y.url your-tenant.cumulocity.com
 
 # Set device ID
-thin-edge-io.tedge config set device.id test-ctrlx-device-001
+ctrlx-cumulocity-thin-edge-io.tedge config set device.id test-ctrlx-device-001
 
 # Create certificate
-thin-edge-io.tedge cert create --device-id test-ctrlx-device-001
+ctrlx-cumulocity-thin-edge-io.tedge cert create --device-id test-ctrlx-device-001
 
 # Show certificate thumbprint for cloud registration
-thin-edge-io.tedge cert show
+ctrlx-cumulocity-thin-edge-io.tedge cert show
 ```
 
 ### 3.3 Register Device in Cloud
@@ -102,7 +102,7 @@ thin-edge-io.tedge cert show
 
 ```bash
 # Test connection to Cumulocity
-thin-edge-io.tedge connect c8y --test
+ctrlx-cumulocity-thin-edge-io.tedge connect c8y --test
 ```
 
 Expected output:
@@ -115,7 +115,7 @@ Connection test successful.
 
 ```bash
 # Connect to cloud
-thin-edge-io.tedge connect c8y
+ctrlx-cumulocity-thin-edge-io.tedge connect c8y
 ```
 
 Expected: Services start automatically.
@@ -123,15 +123,15 @@ Expected: Services start automatically.
 ### 4.3 Verify Service Status
 
 ```bash
-snap services thin-edge-io
+snap services ctrlx-cumulocity-thin-edge-io
 ```
 
 Expected output:
 ```
 Service                              Startup  Current   Notes
-thin-edge-io.tedge-agent             enabled  active    -
-thin-edge-io.tedge-mapper-c8y        enabled  active    -
-thin-edge-io.tedge-watchdog          enabled  active    -
+ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-agent             enabled  active    -
+ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y        enabled  active    -
+ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-watchdog          enabled  active    -
 ```
 
 ---
@@ -144,7 +144,7 @@ thin-edge-io.tedge-watchdog          enabled  active    -
 
 **Steps**:
 ```bash
-thin-edge-io.tedge mqtt pub te/device/main///m/ '{
+ctrlx-cumulocity-thin-edge-io.tedge mqtt pub te/device/main///m/ '{
   "temperature": 23.5,
   "humidity": 45.2
 }'
@@ -165,7 +165,7 @@ thin-edge-io.tedge mqtt pub te/device/main///m/ '{
 
 **Steps**:
 ```bash
-thin-edge-io.tedge mqtt pub te/device/main///e/status '{
+ctrlx-cumulocity-thin-edge-io.tedge mqtt pub te/device/main///e/status '{
   "text": "Test event from ctrlX",
   "time": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"
 }'
@@ -186,10 +186,10 @@ thin-edge-io.tedge mqtt pub te/device/main///e/status '{
 **Steps**:
 ```bash
 # Check watchdog is running
-snap services thin-edge-io.tedge-watchdog
+snap services ctrlx-cumulocity-ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-watchdog
 
 # View watchdog logs
-snap logs thin-edge-io.tedge-watchdog -n 20
+snap logs ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-watchdog -n 20
 ```
 
 **Expected Result**:
@@ -208,13 +208,13 @@ snap logs thin-edge-io.tedge-watchdog -n 20
 **Steps**:
 ```bash
 # Manually stop agent
-snap stop thin-edge-io.tedge-agent
+snap stop ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-agent
 
 # Wait 15 seconds
 sleep 15
 
 # Check if restarted
-snap services thin-edge-io.tedge-agent
+snap services ctrlx-cumulocity-ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-agent
 ```
 
 **Expected Result**:
@@ -232,14 +232,14 @@ snap services thin-edge-io.tedge-agent
 **Steps**:
 ```bash
 # Note current configuration
-thin-edge-io.tedge config list | grep c8y.url
+ctrlx-cumulocity-thin-edge-io.tedge config list | grep c8y.url
 
 # Reboot device
 sudo reboot
 
 # After reboot, SSH back and check
-thin-edge-io.tedge config list | grep c8y.url
-snap services thin-edge-io
+ctrlx-cumulocity-thin-edge-io.tedge config list | grep c8y.url
+snap services ctrlx-cumulocity-thin-edge-io
 ```
 
 **Expected Result**:
@@ -257,16 +257,16 @@ snap services thin-edge-io
 
 **Steps**:
 ```bash
-# Test apt plugin
-thin-edge-io.tedge-apt-plugin --help
+# Test snap plugin (software management)
+ctrlx-cumulocity-thin-edge-io.tedge-snap-plugin list
 
-# Test file config plugin  
-thin-edge-io.tedge-file-config-plugin --help
+# Test file config plugin
+ctrlx-cumulocity-thin-edge-io.tedge-file-config-plugin --help
 ```
 
 **Expected Result**:
-- Plugins execute without errors
-- Help text displays
+- Snap plugin lists installed snaps
+- File config plugin shows help text
 
 **Success Criteria**: ✅ All plugins accessible and functional
 
@@ -282,7 +282,7 @@ thin-edge-io.tedge-file-config-plugin --help
 ```bash
 # Send 100 measurements
 for i in {1..100}; do
-  thin-edge-io.tedge mqtt pub te/device/main///m/ "{\"test\":$i}"
+  ctrlx-cumulocity-thin-edge-io.tedge mqtt pub te/device/main///m/ "{\"test\":$i}"
   sleep 0.1
 done
 ```
@@ -307,7 +307,7 @@ free -h
 
 # Run for 1 hour with periodic measurements
 # Check resources again
-snap info thin-edge-io
+snap info ctrlx-cumulocity-thin-edge-io
 ```
 
 **Expected Result**:
@@ -331,7 +331,7 @@ snap info thin-edge-io
 # Wait 2 minutes
 # Reconnect network
 # Check logs
-snap logs thin-edge-io.tedge-mapper-c8y -n 50
+snap logs ctrlx-cumulocity-ctrlx-cumulocity-thin-edge-io.tedge-mapper-c8y -n 50
 ```
 
 **Expected Result**:
@@ -351,10 +351,10 @@ snap logs thin-edge-io.tedge-mapper-c8y -n 50
 **Steps**:
 ```bash
 # Set invalid cloud URL
-thin-edge-io.tedge config set c8y.url invalid-url
+ctrlx-cumulocity-thin-edge-io.tedge config set c8y.url invalid-url
 
 # Try to connect
-thin-edge-io.tedge connect c8y
+ctrlx-cumulocity-thin-edge-io.tedge connect c8y
 ```
 
 **Expected Result**:
@@ -375,7 +375,7 @@ thin-edge-io.tedge connect c8y
 **Steps**:
 ```bash
 # Show certificate
-thin-edge-io.tedge cert show
+ctrlx-cumulocity-thin-edge-io.tedge cert show
 
 # Verify it matches in cloud
 # Try connecting without proper cloud registration
@@ -397,10 +397,10 @@ thin-edge-io.tedge cert show
 **Steps**:
 ```bash
 # Check snap interfaces
-snap connections thin-edge-io
+snap connections ctrlx-cumulocity-thin-edge-io
 
 # Verify limited file system access
-snap run --shell thin-edge-io.tedge
+snap run --shell ctrlx-cumulocity-thin-edge-io.tedge
 # Try to access /etc/shadow (should fail)
 ```
 
@@ -428,10 +428,10 @@ snap run --shell thin-edge-io.tedge
 **Steps**:
 ```bash
 # Save current data directory size
-du -sh /var/snap/thin-edge-io
+du -sh /var/snap/ctrlx-cumulocity-thin-edge-io
 
 # Uninstall
-snap remove thin-edge-io
+snap remove ctrlx-cumulocity-thin-edge-io
 
 # Check for remnants
 find /var/snap -name "*thin-edge*"
@@ -483,13 +483,13 @@ Legend: ✅ Pass | ❌ Fail | ⚠️ Warning | ⬜ Not Tested
 After testing:
 ```bash
 # Disconnect from cloud
-thin-edge-io.tedge disconnect c8y
+ctrlx-cumulocity-thin-edge-io.tedge disconnect c8y
 
 # Remove device from cloud portal
 # (Manual step in cloud interface)
 
 # Uninstall app (optional)
-snap remove thin-edge-io
+snap remove ctrlx-cumulocity-thin-edge-io
 ```
 
 ---

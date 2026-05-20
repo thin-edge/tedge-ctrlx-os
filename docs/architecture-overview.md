@@ -1,8 +1,8 @@
 # Architecture Overview: thin-edge.io for ctrlX AUTOMATION
 
-**App Name**: thin-edge.io  
-**Version**: 2.0.0  
-**Date**: March 2026  
+**App Name**: ctrlx-cumulocity-thin-edge-io  
+**Version**: 0.1.0  
+**Date**: May 2026  
 
 ---
 
@@ -85,7 +85,6 @@
 |--------|---------|---------|
 | c8y-firmware-plugin | Firmware updates via Cumulocity | On-demand |
 | c8y-remote-access-plugin | Remote SSH/VNC access | On-demand |
-| tedge-apt-plugin | APT package management | On-demand |
 | tedge-file-config-plugin | Configuration file operations | On-demand |
 | tedge-file-log-plugin | Log file collection | On-demand |
 
@@ -167,7 +166,7 @@ MQTT Topic (c8y/mqtt/out/<name>)   ← Port 9883 (Cumulocity MQTT Service)
 Cumulocity IoT (Measurement)
 ```
 
-**externalId**: Wird aus dem Gerätezertifikat (Cert-CN) gelesen und stellt sicher, dass Cumulocity den Datenpunkt dem registrierten Gerät zuordnet.
+**externalId**: Read from the device certificate (Cert-CN). Ensures that Cumulocity assigns the data point to the registered device.
 
 ### 4.3 Command Flow
 

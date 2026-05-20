@@ -1,6 +1,6 @@
 # Building from Source
 
-This guide covers building the **ctrlX Cumulocity thin-edge.io** snap from source for both supported architectures.
+This guide covers building the **thin-edge.io for ctrlX AUTOMATION** snap from source for both supported architectures.
 
 ---
 
@@ -34,7 +34,7 @@ This script installs all required dependencies (Rust toolchain, Snapcraft) and b
 ```bash
 # Rust toolchain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup default 1.94
+rustup default stable
 
 # Snapcraft
 sudo snap install snapcraft --classic

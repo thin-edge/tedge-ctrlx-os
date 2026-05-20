@@ -757,6 +757,21 @@ if (tokenFromUrl) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+// 2. Enforce authentication: redirect to ctrlX login if no token is present.
+//    Skip this check during local development (localhost / 127.0.0.1).
+(function enforceAuth() {
+  const isLocalDev = ["localhost", "127.0.0.1"].includes(
+    window.location.hostname,
+  );
+  if (isLocalDev) return;
+  const storedToken = sessionStorage.getItem("ctrlx_token");
+  if (!storedToken && !tokenFromUrl) {
+    // No valid token — redirect to the ctrlX root, which will trigger the
+    // platform's own login redirect for unauthenticated users.
+    window.location.replace("/");
+  }
+})();
+
 /**
  * Helper function that calls fetch() and automatically
  * includes the JWT token stored in sessionStorage.
@@ -2724,7 +2739,7 @@ async function _loadFlowsDropdown(matchTopic) {
   try {
     const mapper =
       document.getElementById("flows-mapper-select")?.value || "c8y";
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
       { headers: { Accept: "application/json" } },
     );
@@ -3904,7 +3919,7 @@ async function loadLicenses() {
   if (errDiv) errDiv.style.display = "none";
 
   try {
-    const resp = await fetch("/thin-edge-io/api/licenses", {
+    const resp = await fetchWithAuth("/thin-edge-io/api/licenses", {
       headers: { Accept: "application/json" },
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -4019,7 +4034,7 @@ async function loadFlows() {
 
   try {
     const mapper = _flowsMapper();
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}`,
       { headers: { Accept: "application/json" } },
     );
@@ -4204,7 +4219,7 @@ function _renderArchivedFlowsTree(archivedFlows, container) {
 async function restoreFlow(flowName) {
   const mapper = _flowsMapper();
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/restore?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
       { method: "POST", headers: { Accept: "application/json" } },
     );
@@ -4223,7 +4238,7 @@ async function restoreFlow(flowName) {
 async function archiveFlow(flowName) {
   const mapper = _flowsMapper();
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
       { method: "POST", headers: { Accept: "application/json" } },
     );
@@ -4243,7 +4258,7 @@ async function deleteArchivedFlow(flowName) {
   const mapper = _flowsMapper();
   if (!confirm(`Archivierten Flow "${flowName}" endgültig löschen?`)) return;
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/archive?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
       { method: "DELETE", headers: { Accept: "application/json" } },
     );
@@ -4292,7 +4307,7 @@ async function saveCurrentFile() {
   const mapper = _flowsMapper();
 
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
       {
         method: "POST",
@@ -4320,7 +4335,7 @@ async function deleteCurrentFile() {
 
   const mapper = _flowsMapper();
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(_flowsCurrentFlow)}&file=${encodeURIComponent(_flowsCurrentFile)}`,
       { method: "DELETE", headers: { Accept: "application/json" } },
     );
@@ -4340,7 +4355,7 @@ async function deleteFlow(flowName) {
   if (!confirm(t("flows.confirm_delete_flow", flowName))) return;
 
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(flowName)}`,
       { method: "DELETE", headers: { Accept: "application/json" } },
     );
@@ -4395,7 +4410,7 @@ topics = ["te/+/+/+/+/m/+"]
 script = "main.js"
 `;
   try {
-    const resp = await fetch(
+    const resp = await fetchWithAuth(
       `/thin-edge-io/api/flows/file?mapper=${encodeURIComponent(mapper)}&flow=${encodeURIComponent(rawName)}&file=flow.toml`,
       {
         method: "POST",

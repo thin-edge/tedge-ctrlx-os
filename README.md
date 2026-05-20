@@ -1,6 +1,6 @@
 # thin-edge.io for ctrlX AUTOMATION (WORK IN PROGRESS)
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/thin-edge/tedge-ctrlx-os)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/thin-edge/tedge-ctrlx-os)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![Architecture](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey)](https://github.com/thin-edge/tedge-ctrlx-os)
 
@@ -39,7 +39,7 @@ tedge-ctrlx-os/
 
 ## Components
 
-### Core Services (thin-edge.io v1.7.1)
+### Core Services (thin-edge.io v2.0.0)
 | Service | Description |
 |---------|-------------|
 | `tedge` | CLI tool for configuration and management |
@@ -53,8 +53,10 @@ tedge-ctrlx-os/
 ### Plugins
 | Plugin | Description |
 |--------|-------------|
-| `tedge-file-config-plugin` | Configuration file management |
-| `tedge-snap-plugin` | Lists installed snaps in Cumulocity software inventory (read-only, install/remove not supported) |
+| `tedge-file-config-plugin` | Configuration file management via Cumulocity configuration management |
+| `c8y-remote-access-plugin` | Cumulocity remote access (SSH tunnel via Cloud Remote Access) |
+| `c8y-firmware-plugin` | Firmware update support via Cumulocity firmware management |
+| `tedge-snap-plugin` | Lists installed snaps in Cumulocity software inventory (read-only, install/remove not supported on ctrlX CORE) |
 
 ### Custom Services
 | Service | Description |
@@ -70,28 +72,9 @@ After installation, the configuration UI is accessible via the ctrlX CORE sideba
 ```
 https://<device-ip>/thin-edge-io/
 ```
-
-### UI Sections
-
-Each section is a collapsible card in the sidebar UI. All sections are always visible simultaneously (no navigation required).
-
 ---
 
-#### CONNECTION STATUS
 
-Three-column live status dashboard, auto-refreshing every 30 seconds (also on demand via **Refresh Status** button):
-
-| Column | Items |
-|--------|-------|
-| **Services** | MQTT Broker, Tedge Agent, Datalayer Bridge, Watchdog, Log Manager — each label is clickable to restart the service |
-| **Mappers** | Cumulocity IoT, AWS IoT, Azure IoT — shows whether the mapper process is running |
-| **Cloud Connections** | Cumulocity IoT, AWS IoT, Azure IoT — shows MQTT bridge state (`$SYS/broker/connection/*/state`) |
-
-Status indicators:
-- 🟢 **Running** — process active
-- 🔴 **Stopped** — process not running  
-- ⚫ **Inactive** — disabled/not configured
-- ⚪ **Unknown** — not yet checked
 
 ---
 
@@ -105,7 +88,7 @@ Three tabs — **Cumulocity IoT**, **AWS IoT**, **Azure IoT**:
 | **AWS IoT** | AWS IoT Endpoint URL (e.g. `xxxxxxxxxx.iot.us-east-1.amazonaws.com`), Enable AWS Mapper toggle |
 | **Azure IoT** | Azure IoT Hub URL (e.g. `your-hub.azure-devices.net`), Enable Azure Mapper toggle |
 
-Each tab has a **Save Configuration** button that writes values via `POST /api/config/{cloud}`. The **Enable Mapper** toggle immediately starts (`snapctl start thin-edge-io.tedge-mapper-<cloud>`) or stops (`snapctl stop`) the corresponding mapper service — no manual restart required.
+Each tab has a **Save Configuration** button that writes values via `POST /api/config/{cloud}`. 
 
 ---
 
@@ -116,12 +99,24 @@ Left panel — device identity:
 | Element | Description |
 |---------|-------------|
 | **Device ID** | Read-only; the unique device identifier derived from the serial number |
-| **Device Name** | Editable CN used when creating / renewing the X.509 certificate |
+| **External Device ID** | Editable CN used when creating / renewing the X.509 certificate |
+| **Certificate Mode** | Toggle between **Self-Signed** and **CA-Signed** certificate modes |
 | **Certificate Status** | Indicates whether a valid device certificate exists |
 | **Upload Status** | Shows whether the certificate has been uploaded to Cumulocity (persisted in `tedge-web-config.json`) |
-| **Save** | Saves device name changes |
-| **Renew Certificate** | Recreates the certificate with the current Device Name as CN |
+
+*Self-signed mode:*
+
+| Element | Description |
+|---------|-------------|
+| **Renew** | Recreates the self-signed certificate with the current External Device ID as CN |
 | **Upload Certificate** | Expands a credential form (Cumulocity username + password) and uploads the certificate via `POST /api/cert/upload/c8y` |
+
+*CA-signed mode:*
+
+| Element | Description |
+|---------|-------------|
+| **Download Status** | Shows whether the signed certificate has been downloaded from the CA (persisted in `tedge-web-config.json`) |
+| **Request Certificate** | Sends a CSR to the configured CA and downloads the signed certificate |
 
 Right panel (shown when a certificate exists): **Certificate Details** — displays subject, issuer, validity dates, and fingerprint.
 
@@ -129,7 +124,7 @@ Right panel (shown when a certificate exists): **Certificate Details** — displ
 
 #### CONNECT DEVICE
 
-Three tabs — **Cumulocity IoT**, **AWS IoT**, **Azure IoT** — each with:
+Four Buttons — **Cumulocity IoT**, **AWS IoT**, **Azure IoT** — each with:
 
 - **Connect** — runs `tedge connect <cloud>`
 - **Reconnect** — runs `tedge reconnect <cloud>`
@@ -139,17 +134,6 @@ Three tabs — **Cumulocity IoT**, **AWS IoT**, **Azure IoT** — each with:
 For **Cumulocity IoT** only, an additional **MQTT Port** toggle selects between:
 - `Core MQTT (8883)` — standard TLS MQTT
 - `MQTT Service (9883)` — Cumulocity MQTT Service (connection only; SmartREST operations not supported)
-
-**Test Messages** section (bottom, shared across all tabs):
-
-| Button | MQTT Topic |
-|--------|-----------|
-| Test Measurement | publishes a sample measurement payload |
-| Test Event | publishes a sample event payload |
-| Test Alarm | publishes a sample alarm payload |
-
-Output of connect/disconnect/test operations appears in the **Logs & Diagnostics** viewer.
-
 ---
 
 #### LOGS & DIAGNOSTICS
@@ -158,24 +142,52 @@ Live log viewer with controls:
 
 | Control | Options |
 |---------|---------|
-| **Service** | `tedge-agent`, `tedge-mapper-c8y`, `tedge-mapper-aws`, `tedge-mapper-az`, `tedge-bridge`, `log-upload`, `mosquitto`, `webserver` |
+| **Service** | `tedge-agent`, `tedge-mapper`, `tedge-bridge`, `log-upload`, `mosquitto`, `webserver` ,``snap-hooks|
 | **Log Level** | `error`, `warn`, `info` (default), `debug`, `trace` |
 | **Apply Level** | Writes the selected level via `RUST_LOG` to `$SNAP_DATA/log-levels/<service>` and restarts the service |
 | **Load Logs** | Fetches recent log lines via `GET /api/logs?service=<name>` |
 | **Copy** | Copies viewer content to clipboard |
+| **Diag Upload** | Triggers a diagnostics upload to the cloud (only supported for Cumulocity IoT; requires `c8y-remote-access-plugin` to be enabled)
 
-The viewer is a 320 px high monospace scrollable area.
 
 ---
 
 #### TEDGE CONFIGURATION
 
-Read-only view of the complete `tedge config list` output (equivalent to running `thin-edge-io.tedge config list` on the device):
+Read-only diagnostic output viewer. Select a command from the dropdown and press **Load**:
 
-- **Load** — fetches via `GET /api/tedge-config-list`
-- **Copy** — copies all lines to clipboard
+| Command | Equivalent CLI | Endpoint |
+|---------|---------------|----------|
+| `tedge config list` | `tedge config list` | `GET /api/tedge-config-list` |
+| `tedge config list --all` | Includes defaults | `GET /api/tedge-config-list-all` |
+| `tedge config list --doc` | With documentation | `GET /api/tedge-config-list-doc` |
+| `tedge bridge inspect c8y` | Mosquitto bridge config | `GET /api/tedge-bridge-inspect` |
 
-The viewer is a 400 px high monospace scrollable area.
+- **Load** — fetches the selected command output
+- **Copy** — copies the output to clipboard
+
+---
+
+#### FLOWS
+
+Manages thin-edge.io **flows** — script-based processing pipelines for MQTT messages, stored as files on the device.
+
+**Toolbar:**
+
+| Control | Description |
+|---------|-------------|
+| **Mapper** selector | Choose target mapper: `Cumulocity (c8y)`, `AWS IoT (aws)`, or `Azure IoT (az)` |
+| **New Flow** | Opens inline form; creates a new flow directory with a `flow.toml` template via `POST /api/flows/file` |
+| **Refresh** | Re-fetches all flows via `GET /api/flows?mapper=<mapper>` |
+
+**Split layout:**
+
+- **Left — Active Flows** tree: lists active flows with their files; click a file to open it in the editor; each flow row has an **Archive** button
+- **Left — Archived Flows** tree: lists archived flows; each row has a **Restore** button (`POST /api/flows/restore`)
+- **Right — Editor**: shows the selected file content in a resizable monospace textarea
+  - **Save** — writes the file via `POST /api/flows/file?mapper=...&flow=...&file=...`
+  - **Delete File** — removes the file via `DELETE /api/flows/file?...`
+  - **Add File** — inline form to add a new file to the current flow (allowed extensions: `.js`, `.toml`, `.toml.template`)
 
 ---
 
@@ -206,20 +218,20 @@ The file's full path is shown below the selector as a hint. The editor textarea 
 
 Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-bridge`).
 
-**Status row:** Shows the bridge service dot and connection state; **Refresh** button re-polls `GET /api/datalayer/status`.
+**Datalayer Bridge Connection** toggle — enables/disables the bridge (top of section).
 
 **Connection Settings** (collapsible `<details>`):
 
 | Field | Description |
 |-------|-------------|
+| Static Token | Optional bearer token (overrides username/password; shown first) |
 | Base URL | ctrlX Data Layer base URL (default `https://localhost`) |
 | Username | Data Layer username (default `boschrexroth`) |
 | Password | Data Layer password |
 | Poll interval (ms) | How often the bridge polls Data Layer nodes (default `5000`) |
-| Static Token | Optional bearer token (overrides username/password) |
-| Enabled toggle | Enable/disable the bridge |
-| Accept invalid TLS certs | Skip TLS verification (useful for self-signed certificiates on local device) |
-| **Save Connection** | Saves via `POST /api/datalayer/config` |
+| Accept invalid TLS certs | Skip TLS verification (useful for self-signed certificates on local device) |
+
+Settings are saved via the global **Save** button in the page toolbar (`POST /api/datalayer/config`).
 
 **Node Browser** (collapsible `<details>`):
 - Path input + **Browse** button — lists child nodes of the given Data Layer path via `GET /api/datalayer/browse`
@@ -228,14 +240,28 @@ Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-
 
 **Mappings Form** (shown when adding or editing):
 
+A **Mapping Type toggle** switches between two modes:
+
+*Datalayer mode* (default) — reads a Data Layer node and publishes to MQTT:
+
 | Field | Description |
 |-------|-------------|
 | Datalayer Path | Full path to the Data Layer node (e.g. `/framework/metrics/system/memfree-mb`) |
-| Direction | `Datalayer ➔ tedge` (read) or `tedge ➔ Datalayer` (write) |
 | tedge MQTT Topic | Auto-suggested based on transform type; editable (e.g. `c8y/mqtt/out/myTopic`) |
 | Transform | `raw`, `measurement`, `event`, or `alarm` |
 | Field name | JSON field name in the payload (auto-derived from path if left empty) |
 | Unit | Optional unit string (e.g. `°C`, `MB`, `%`) — published as top-level `"unit"` field |
+
+*Flow mode* — routes a Data Layer node through a thin-edge.io flow script:
+
+| Field | Description |
+|-------|-------------|
+| Datalayer Path | Full path to the Data Layer node |
+| Flow selector | Choose an existing flow from the Flows section |
+| tedge MQTT Topic | Output topic written by the flow |
+| Transform | `raw`, `measurement`, `event`, or `alarm` |
+| Field name | JSON field name in the payload |
+| Unit | Optional unit string |
 
 **Measurement Payload Format** (when using Cumulocity MQTT Service, port 9883):
 
@@ -261,27 +287,20 @@ Manages the optional ctrlX Data Layer ↔ MQTT bridge service (`tedge-datalayer-
 
 Shows the ctrlX OS licenses currently active on the device. Loaded automatically when the section is opened.
 
-| Element | Description |
-|---------|-------------|
-| License table | Lists all capabilities returned by the ctrlX License Manager API (`/license-manager/api/v1/capabilities`) — name, permanent flag, expiry date, count |
-| **Refresh** button | Re-fetches `GET /api/licenses` |
-| **Manage Licenses** button | Opens `/license-manager` (ctrlX License Manager UI) in a new tab |
+| Column | Description |
+|--------|-------------|
+| **Name** | Capability / license name |
+| **Status** | Current license status (e.g. active, expired) |
+| **Valid Until** | License expiry date |
+| **Qty** | Licensed quantity |
+
+- **Manage Licenses** button — opens `/license-manager` (ctrlX License Manager UI) in a new tab
 
 If no valid license is held, a **red warning banner** is shown at the top of the page with a link to the Licensing section and the Bosch Rexroth Licensing Center.
 
 ---
 
-#### SYSTEM INFORMATION
 
-Displays read-only device and build metadata:
-
-| Field | Source |
-|-------|--------|
-| **Version** | Snap version (from `GET /api/build-info`) |
-| **Build** | Build number / Git commit from `configs/build-info.txt` |
-| **Architecture** | CPU architecture (`amd64` or `arm64`) |
-
-**Refresh** button reloads all status data (same as the button in Connection Status).
 
 ### Web API (REST)
 
