@@ -5,6 +5,8 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
   workflow_dispatch:
     inputs:
       tag:
@@ -31,6 +33,8 @@ jobs:
         id: version
         run: |
           VERSION="${{ inputs.tag || github.ref_name }}"
+          # Strip leading 'v' so snap version and release name are consistent
+          VERSION="${VERSION#v}"
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Install system dependencies
