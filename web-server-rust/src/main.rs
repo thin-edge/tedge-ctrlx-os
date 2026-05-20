@@ -2692,7 +2692,10 @@ async fn recreate_certificate(req: HttpRequest) -> Result<HttpResponse> {
 
     info!("Recreating device certificate");
 
-    let output = tokio::process::Command::new(&script_path).arg("recreate").output().await;
+    let output = tokio::process::Command::new(&script_path)
+        .arg("recreate")
+        .output()
+        .await;
 
     match output {
         Ok(output) if output.status.success() => {
@@ -2744,7 +2747,10 @@ async fn create_certificate_auto(req: HttpRequest) -> Result<HttpResponse> {
 
     info!("Creating certificate with auto-detected device ID");
 
-    let output = tokio::process::Command::new(&script_path).arg("create").output().await;
+    let output = tokio::process::Command::new(&script_path)
+        .arg("create")
+        .output()
+        .await;
 
     match output {
         Ok(output) if output.status.success() => {
