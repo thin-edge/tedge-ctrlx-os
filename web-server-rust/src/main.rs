@@ -5306,7 +5306,8 @@ async fn main() -> io::Result<()> {
                     // Static Files GANZ AM ENDE DES SCOPES! (Wichtig für Actix Routing)
                     .service(Files::new("/", web_root.clone()).index_file("index.html")),
             )
-    });
+    })
+    .workers(4);
 
     if is_snap {
         let snap_data_lic = std::env::var("SNAP_DATA").unwrap_or_default();
