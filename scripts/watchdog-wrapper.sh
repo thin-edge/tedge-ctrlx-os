@@ -57,9 +57,16 @@ log "  MQTT timeout: ${MQTT_TIMEOUT}s"
 # Helpers
 # ---------------------------------------------------------------------------
 
-# Publish own health status as a retained MQTT message.
+# Register own service entity and publish health status as retained MQTT messages.
 # Mirrors what tedge-watchdog does via notify_systemd(process::id(), "--ready").
 publish_own_health() {
+    # Register entity with type=service so it shows in C8y Services tab
+    "$MQTT_PUB" \
+        -h "$MQTT_HOST" -p "$MQTT_PORT" \
+        -r \
+        -t "${TOPIC_ROOT}/device/main/service/tedge-watchdog" \
+        -m "{\"@parent\":\"device/main//\",\"@type\":\"service\",\"name\":\"tedge-watchdog\",\"type\":\"service\"}" \
+        2>/dev/null || true
     "$MQTT_PUB" \
         -h "$MQTT_HOST" -p "$MQTT_PORT" \
         -r \
