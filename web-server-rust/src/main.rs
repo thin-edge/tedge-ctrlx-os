@@ -1020,37 +1020,40 @@ async fn save_c8y_config(
         }
     }
 
-    // Save to local JSON config
-    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
-    let mut cloud = cloud;
-    // Force disabled when no URL is configured
-    if cloud.url.as_deref().unwrap_or("").is_empty() {
-        if cloud.enabled {
-            warn!("[CONFIG] c8y mapper enabled but no URL set — forcing disabled");
+    // Save to local JSON config — drop the guard before the snapctl .await below
+    let c8y_enabled = {
+        let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+        let mut cloud = cloud;
+        // Force disabled when no URL is configured
+        if cloud.url.as_deref().unwrap_or("").is_empty() {
+            if cloud.enabled {
+                warn!("[CONFIG] c8y mapper enabled but no URL set — forcing disabled");
+            }
+            cloud.enabled = false;
         }
-        cloud.enabled = false;
-    }
-    config.c8y = cloud;
+        config.c8y = cloud;
 
-    if let Err(e) = data.save_config(&config) {
-        error!("Failed to save C8y config to JSON: {}", e);
-        return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-            "success": false,
-            "error": format!("Failed to save configuration: {}", e)
-        })));
-    }
+        if let Err(e) = data.save_config(&config) {
+            error!("Failed to save C8y config to JSON: {}", e);
+            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to save configuration: {}", e)
+            })));
+        }
+        config.c8y.enabled
+    }; // MutexGuard dropped here
 
     // Start or stop the Cumulocity mapper based on the enabled toggle.
     // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let (action, flag) = if config.c8y.enabled {
+        let (action, flag) = if c8y_enabled {
             ("start", "--enable")
         } else {
             ("stop", "--disable")
         };
         info!(
             "[CONFIG] {}ing tedge-mapper-c8y (enabled={})",
-            action, config.c8y.enabled
+            action, c8y_enabled
         );
         match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-c8y")])
@@ -1073,11 +1076,7 @@ async fn save_c8y_config(
         }
     }
 
-    let mapper_state = if config.c8y.enabled {
-        "started"
-    } else {
-        "stopped"
-    };
+    let mapper_state = if c8y_enabled { "started" } else { "stopped" };
     info!(
         "Cumulocity configuration saved successfully (mapper {})",
         mapper_state
@@ -1160,37 +1159,40 @@ async fn save_aws_config(
         }
     }
 
-    // Save to local JSON config
-    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
-    let mut cloud = cloud;
-    // Force disabled when no URL is configured
-    if cloud.url.as_deref().unwrap_or("").is_empty() {
-        if cloud.enabled {
-            warn!("[CONFIG] aws mapper enabled but no URL set — forcing disabled");
+    // Save to local JSON config — drop the guard before the snapctl .await below
+    let aws_enabled = {
+        let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+        let mut cloud = cloud;
+        // Force disabled when no URL is configured
+        if cloud.url.as_deref().unwrap_or("").is_empty() {
+            if cloud.enabled {
+                warn!("[CONFIG] aws mapper enabled but no URL set — forcing disabled");
+            }
+            cloud.enabled = false;
         }
-        cloud.enabled = false;
-    }
-    config.aws = cloud;
+        config.aws = cloud;
 
-    if let Err(e) = data.save_config(&config) {
-        error!("Failed to save AWS config to JSON: {}", e);
-        return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-            "success": false,
-            "error": format!("Failed to save configuration: {}", e)
-        })));
-    }
+        if let Err(e) = data.save_config(&config) {
+            error!("Failed to save AWS config to JSON: {}", e);
+            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to save configuration: {}", e)
+            })));
+        }
+        config.aws.enabled
+    }; // MutexGuard dropped here
 
     // Start or stop the AWS mapper based on the enabled toggle.
     // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let (action, flag) = if config.aws.enabled {
+        let (action, flag) = if aws_enabled {
             ("start", "--enable")
         } else {
             ("stop", "--disable")
         };
         info!(
             "[CONFIG] {}ing tedge-mapper-aws (enabled={})",
-            action, config.aws.enabled
+            action, aws_enabled
         );
         match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-aws")])
@@ -1213,11 +1215,7 @@ async fn save_aws_config(
         }
     }
 
-    let mapper_state = if config.aws.enabled {
-        "started"
-    } else {
-        "stopped"
-    };
+    let mapper_state = if aws_enabled { "started" } else { "stopped" };
     info!(
         "AWS configuration saved successfully (mapper {})",
         mapper_state
@@ -1300,37 +1298,40 @@ async fn save_az_config(
         }
     }
 
-    // Save to local JSON config
-    let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
-    let mut cloud = cloud;
-    // Force disabled when no URL is configured
-    if cloud.url.as_deref().unwrap_or("").is_empty() {
-        if cloud.enabled {
-            warn!("[CONFIG] az mapper enabled but no URL set — forcing disabled");
+    // Save to local JSON config — drop the guard before the snapctl .await below
+    let az_enabled = {
+        let mut config = data.config.lock().unwrap_or_else(|p| p.into_inner());
+        let mut cloud = cloud;
+        // Force disabled when no URL is configured
+        if cloud.url.as_deref().unwrap_or("").is_empty() {
+            if cloud.enabled {
+                warn!("[CONFIG] az mapper enabled but no URL set — forcing disabled");
+            }
+            cloud.enabled = false;
         }
-        cloud.enabled = false;
-    }
-    config.az = cloud;
+        config.az = cloud;
 
-    if let Err(e) = data.save_config(&config) {
-        error!("Failed to save Azure config to JSON: {}", e);
-        return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-            "success": false,
-            "error": format!("Failed to save configuration: {}", e)
-        })));
-    }
+        if let Err(e) = data.save_config(&config) {
+            error!("Failed to save Azure config to JSON: {}", e);
+            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to save configuration: {}", e)
+            })));
+        }
+        config.az.enabled
+    }; // MutexGuard dropped here
 
     // Start or stop the Azure mapper based on the enabled toggle.
     // Use --enable/--disable so startup state persists across snap updates.
     if is_snap {
-        let (action, flag) = if config.az.enabled {
+        let (action, flag) = if az_enabled {
             ("start", "--enable")
         } else {
             ("stop", "--disable")
         };
         info!(
             "[CONFIG] {}ing tedge-mapper-az (enabled={})",
-            action, config.az.enabled
+            action, az_enabled
         );
         match tokio::process::Command::new("snapctl")
             .args([action, flag, &snap_svc("tedge-mapper-az")])
@@ -1353,11 +1354,7 @@ async fn save_az_config(
         }
     }
 
-    let mapper_state = if config.az.enabled {
-        "started"
-    } else {
-        "stopped"
-    };
+    let mapper_state = if az_enabled { "started" } else { "stopped" };
     info!(
         "Azure configuration saved successfully (mapper {})",
         mapper_state
