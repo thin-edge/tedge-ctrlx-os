@@ -655,6 +655,20 @@ body .form-group {
 }
 
 // ── Buttons ───────────────────────────────────────────────────
+.btn-default {
+  .btn-base();
+  background:   var(--c8y-palette-high);
+  color:        var(--c8y-palette-gray-30);
+  border:       1px solid var(--c8y-palette-gray-60);
+  transition:   background 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover {
+    background:   var(--c8y-palette-gray-80);
+    border-color: var(--c8y-palette-gray-40);
+    color:        var(--c8y-palette-gray-20);
+  }
+}
+
 .btn-primary,
 .btn-secondary,
 .btn-outline-secondary,
