@@ -1629,6 +1629,26 @@ async fn set_mqtt_port(
     let enabled_str = if body.port == 9883 { "true" } else { "false" };
     let port = body.port;
 
+    // Check whether the tedge binary is actually available. When running
+    // locally (outside a snap) without tedge installed, skip the config-set
+    // commands and only update datalayer-mappings.json.
+    let tedge_available = which::which(&tedge_bin).is_ok();
+    if !tedge_available {
+        warn!(
+            "[MQTT-PORT] tedge binary '{}' not found – skipping config set, updating datalayer config only",
+            tedge_bin
+        );
+        let mut dl_cfg = data.load_datalayer_config();
+        dl_cfg.mqtt_service_enabled = port == 9883;
+        if let Err(e) = data.save_datalayer_config(&dl_cfg) {
+            warn!(
+                "[MQTT-PORT] Could not update datalayer-mappings.json: {}",
+                e
+            );
+        }
+        return Ok(HttpResponse::Ok().json(serde_json::json!({"success": true, "port": port})));
+    }
+
     info!(
         "[MQTT-PORT] Setting c8y.mqtt_service.enabled={} port={}",
         enabled_str, port
@@ -2899,10 +2919,11 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
 
     let snap_common = env::var("SNAP_COMMON").unwrap_or_else(|_| ".".to_string());
 
-    // snap-hooks and tedge-mapper read from log files directly
+    // snap-hooks reads from a log file written directly by the hook scripts
+    // (hooks are not daemons and have no single journald unit).
+    // All other services, including tedge-mapper, use journalctl below.
     let file_log_service = match service.as_str() {
         "snap-hooks" => Some(format!("{}/tedge/log/snap-hooks.log", snap_common)),
-        "tedge-mapper" => Some(format!("{}/tedge/log/tedge-mapper.log", snap_common)),
         _ => None,
     };
 
@@ -2928,7 +2949,13 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
         };
     }
 
-    let snap_service = format!("ctrlx-cumulocity-thin-edge-io.{}", service);
+    // Map web-UI service names to snap daemon names where they differ.
+    // "tedge-mapper" in the UI refers to the c8y mapper (the default active one).
+    let snap_service_name = match service.as_str() {
+        "tedge-mapper" => "tedge-mapper-c8y",
+        other => other,
+    };
+    let snap_service = format!("ctrlx-cumulocity-thin-edge-io.{}", snap_service_name);
     let lines_str = lines.to_string();
 
     let result = web::block(move || {

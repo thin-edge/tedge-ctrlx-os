@@ -492,6 +492,30 @@ body .form-group input[type="checkbox"] {
   width: 14px;
   height: 14px;
 }
+.btn-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: 'Public Sans', 'Roboto', Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  line-height: 1.57142857;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-top: 6px;
+  text-decoration: none;
+  background: var(--c8y-palette-high);
+  color: var(--c8y-palette-gray-30);
+  border: 1px solid var(--c8y-palette-gray-60);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-default:hover {
+  background: var(--c8y-palette-gray-80);
+  border-color: var(--c8y-palette-gray-40);
+  color: var(--c8y-palette-gray-20);
+}
 .btn-primary,
 .btn-secondary,
 .btn-outline-secondary,
