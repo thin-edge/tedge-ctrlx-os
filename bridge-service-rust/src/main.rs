@@ -2,7 +2,7 @@ mod datalayer;
 
 use anyhow::Result;
 use log::{info, warn};
-use serde_json;
+use serde_json::json;
 // handle_mqtt_message added to import
 use crate::datalayer::{
     handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
         if let Some(cli) = client_arc.lock().await.as_ref() {
             for svc in &services {
                 let twin_topic = format!("te/device/main/service/{svc}");
-                let twin_payload = serde_json::json!({
+                let twin_payload = json!({
                     "@parent": "device/main//",
                     "@type": "service",
                     "name": svc,
