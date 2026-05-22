@@ -266,28 +266,8 @@ type = "software-management"
 path = "${STABLE_COMMON}/tedge/log/agent/workflow-software_*"
 
 [[files]]
-type = "tedge-agent"
-path = "${STABLE_COMMON}/tedge/log/tedge-agent.log"
-
-[[files]]
-type = "tedge-datalayer-bridge"
-path = "${STABLE_COMMON}/tedge/log/tedge-datalayer-bridge.log"
-
-[[files]]
-type = "tedge-mapper-c8y"
-path = "${STABLE_COMMON}/tedge/log/tedge-mapper.log"
-
-[[files]]
-type = "mosquitto"
-path = "${STABLE_COMMON}/tedge/log/mosquitto.log"
-
-[[files]]
-type = "webserver"
-path = "${STABLE_COMMON}/tedge/log/tedge-web-config.log"
-
-[[files]]
-type = "log-upload-manager"
-path = "${STABLE_COMMON}/tedge/log/tedge-log-upload-manager.log"
+type = "snap-hooks"
+path = "${STABLE_COMMON}/tedge/log/snap-hooks.log"
 EOF
 
 cat <<EOF > "$SNAP_DATA/tedge/plugins/tedge-configuration-plugin.toml"
