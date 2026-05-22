@@ -15,17 +15,18 @@ set -eu
 
 SNAP_NAME="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}"
 
+# Short display names shown in the Cumulocity "Type of log" dropdown.
+# The full journald unit is derived in get() by prepending snap.${SNAP_NAME}.
 list() {
-    # Report the snap services whose logs we can retrieve via journalctl
     printf '%s\n' \
-        "${SNAP_NAME}.tedge-agent" \
-        "${SNAP_NAME}.tedge-mapper-c8y" \
-        "${SNAP_NAME}.tedge-mapper-aws" \
-        "${SNAP_NAME}.tedge-mapper-az" \
-        "${SNAP_NAME}.tedge-datalayer-bridge" \
-        "${SNAP_NAME}.mosquitto" \
-        "${SNAP_NAME}.webserver" \
-        "${SNAP_NAME}.tedge-watchdog"
+        "tedge-agent" \
+        "tedge-mapper-c8y" \
+        "tedge-mapper-aws" \
+        "tedge-mapper-az" \
+        "tedge-datalayer-bridge" \
+        "mosquitto" \
+        "webserver" \
+        "tedge-watchdog"
 }
 
 get() {
@@ -43,8 +44,15 @@ get() {
         shift
     done
 
+    # Map short name → full journald unit (snap.<snap-name>.<service>.service)
+    # If the type already contains a dot (legacy full name), use it as-is.
+    case "$log_type" in
+        *.*) unit="$log_type" ;;
+        *)   unit="snap.${SNAP_NAME}.${log_type}.service" ;;
+    esac
+
     # Build journalctl arguments
-    ARGS="-u ${log_type} --no-pager -o short-iso"
+    ARGS="-u ${unit} --no-pager -o short-iso"
 
     if [ -n "$since" ]; then
         # Convert seconds-since-epoch to date string for journalctl
