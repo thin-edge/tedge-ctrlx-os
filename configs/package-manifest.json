@@ -60,9 +60,9 @@
       {
         "id": "thin-edge-io-settings",
         "title": "thin-edge.io Configuration",
-        "icon": "bosch-ic-gear",
+        "description": "Configure cloud connectivity and IoT edge settings",
+        "icon": "bosch-ic-cloud",
         "link": "/thin-edge-io/?token=${bearertoken}",
-        "target": "_blank",
         "permissions": [
           "rexroth-device.all.rwx",
           "thin-edge-io.rwx",
