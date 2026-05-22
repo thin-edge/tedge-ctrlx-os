@@ -236,6 +236,10 @@ async fn main() -> Result<()> {
     // Register all snap services as thin-edge.io entities so they appear in the
     // Cumulocity Services tab. We do this here (after MQTT is connected) rather than
     // in the post-refresh hook, because mosquitto is not running during the hook.
+    // Delay to allow other services (tedge-agent, tedge-mapper-c8y, etc.) to complete
+    // their startup sequence before we publish retained registrations, so they don't
+    // overwrite ours.
+    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
     {
         let snap_name = env::var("SNAP_INSTANCE_NAME")
             .unwrap_or_else(|_| env::var("SNAP_NAME").unwrap_or_default());
