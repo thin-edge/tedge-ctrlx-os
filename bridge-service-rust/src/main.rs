@@ -264,22 +264,25 @@ async fn main() -> Result<()> {
 
                 // Determine service status via snapctl
                 let snap_svc = format!("{snap_name}.{svc}");
-                let health_status =
-                    if snap_name.is_empty() {
-                        "up"
-                    } else {
-                        let out = std::process::Command::new("snapctl")
-                            .args(["services", &snap_svc])
-                            .output();
-                        match out {
-                            Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "up",
-                            _ => "down",
-                        }
-                    };
+                let health_status = if snap_name.is_empty() {
+                    "up"
+                } else {
+                    let out = std::process::Command::new("snapctl")
+                        .args(["services", &snap_svc])
+                        .output();
+                    match out {
+                        Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "up",
+                        _ => "down",
+                    }
+                };
                 let health_topic = format!("te/device/main/service/{svc}/status/health");
                 let health_payload = format!("{{\"status\":\"{health_status}\"}}");
                 let _ = cli
-                    .publish(mqtt::Message::new_retained(&health_topic, health_payload, 1))
+                    .publish(mqtt::Message::new_retained(
+                        &health_topic,
+                        health_payload,
+                        1,
+                    ))
                     .await;
                 info!("[BRIDGE] Registered service '{svc}' status={health_status}");
             }

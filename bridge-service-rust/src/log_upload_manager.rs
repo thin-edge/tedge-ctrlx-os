@@ -287,7 +287,10 @@ fn list_journald_log_types() -> Vec<String> {
             .filter(|l| !l.is_empty())
             .collect(),
         Ok(out) => {
-            log::warn!("journald plugin list failed: {}", String::from_utf8_lossy(&out.stderr));
+            log::warn!(
+                "journald plugin list failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
             vec![]
         }
         Err(e) => {
@@ -342,7 +345,9 @@ async fn collect_journald_logs(
             cmd.arg("--until").arg(ts.timestamp().to_string());
         }
     }
-    let out = cmd.output().await
+    let out = cmd
+        .output()
+        .await
         .with_context(|| format!("Cannot run journald plugin for service '{service}'"))?;
     let content = String::from_utf8_lossy(&out.stdout).to_string();
     let lines: Vec<&str> = content.lines().collect();
