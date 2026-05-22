@@ -242,11 +242,16 @@ async fn main() -> Result<()> {
         let services = [
             "tedge-agent",
             "tedge-mapper-c8y",
+            "tedge-mapper-aws",
+            "tedge-mapper-az",
             "tedge-watchdog",
+            "mosquitto",
             "tedge-datalayer-bridge",
             "tedge-log-upload-manager",
-            "webserver",
+            "tedge-file-config-plugin",
+            "c8y-remote-access-plugin",
             "c8y-firmware-plugin",
+            "webserver",
         ];
         if let Some(cli) = client_arc.lock().await.as_ref() {
             for svc in &services {
