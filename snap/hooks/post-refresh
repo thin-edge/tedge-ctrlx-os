@@ -414,15 +414,41 @@ for stale_svc in "tedge-log-plugin" "c8y-firmware-plugin" "tedge-file-log-plugin
 done
 
 # Ensure all thin-edge.io services are registered with type="service" so they
-# appear in the Cumulocity Services tab. Built-in services (tedge-agent,
-# tedge-mapper-c8y, tedge-mapper-bridge-c8y) publish twin/type separately but
-# the C8y mapper only sets the C8y MO type field when it is in the registration
-# payload itself.
-for svc in "tedge-agent" "tedge-mapper-c8y" "tedge-mapper-bridge-c8y" "tedge-mapper-aws" "tedge-mapper-az"; do
+# appear in the Cumulocity Services tab. For each service we publish:
+#   1. Entity twin  (te/device/main/service/<name>)
+#   2. Health status (te/device/main/service/<name>/status/health)
+# Without health, the C8y mapper creates the entity but never shows it in the
+# Services tab. Health is derived from snapctl to reflect the actual state.
+_publish_service_health() {
+    local svc="$1"
+    local snap_svc="${SNAP_INSTANCE_NAME:-ctrlx-cumulocity-thin-edge-io}.${svc}"
+    local status="down"
+    if snapctl services "$snap_svc" 2>/dev/null | grep -q "active"; then
+        status="up"
+    fi
+    # Entity twin
     "$MQTT_PUB" -h "$MQTT_HOST" -p "$MQTT_PORT" \
         -r -t "te/device/main/service/${svc}" \
         -m "{\"@parent\":\"device/main//\",\"@type\":\"service\",\"name\":\"${svc}\",\"type\":\"service\"}" \
         2>/dev/null || true
+    # Health status
+    "$MQTT_PUB" -h "$MQTT_HOST" -p "$MQTT_PORT" \
+        -r -t "te/device/main/service/${svc}/status/health" \
+        -m "{\"status\":\"${status}\"}" \
+        2>/dev/null || true
+}
+
+for svc in \
+    "tedge-agent" \
+    "tedge-mapper-c8y" \
+    "tedge-mapper-bridge-c8y" \
+    "tedge-mapper-aws" \
+    "tedge-mapper-az" \
+    "tedge-watchdog" \
+    "tedge-datalayer-bridge" \
+    "tedge-log-upload-manager" \
+    "webserver"; do
+    _publish_service_health "$svc"
 done
 
 # Re-connect snap interfaces after update
