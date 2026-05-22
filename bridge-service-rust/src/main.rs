@@ -2,6 +2,7 @@ mod datalayer;
 
 use anyhow::Result;
 use log::{info, warn};
+use serde_json;
 // handle_mqtt_message added to import
 use crate::datalayer::{
     handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
@@ -231,6 +232,60 @@ async fn main() -> Result<()> {
     let mut msg_stream = async_client.get_stream(100);
 
     let client_arc = Arc::new(Mutex::new(Some(async_client)));
+
+    // Register all snap services as thin-edge.io entities so they appear in the
+    // Cumulocity Services tab. We do this here (after MQTT is connected) rather than
+    // in the post-refresh hook, because mosquitto is not running during the hook.
+    {
+        let snap_name = env::var("SNAP_INSTANCE_NAME")
+            .unwrap_or_else(|_| env::var("SNAP_NAME").unwrap_or_default());
+        let services = [
+            "tedge-agent",
+            "tedge-mapper-c8y",
+            "tedge-watchdog",
+            "tedge-datalayer-bridge",
+            "tedge-log-upload-manager",
+            "webserver",
+            "c8y-firmware-plugin",
+        ];
+        if let Some(cli) = client_arc.lock().await.as_ref() {
+            for svc in &services {
+                let twin_topic = format!("te/device/main/service/{svc}");
+                let twin_payload = serde_json::json!({
+                    "@parent": "device/main//",
+                    "@type": "service",
+                    "name": svc,
+                    "type": "service"
+                })
+                .to_string();
+                let _ = cli
+                    .publish(mqtt::Message::new_retained(&twin_topic, twin_payload, 1))
+                    .await;
+
+                // Determine service status via snapctl
+                let snap_svc = format!("{snap_name}.{svc}");
+                let health_status =
+                    if snap_name.is_empty() {
+                        "up"
+                    } else {
+                        let out = std::process::Command::new("snapctl")
+                            .args(["services", &snap_svc])
+                            .output();
+                        match out {
+                            Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "up",
+                            _ => "down",
+                        }
+                    };
+                let health_topic = format!("te/device/main/service/{svc}/status/health");
+                let health_payload = format!("{{\"status\":\"{health_status}\"}}");
+                let _ = cli
+                    .publish(mqtt::Message::new_retained(&health_topic, health_payload, 1))
+                    .await;
+                info!("[BRIDGE] Registered service '{svc}' status={health_status}");
+            }
+        }
+    }
+
     let dl_engine = DatalayerEngine::new_with_overrides(
         config_path,
         config.device_external_id.clone(),

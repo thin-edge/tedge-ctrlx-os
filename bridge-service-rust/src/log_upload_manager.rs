@@ -62,6 +62,11 @@ struct LogUploadRequest {
     log_type: String,
     #[serde(default = "default_lines")]
     lines: usize,
+    /// ISO-8601 date string from C8Y (e.g. "2026-05-21T08:57:12+0200")
+    #[serde(rename = "dateFrom", default)]
+    date_from: Option<String>,
+    #[serde(rename = "dateTo", default)]
+    date_to: Option<String>,
 }
 
 fn default_lines() -> usize {
@@ -270,22 +275,94 @@ async fn read_log_plugin_config(config_path: &PathBuf) -> Result<LogPluginConfig
     toml::from_str(&content).context("Failed to parse tedge-log-plugin.toml")
 }
 
+/// Call the journald log plugin's `list` command and return the type names.
+/// Returns empty vec on any error (best-effort, non-fatal).
+fn list_journald_log_types() -> Vec<String> {
+    let snap = std::env::var("SNAP").unwrap_or_default();
+    let plugin = format!("{snap}/scripts/log-plugins/journald");
+    match std::process::Command::new(&plugin).arg("list").output() {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect(),
+        Ok(out) => {
+            log::warn!("journald plugin list failed: {}", String::from_utf8_lossy(&out.stderr));
+            vec![]
+        }
+        Err(e) => {
+            log::warn!("Cannot run journald plugin at {plugin}: {e}");
+            vec![]
+        }
+    }
+}
+
 /// Publish retained log-types announcement
 async fn announce_log_types(client: &AsyncClient, config_path: &PathBuf) {
     match read_log_plugin_config(config_path).await {
         Ok(config) => {
-            let types: Vec<&str> = config.files.iter().map(|f| f.log_type.as_str()).collect();
-            let payload = serde_json::json!({ "types": types }).to_string();
+            let mut types: Vec<String> = config.files.iter().map(|f| f.log_type.clone()).collect();
+            // Append journald service log types with ::journald suffix
+            for t in list_journald_log_types() {
+                types.push(format!("{}::journald", t));
+            }
+            let type_refs: Vec<&str> = types.iter().map(|s| s.as_str()).collect();
+            let payload = serde_json::json!({ "types": type_refs }).to_string();
             match client
                 .publish(LOG_UPLOAD_TOPIC, QoS::AtLeastOnce, true, payload)
                 .await
             {
-                Ok(_) => log::info!("Announced log types: {:?}", types),
+                Ok(_) => log::info!("Announced log types: {:?}", type_refs),
                 Err(e) => log::error!("Failed to announce log types: {e}"),
             }
         }
         Err(e) => log::warn!("Could not read log plugin config (not fatal): {e}"),
     }
+}
+
+/// Collect logs via the journald plugin script for a given service short name.
+async fn collect_journald_logs(
+    service: &str,
+    max_lines: usize,
+    date_from: Option<&str>,
+    date_to: Option<&str>,
+) -> anyhow::Result<String> {
+    let snap = std::env::var("SNAP").unwrap_or_default();
+    let plugin = format!("{snap}/scripts/log-plugins/journald");
+    let mut cmd = tokio::process::Command::new(&plugin);
+    cmd.arg("get").arg(service);
+    if let Some(from) = date_from {
+        // Parse ISO-8601 to seconds-since-epoch for the plugin's --since argument
+        if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(&normalise_date(from)) {
+            cmd.arg("--since").arg(ts.timestamp().to_string());
+        }
+    }
+    if let Some(to) = date_to {
+        if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(&normalise_date(to)) {
+            cmd.arg("--until").arg(ts.timestamp().to_string());
+        }
+    }
+    let out = cmd.output().await
+        .with_context(|| format!("Cannot run journald plugin for service '{service}'"))?;
+    let content = String::from_utf8_lossy(&out.stdout).to_string();
+    let lines: Vec<&str> = content.lines().collect();
+    let start = lines.len().saturating_sub(max_lines);
+    Ok(lines[start..].join("\n"))
+}
+
+/// Normalise a C8Y date string to RFC 3339 (handles "+0200" → "+02:00").
+fn normalise_date(s: &str) -> String {
+    // C8Y uses "+0200" without colon; chrono needs "+02:00"
+    if s.len() >= 5 {
+        let offset_start = s.len() - 5;
+        let maybe_offset = &s[offset_start..];
+        if (maybe_offset.starts_with('+') || maybe_offset.starts_with('-'))
+            && !maybe_offset.contains(':')
+        {
+            return format!("{}:{}", &s[..offset_start + 3], &s[offset_start + 3..]);
+        }
+    }
+    s.to_string()
 }
 
 /// Expand glob pattern, read matching files (sorted oldest→newest), return last `max_lines` lines
@@ -371,33 +448,50 @@ async fn handle_log_upload_request(
         )
         .await;
 
-    // Find the matching log file entry
-    let config = match read_log_plugin_config(config_path).await {
-        Ok(c) => c,
-        Err(e) => {
-            publish_final(client, topic, &original, "failed", Some(&e.to_string())).await;
-            return;
+    // Route: journald plugin types have suffix ::journald
+    let content = if let Some(service) = request.log_type.strip_suffix("::journald") {
+        match collect_journald_logs(
+            service,
+            request.lines,
+            request.date_from.as_deref(),
+            request.date_to.as_deref(),
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                let reason = format!("Failed to read journald logs for '{service}': {e}");
+                log::error!("{reason}");
+                publish_final(client, topic, &original, "failed", Some(&reason)).await;
+                return;
+            }
         }
-    };
-
-    let entry = match config.files.iter().find(|f| f.log_type == request.log_type) {
-        Some(e) => e.clone(),
-        None => {
-            let reason = format!("Unknown log type: '{}'", request.log_type);
-            log::error!("{reason}");
-            publish_final(client, topic, &original, "failed", Some(&reason)).await;
-            return;
-        }
-    };
-
-    // Collect log content
-    let content = match collect_log_content(&entry.path, request.lines).await {
-        Ok(c) => c,
-        Err(e) => {
-            let reason = format!("Failed to read logs for '{}': {e}", request.log_type);
-            log::error!("{reason}");
-            publish_final(client, topic, &original, "failed", Some(&reason)).await;
-            return;
+    } else {
+        // File-based log type — look up in tedge-log-plugin.toml
+        let config = match read_log_plugin_config(config_path).await {
+            Ok(c) => c,
+            Err(e) => {
+                publish_final(client, topic, &original, "failed", Some(&e.to_string())).await;
+                return;
+            }
+        };
+        let entry = match config.files.iter().find(|f| f.log_type == request.log_type) {
+            Some(e) => e.clone(),
+            None => {
+                let reason = format!("Unknown log type: '{}'", request.log_type);
+                log::error!("{reason}");
+                publish_final(client, topic, &original, "failed", Some(&reason)).await;
+                return;
+            }
+        };
+        match collect_log_content(&entry.path, request.lines).await {
+            Ok(c) => c,
+            Err(e) => {
+                let reason = format!("Failed to read logs for '{}': {e}", request.log_type);
+                log::error!("{reason}");
+                publish_final(client, topic, &original, "failed", Some(&reason)).await;
+                return;
+            }
         }
     };
 

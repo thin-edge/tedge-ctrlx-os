@@ -1,0 +1,23 @@
+name: clank8y
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt: # internal — filled automatically by the webhook server
+        type: string
+        required: false
+
+permissions:
+  id-token: write       # required — OIDC token exchange for the clank8y bot token
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: clank8y/clank8y@48f44520b13f84d25f7c8fcc62938d798f42c62f # v1.4.3
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          prompt: ${{ inputs.prompt }} # do not set manually
+          model: anthropic:claude-sonnet-4-20250514 # required — provider:model-id
+          # timeout-ms: 1200000                    # optional — defaults to 1200000 (20 minutes)

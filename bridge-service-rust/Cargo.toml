@@ -27,6 +27,7 @@ rumqttc = "0.25"
 actix-web = "4.0"
 toml = "0.8"
 glob = "0.3"
+chrono = "0.4"
 
 [features]
 default = ["mqtt"]
