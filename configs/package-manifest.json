@@ -40,6 +40,22 @@
         ]
       }
     ],
+    "overview": [
+      {
+        "id": "thin-edge-io-overview",
+        "title": "thin-edge.io",
+        "description": "IoT Edge Framework – Cloud connectivity configuration",
+        "icon": "bosch-ic-cloud",
+        "link": "/thin-edge-io/?token=${bearertoken}",
+        "target": "_blank",
+        "permissions": [
+          "rexroth-device.all.rwx",
+          "thin-edge-io.rwx",
+          "thin-edge-io.rw",
+          "thin-edge-io.r"
+        ]
+      }
+    ],
     "settings": [
       {
         "id": "thin-edge-io-settings",
@@ -52,8 +68,7 @@
           "thin-edge-io.rwx",
           "thin-edge-io.rw",
           "thin-edge-io.r"
-        ],
-        "items": []
+        ]
       }
     ]
   },
