@@ -1204,6 +1204,21 @@ function _syncCaStatus() {
   if (!src || !dst) return;
   dst.className = src.className;
   dst.textContent = src.textContent;
+  _updateOtpVisibility();
+}
+
+// Hide the OTP field when the certificate is active AND already downloaded.
+function _updateOtpVisibility() {
+  const certStatus = document.getElementById("cert-status");
+  const downloadEl = document.getElementById("cert-ca-download-status");
+  const otpGroup = document.querySelector("#cert-ca-fields .form-group");
+  if (!otpGroup) return;
+
+  const certActive = certStatus && certStatus.classList.contains("success");
+  const downloaded =
+    downloadEl && downloadEl.textContent.includes("Downloaded");
+
+  otpGroup.style.display = certActive && downloaded ? "none" : "";
 }
 
 function updateCaDownloadStatusDisplay(timestamp) {
@@ -1220,6 +1235,7 @@ function updateCaDownloadStatusDisplay(timestamp) {
     el.textContent = t("device.not_downloaded");
     el.style.color = "";
   }
+  _updateOtpVisibility();
 }
 
 function onCaNameInput() {
