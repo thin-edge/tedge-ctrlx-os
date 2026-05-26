@@ -139,9 +139,9 @@ cd /home/ubuntu/tedge-ctrlx-os
 ./build-snap-amd64.sh
 
 # Deploy to ctrlX
-scp ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap rexroot@<ctrlx-ip>:/tmp/
+scp ctrlx-cumulocity-thin-edge-io_0.1.17_amd64.snap rexroot@<ctrlx-ip>:/tmp/
 ssh rexroot@<ctrlx-ip>
-sudo snap install /tmp/ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap --dangerous
+sudo snap install /tmp/ctrlx-cumulocity-thin-edge-io_0.1.17_amd64.snap --dangerous
 
 # Open the web UI
 https://<ctrlx-ip>/thin-edge-io

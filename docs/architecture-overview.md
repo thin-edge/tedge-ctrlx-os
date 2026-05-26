@@ -1,7 +1,7 @@
 # Architecture Overview: thin-edge.io for ctrlX AUTOMATION
 
 **App Name**: ctrlx-cumulocity-thin-edge-io  
-**Version**: 0.1.0  
+**Version**: 0.1.17  
 **Date**: May 2026  
 
 ---

@@ -24,8 +24,8 @@ This guide covers installing the **thin-edge.io for ctrlX AUTOMATION** snap on a
 - ctrlX CORE or ctrlX COREvirtual running **ctrlX OS 1.20 or higher**
 - Network connectivity from the device to your cloud platform
 - A snap package file — either built from source (see [building.md](building.md)) or downloaded from a release:
-  - `ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap` — ctrlX COREvirtual (x86-64)
-  - `ctrlx-cumulocity-thin-edge-io_0.1.0_arm64.snap` — ctrlX CORE hardware (ARM64)
+  - `ctrlx-cumulocity-thin-edge-io_0.1.17_amd64.snap` — ctrlX COREvirtual (x86-64)
+  - `ctrlx-cumulocity-thin-edge-io_0.1.17_arm64.snap` — ctrlX CORE hardware (ARM64)
 
 ---
 
@@ -46,7 +46,7 @@ The snap will appear in the ctrlX sidebar as **thin-edge.io** after a few second
 
 ```bash
 # Copy the snap file to the device first, then:
-snap install ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap --dangerous
+snap install ctrlx-cumulocity-thin-edge-io_0.1.17_amd64.snap --dangerous
 ```
 
 > `--dangerous` is required for locally built or unsigned snaps.

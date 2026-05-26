@@ -2,6 +2,121 @@
 
 ---
 
+## Version 0.1.17 — May 2026
+
+### Improvements
+- **Service registration**: `tedge-mapper-bridge-c8y` (the internal MQTT bridge sub-service of `tedge-mapper-c8y`) is now registered as a service entity in Cumulocity so it appears in the Services tab.
+- **Service status accuracy**: On-demand plugins (`tedge-file-config-plugin`, `c8y-remote-access-plugin`) now report status `unknown` instead of `down` — they are not persistent daemons but are invoked on demand by `tedge-agent`.
+- **Flow versions**: ctrlX flow scripts (`c8y/ctrlx-alarms`, `c8y/ctrlx-events`, `c8y/ctrlx-measurements`) now report version `0.1.0` in the Cumulocity software inventory (previously `0.0.0`).
+- **Code quality**: Extracted `tedge_config_get()` helper in bridge service; extracted `toggle_mapper()` helper in web server to eliminate three identical snapctl start/stop blocks. No behavior change; 85 fewer lines.
+
+---
+
+## Version 0.1.16 — May 2026
+
+### Changes
+- Renamed the datalayer mapping toggle label from `datalayer.enabled` to **"Enable Mapping"** in the web UI (both English and German locale).
+
+---
+
+## Version 0.1.15 — May 2026
+
+### Bug Fixes
+- Refactored periodic service registration into a proper background `tokio::spawn` task — no longer blocks startup.
+- Fixed `rustfmt` formatting issues in `web-server-rust/src/main.rs` that caused CI build failures.
+
+---
+
+## Version 0.1.14 — May 2026
+
+### Changes
+- Translated all German comments, strings, and section headers to English across `web-server-rust/src/main.rs`, `snap/snapcraft.yaml`, and `snap/hooks/install`.
+
+---
+
+## Version 0.1.13 — May 2026
+
+### Bug Fixes
+- Increased initial service-registration delay from 15 s to 30 s to avoid a race condition with `tedge-agent` / `tedge-mapper-c8y` startup that wiped retained MQTT registration messages.
+
+---
+
+## Version 0.1.12 — May 2026
+
+### Bug Fixes
+- Fixed clippy `single-component-path-imports` lint (`use serde_json` → `use serde_json::json`).
+- Extended periodic service registration to cover all 12 snap services (previously only a subset was registered).
+
+---
+
+## Version 0.1.11 — May 2026
+
+### Bug Fixes
+- Fixed `rustfmt` and `clippy` CI failures introduced in 0.1.10; no functional changes.
+
+---
+
+## Version 0.1.10 — May 2026
+
+### New Features
+- Added **journald log types** for all snap services: `tedge-agent::journald`, `tedge-mapper-c8y::journald`, `tedge-mapper-aws::journald`, `tedge-mapper-az::journald`, `tedge-datalayer-bridge::journald`, `mosquitto::journald`, `webserver::journald`, `tedge-watchdog::journald`.
+- Periodic service re-registration (every 5 minutes) so services remain visible in the Cumulocity Services tab after `tedge-agent` or `tedge-mapper-c8y` restart.
+
+---
+
+## Version 0.1.9 — May 2026
+
+### Bug Fixes
+- Registered log plugins in `usr/share/tedge/log-plugins` so custom log types are correctly discovered by `tedge-agent`.
+
+---
+
+## Version 0.1.8 — May 2026
+
+### Bug Fixes
+- Fixed Settings tile not being clickable in ctrlX OS sidebar.
+
+---
+
+## Version 0.1.7 — May 2026
+
+### New Features
+- Added **Home screen tile** to the ctrlX OS sidebar.
+- Fixed Settings tile display and link in ctrlX OS.
+
+---
+
+## Version 0.1.6 — May 2026
+
+### Bug Fixes
+- Shortened log type names in the Cumulocity log upload dropdown to avoid truncation.
+
+---
+
+## Version 0.1.5 — May 2026
+
+### Bug Fixes
+- Fixed: health status for all services was not published in the `post-refresh` snap hook, causing stale service states after snap updates.
+
+---
+
+## Version 0.1.4 — May 2026
+
+### Bug Fixes
+- Fixed button styling issues in the web UI.
+- Fixed MQTT port toggle (8883 ↔ 9883).
+- Fixed log retrieval via `journalctl` for snap-confined services.
+- Replaced blocking `std::process::Command` with `tokio::process::Command` in all async web-server handlers to prevent 408 timeouts under load.
+
+---
+
+## Version 0.1.1 — May 2026
+
+### Bug Fixes
+- Fixed: services registered without `"type": "service"` field did not appear in the Cumulocity Services tab. All service entity registrations now include the required field.
+
+---
+
 ## Version 0.1.0 — May 2026
 
 First formal release of the `ctrlx-cumulocity-thin-edge-io` snap.

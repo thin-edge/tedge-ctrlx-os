@@ -1,7 +1,7 @@
 # ctrlX Cumulocity thin-edge.io App - Test Setup Description
 
 **App Name**: ctrlx-cumulocity-thin-edge-io  
-**Version**: 0.1.0  
+**Version**: 0.1.17  
 **Date**: May 2026  
 
 ---
@@ -32,8 +32,8 @@ One of the following cloud platforms must be available for testing:
 ### 2.1 Download Snap Package
 
 Download the appropriate snap file:
-- For ctrlX COREvirtual: `ctrlx-cumulocity-thin-edge-io_0.1.0_amd64.snap`
-- For ctrlX CORE: `ctrlx-cumulocity-thin-edge-io_0.1.0_arm64.snap`
+- For ctrlX COREvirtual: `ctrlx-cumulocity-thin-edge-io_0.1.17_amd64.snap`
+- For ctrlX CORE: `ctrlx-cumulocity-thin-edge-io_0.1.17_arm64.snap`
 
 ### 2.2 Install App
 
