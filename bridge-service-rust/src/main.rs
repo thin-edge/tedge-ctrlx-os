@@ -248,6 +248,7 @@ async fn main() -> Result<()> {
                 let services = [
                     "tedge-agent",
                     "tedge-mapper-c8y",
+                    "tedge-mapper-bridge-c8y",
                     "tedge-mapper-aws",
                     "tedge-mapper-az",
                     "tedge-watchdog",
@@ -273,9 +274,25 @@ async fn main() -> Result<()> {
                             .publish(mqtt::Message::new_retained(&twin_topic, twin_payload, 1))
                             .await;
 
+                        // On-demand plugins are not persistent snap processes.
+                        // Report their status as "unknown" to avoid misleading
+                        // alerts in Cumulocity.
+                        let on_demand = matches!(
+                            *svc,
+                            "tedge-file-config-plugin" | "c8y-remote-access-plugin"
+                        );
+                        // tedge-mapper-bridge-c8y is an internal MQTT bridge
+                        // sub-service of tedge-mapper-c8y (no own snap service
+                        // entry); derive its status from the mapper instead.
+                        let snapctl_name = match *svc {
+                            "tedge-mapper-bridge-c8y" => "tedge-mapper-c8y",
+                            other => other,
+                        };
                         // Determine service status via snapctl
-                        let snap_svc = format!("{snap_name}.{svc}");
-                        let health_status = if snap_name.is_empty() {
+                        let snap_svc = format!("{snap_name}.{snapctl_name}");
+                        let health_status = if on_demand {
+                            "unknown"
+                        } else if snap_name.is_empty() {
                             "up"
                         } else {
                             let out = std::process::Command::new("snapctl")
