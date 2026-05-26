@@ -1041,37 +1041,7 @@ async fn save_c8y_config(
     }; // MutexGuard dropped here
 
     // Start or stop the Cumulocity mapper based on the enabled toggle.
-    // Use --enable/--disable so startup state persists across snap updates.
-    if is_snap {
-        let (action, flag) = if c8y_enabled {
-            ("start", "--enable")
-        } else {
-            ("stop", "--disable")
-        };
-        info!(
-            "[CONFIG] {}ing tedge-mapper-c8y (enabled={})",
-            action, c8y_enabled
-        );
-        match tokio::process::Command::new("snapctl")
-            .args([action, flag, &snap_svc("tedge-mapper-c8y")])
-            .output()
-            .await
-        {
-            Ok(out) if out.status.success() => {
-                info!("[CONFIG] tedge-mapper-c8y {}ped successfully", action);
-            }
-            Ok(out) => {
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                error!(
-                    "[CONFIG] snapctl {} tedge-mapper-c8y failed: {}",
-                    action, stderr
-                );
-            }
-            Err(e) => {
-                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
-            }
-        }
-    }
+    toggle_mapper(is_snap, c8y_enabled, "tedge-mapper-c8y").await;
 
     let mapper_state = if c8y_enabled { "started" } else { "stopped" };
     info!(
@@ -1180,37 +1150,7 @@ async fn save_aws_config(
     }; // MutexGuard dropped here
 
     // Start or stop the AWS mapper based on the enabled toggle.
-    // Use --enable/--disable so startup state persists across snap updates.
-    if is_snap {
-        let (action, flag) = if aws_enabled {
-            ("start", "--enable")
-        } else {
-            ("stop", "--disable")
-        };
-        info!(
-            "[CONFIG] {}ing tedge-mapper-aws (enabled={})",
-            action, aws_enabled
-        );
-        match tokio::process::Command::new("snapctl")
-            .args([action, flag, &snap_svc("tedge-mapper-aws")])
-            .output()
-            .await
-        {
-            Ok(out) if out.status.success() => {
-                info!("[CONFIG] tedge-mapper-aws {}ped successfully", action);
-            }
-            Ok(out) => {
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                error!(
-                    "[CONFIG] snapctl {} tedge-mapper-aws failed: {}",
-                    action, stderr
-                );
-            }
-            Err(e) => {
-                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
-            }
-        }
-    }
+    toggle_mapper(is_snap, aws_enabled, "tedge-mapper-aws").await;
 
     let mapper_state = if aws_enabled { "started" } else { "stopped" };
     info!(
@@ -1319,37 +1259,7 @@ async fn save_az_config(
     }; // MutexGuard dropped here
 
     // Start or stop the Azure mapper based on the enabled toggle.
-    // Use --enable/--disable so startup state persists across snap updates.
-    if is_snap {
-        let (action, flag) = if az_enabled {
-            ("start", "--enable")
-        } else {
-            ("stop", "--disable")
-        };
-        info!(
-            "[CONFIG] {}ing tedge-mapper-az (enabled={})",
-            action, az_enabled
-        );
-        match tokio::process::Command::new("snapctl")
-            .args([action, flag, &snap_svc("tedge-mapper-az")])
-            .output()
-            .await
-        {
-            Ok(out) if out.status.success() => {
-                info!("[CONFIG] tedge-mapper-az {}ped successfully", action);
-            }
-            Ok(out) => {
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                error!(
-                    "[CONFIG] snapctl {} tedge-mapper-az failed: {}",
-                    action, stderr
-                );
-            }
-            Err(e) => {
-                error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
-            }
-        }
-    }
+    toggle_mapper(is_snap, az_enabled, "tedge-mapper-az").await;
 
     let mapper_state = if az_enabled { "started" } else { "stopped" };
     info!(
@@ -1418,6 +1328,36 @@ const ALLOWED_SERVICES: &[&str] = &[
     "tedge-mapper-aws",
     "tedge-mapper-az",
 ];
+
+/// Start or stop a mapper snap service depending on `enabled`.
+/// Uses --enable/--disable so the startup state persists across snap updates.
+async fn toggle_mapper(is_snap: bool, enabled: bool, mapper: &str) {
+    if !is_snap {
+        return;
+    }
+    let (action, flag) = if enabled {
+        ("start", "--enable")
+    } else {
+        ("stop", "--disable")
+    };
+    info!("[CONFIG] {}ing {} (enabled={})", action, mapper, enabled);
+    match tokio::process::Command::new("snapctl")
+        .args([action, flag, &snap_svc(mapper)])
+        .output()
+        .await
+    {
+        Ok(out) if out.status.success() => {
+            info!("[CONFIG] {} {}ped successfully", mapper, action);
+        }
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            error!("[CONFIG] snapctl {} {} failed: {}", action, mapper, stderr);
+        }
+        Err(e) => {
+            error!("[CONFIG] Failed to run snapctl {}: {}", action, e);
+        }
+    }
+}
 
 async fn run_snapctl_service(action: &str, svc: &str) -> Result<HttpResponse> {
     let full = snap_svc(svc);

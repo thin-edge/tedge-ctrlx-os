@@ -5,8 +5,7 @@ use log::{info, warn};
 use serde_json::json;
 // handle_mqtt_message added to import
 use crate::datalayer::{
-    handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerCredentials,
-    DatalayerEngine, MappingDirection,
+    handle_mqtt_message, run_datalayer_loop, DatalayerConfig, DatalayerEngine, MappingDirection,
 };
 use futures::StreamExt;
 use paho_mqtt as mqtt;
@@ -99,15 +98,28 @@ impl TedgeDatalayerBridge {
         cli.subscribe_many(&topics, &vec![0; topics.len()]).await?;
         Ok(cli)
     }
+}
 
-    async fn process_message(
-        &mut self,
-        msg: &mqtt::Message,
-        config: &DatalayerConfig,
-        credentials: &DatalayerCredentials,
-    ) {
-        handle_mqtt_message(msg, config, credentials, &self.http_client).await;
-    }
+/// Runs `tedge config get <key>` inside the snap environment and returns the trimmed output.
+fn tedge_config_get(key: &str) -> String {
+    let snap = env::var("SNAP").unwrap_or_default();
+    let snap_data = env::var("SNAP_DATA").unwrap_or_default();
+    let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
+    let tedge_config_dir = PathBuf::from(&snap_data).join("tedge");
+    std::process::Command::new(&tedge_bin)
+        .args([
+            "--config-dir",
+            tedge_config_dir.to_str().unwrap_or(""),
+            "config",
+            "get",
+            key,
+        ])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_default()
 }
 
 #[tokio::main]
@@ -135,24 +147,7 @@ async fn main() -> Result<()> {
     // Priority 1: tedge config get device.id (matches the registered Cumulocity device)
     // Priority 2: hardware serial from sysfs DMI (fallback for VMs/unconfigured devices)
     let tedge_device_id = if is_snap {
-        let snap = env::var("SNAP").unwrap_or_default();
-        let snap_data = env::var("SNAP_DATA").unwrap_or_default();
-        let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
-        let tedge_config_dir = PathBuf::from(&snap_data).join("tedge");
-        std::process::Command::new(&tedge_bin)
-            .args([
-                "--config-dir",
-                tedge_config_dir.to_str().unwrap_or(""),
-                "config",
-                "get",
-                "device.id",
-            ])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_default()
+        tedge_config_get("device.id")
     } else {
         String::new()
     };
@@ -178,27 +173,7 @@ async fn main() -> Result<()> {
     }
 
     // Read mqtt_service_enabled from tedge config
-    let mqtt_service_enabled = if is_snap {
-        let snap = env::var("SNAP").unwrap_or_default();
-        let snap_data = env::var("SNAP_DATA").unwrap_or_default();
-        let tedge_bin = PathBuf::from(&snap).join("bin/tedge");
-        let tedge_config_dir = PathBuf::from(&snap_data).join("tedge");
-        std::process::Command::new(&tedge_bin)
-            .args([
-                "--config-dir",
-                tedge_config_dir.to_str().unwrap_or(""),
-                "config",
-                "get",
-                "c8y.mqtt_service.enabled",
-            ])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim() == "true")
-            .unwrap_or(false)
-    } else {
-        false
-    };
+    let mqtt_service_enabled = is_snap && tedge_config_get("c8y.mqtt_service.enabled") == "true";
     config.mqtt_service_enabled = mqtt_service_enabled;
     info!(
         "[BRIDGE] MQTT Service mode (9883): {}",
@@ -208,7 +183,7 @@ async fn main() -> Result<()> {
     if config.accept_invalid_certs {
         warn!("[BRIDGE] TLS certificate verification is DISABLED — only use in trusted network environments");
     }
-    let mut bridge = TedgeDatalayerBridge::new(config.accept_invalid_certs);
+    let bridge = TedgeDatalayerBridge::new(config.accept_invalid_certs);
 
     // SIGTERM handler: set shutdown flag for graceful exit
     let shutdown_signal = shutdown.clone();
@@ -335,7 +310,7 @@ async fn main() -> Result<()> {
     ));
 
     while let Some(Some(msg)) = msg_stream.next().await {
-        bridge.process_message(&msg, &config, &credentials).await;
+        handle_mqtt_message(&msg, &config, &credentials, &bridge.http_client).await;
         if shutdown.load(Ordering::Relaxed) {
             break;
         }
