@@ -1,15 +1,15 @@
 #!/bin/bash
 # thin-edge.io snap install hook
 #
-# Zuständig für install-spezifische Einmalaktionen:
-#   1. Verzeichnisse anlegen
-#   2. tedge init (Erstinitialisierung)
-#   3. Erstmalige tedge-Defaults setzen
-#   4. Gerätezertifikat erstellen
-#   5. Snap-Interfaces verbinden
+# Responsible for install-specific one-time actions:
+#   1. Create directories
+#   2. tedge init (initial setup)
+#   3. Set initial tedge defaults
+#   4. Create device certificate
+#   5. Connect snap interfaces
 #
-# Alles andere (Inventory, sm-plugin, Plugin-Configs) delegiert an den
-# post-refresh Hook — so gibt es keine doppelte Logik.
+# Everything else (inventory, sm-plugin, plugin configs) is delegated to the
+# post-refresh hook — so there is no duplicated logic.
 
 set -eo pipefail
 
@@ -26,9 +26,9 @@ echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) [install] snap=${SNAP_NAME} version=${S
 
 echo "=== thin-edge.io snap install hook starting ==="
 
-# tedge system user wird von snapcraft via system-usernames automatisch angelegt
+# tedge system user is created automatically by snapcraft via system-usernames
 
-# ── Verzeichnisse über zentrales Setup-Skript ────────────────────────────────
+# ── Create directories via centralised setup script ──────────────────────────
 echo "Running centralized directory setup..." >&2
 bash "$SNAP/scripts/setup-directories.sh"
 
@@ -46,7 +46,7 @@ else
     echo "WARNING: tedge init failed, but continuing..." >&2
 fi
 
-# ── Erstmalige tedge-Defaults (nur bei Neuinstallation relevant) ─────────────
+# ── Initial tedge defaults (only relevant on first install) ─────────────────────
 echo "Setting tedge defaults..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.type "ctrlX-CORE" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set software.plugin.default "snap" 2>/dev/null || true
@@ -61,7 +61,7 @@ echo "Setting tedge defaults..." >&2
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.cert_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/certs/tedge-certificate.pem" 2>/dev/null || true
 "$SNAP/bin/tedge" --config-dir "$SNAP_DATA/tedge" config set device.key_path "$SNAP_COMMON/package-certificates/thin-edge-io/tedge/own/private/tedge-private-key.pem" || true
 
-# ── Gerätezertifikat erstellen ───────────────────────────────────────────────
+# ── Create device certificate ──────────────────────────────────────────────────
 echo "Auto-detecting device ID from system information..." >&2
 if [ -f "$SNAP/scripts/manage-device-id.sh" ]; then
     "$SNAP/scripts/manage-device-id.sh" create || \

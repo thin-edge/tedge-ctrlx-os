@@ -770,7 +770,7 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             status.c8y, status.aws, status.az);
     }
 
-    // Zusätzliche Felder für die Mapper explizit ergänzen
+    // Explicitly add extra fields for the mapper services
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "mosquitto": status.mosquitto,
         "agent": status.agent,
@@ -787,8 +787,8 @@ async fn get_status(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
     })))
 }
 
-/// Liest einen einzelnen Wert via `tedge config get <key>`.
-/// Gibt `None` zurück wenn der Befehl fehlschlägt oder leer ist.
+/// Reads a single value via `tedge config get <key>`.
+/// Returns `None` if the command fails or the value is empty.
 async fn tedge_config_get(key: &str) -> Option<String> {
     let is_snap = env::var("SNAP").is_ok();
     let tedge_bin = if is_snap {
@@ -834,8 +834,8 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         .clone();
     let mut changed = false;
 
-    // device.id immer aus dem Zertifikat-CN lesen — das ist die ID, die Cumulocity kennt.
-    // tedge config get device.id kann von der Cert-CN abweichen (z.B. Seriennummer vs. Hostname).
+    // Always read device.id from the certificate CN — that is the ID Cumulocity knows.
+    // tedge config get device.id may differ from the cert CN (e.g. serial number vs. hostname).
     {
         let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
         let cert_path = format!("{}/tedge/device-certs/tedge-certificate.pem", snap_data);
@@ -847,8 +847,8 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
             .and_then(|o| {
                 if o.status.success() {
                     let s = String::from_utf8_lossy(&o.stdout).to_string();
-                    // Beispiel: "subject=CN=ctrlx-VirtualControl-1, O=Thin Edge, OU=Device"
-                    // oder: "subject= CN = ctrlx-VirtualControl-1"
+                    // Example: "subject=CN=ctrlx-VirtualControl-1, O=Thin Edge, OU=Device"
+                    // or: "subject= CN = ctrlx-VirtualControl-1"
                     s.split("CN")
                         .nth(1)
                         .and_then(|after| after.split_once('=').map(|x| x.1))
@@ -861,7 +861,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
 
         if let Some(cn_val) = cn {
             if config.device.id != cn_val {
-                info!("[CONFIG] device.id aus Zertifikat-CN: {}", cn_val);
+                info!("[CONFIG] device.id from certificate CN: {}", cn_val);
                 config.device.id = cn_val.clone();
                 if config.device.name.is_empty() || config.device.name == config.device.id {
                     config.device.name = cn_val;
@@ -869,8 +869,8 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
                 changed = true;
             }
         } else if config.device.id.is_empty() {
-            // Kein Zertifikat vorhanden: Vorschau-ID anzeigen.
-            // Priorität: manage-device-id.sh get-serial → tedge config get device.id → hostname
+            // No certificate present: show preview ID.
+            // Priority: manage-device-id.sh get-serial → tedge config get device.id → hostname
             let snap = env::var("SNAP").unwrap_or_default();
             let script = format!("{}/scripts/manage-device-id.sh", snap);
             let preview_id = tokio::process::Command::new("bash")
@@ -906,40 +906,40 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         }
     }
 
-    // c8y.url aus tedge lesen wenn leer
+    // Read c8y.url from tedge if empty
     if config.c8y.url.as_deref().unwrap_or("").is_empty() {
         if let Some(url) = tedge_config_get("c8y.url").await {
-            info!("[CONFIG] c8y.url aus tedge gelesen: {}", url);
+            info!("[CONFIG] c8y.url read from tedge: {}", url);
             config.c8y.url = Some(url);
             changed = true;
         }
     }
 
-    // aws.url aus tedge lesen wenn leer
+    // Read aws.url from tedge if empty
     if config.aws.url.as_deref().unwrap_or("").is_empty() {
         if let Some(url) = tedge_config_get("aws.url").await {
-            info!("[CONFIG] aws.url aus tedge gelesen: {}", url);
+            info!("[CONFIG] aws.url read from tedge: {}", url);
             config.aws.url = Some(url);
             changed = true;
         }
     }
 
-    // az.url aus tedge lesen wenn leer
+    // Read az.url from tedge if empty
     if config.az.url.as_deref().unwrap_or("").is_empty() {
         if let Some(url) = tedge_config_get("az.url").await {
-            info!("[CONFIG] az.url aus tedge gelesen: {}", url);
+            info!("[CONFIG] az.url read from tedge: {}", url);
             config.az.url = Some(url);
             changed = true;
         }
     }
 
-    // Falls neue Werte gelesen wurden: auch in die JSON-Datei zurückschreiben
+    // If new values were read: also write them back to the JSON file
     if changed {
         let mut locked = data.config.lock().unwrap_or_else(|p| p.into_inner());
         *locked = config.clone();
         if let Err(e) = data.save_config(&locked) {
             warn!(
-                "[CONFIG] Konnte angereicherte Konfiguration nicht speichern: {}",
+                "[CONFIG] Could not save enriched configuration: {}",
                 e
             );
         }
@@ -2980,16 +2980,16 @@ async fn get_logs(req: HttpRequest, query: web::Query<LogQuery>) -> Result<HttpR
                 // stdout empty — could be permission denied (old snap) or genuinely no entries
                 let stderr = String::from_utf8_lossy(&out.stderr).to_string();
                 if stderr.contains("permission") || stderr.contains("insufficient") {
-                    format!("[Keine Leseberechtigung für Logs]\nBitte neuen Snap installieren damit log-observe aktiv wird.\njournalctl: {}", stderr.trim())
+                    format!("[No read permission for logs]\nPlease install a newer snap so log-observe becomes active.\njournalctl: {}", stderr.trim())
                 } else if !out.status.success() {
                     format!("[journalctl Fehler {}]\n{}", out.status, stderr.trim())
                 } else {
-                    format!("[Keine Log-Einträge für {}]", unit)
+                    format!("[No log entries for {}]", unit)
                 }
             }
             Err(e) => {
                 warn!("[LOGS] journalctl not found or exec error: {}", e);
-                format!("[journalctl nicht ausführbar: {}]", e)
+                format!("[journalctl not executable: {}]", e)
             }
         }
     }).await;
@@ -3045,12 +3045,12 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
                 } else {
                     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
                     format!(
-                        "[Fehler beim Ausführen von 'tedge config list']\n{}",
+                        "[Error running 'tedge config list']\n{}",
                         stderr.trim()
                     )
                 }
             }
-            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+            Err(e) => format!("[tedge not executable: {}]", e),
         }
     })
     .await;
@@ -3095,7 +3095,7 @@ async fn get_tedge_config_list_all(req: HttpRequest) -> Result<HttpResponse> {
                     format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
                 }
             }
-            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+            Err(e) => format!("[tedge not executable: {}]", e),
         }
     })
     .await;
@@ -3139,7 +3139,7 @@ async fn get_tedge_config_list_doc(req: HttpRequest) -> Result<HttpResponse> {
                     format!("[Fehler]\n{}", String::from_utf8_lossy(&out.stderr).trim())
                 }
             }
-            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+            Err(e) => format!("[tedge not executable: {}]", e),
         }
     })
     .await;
@@ -3185,7 +3185,7 @@ async fn get_tedge_bridge_inspect(req: HttpRequest) -> Result<HttpResponse> {
                     format!("[Fehler]\n{}", stderr.trim())
                 }
             }
-            Err(e) => format!("[tedge nicht ausführbar: {}]", e),
+            Err(e) => format!("[tedge not executable: {}]", e),
         }
     })
     .await;
@@ -3221,7 +3221,7 @@ async fn get_build_info(req: HttpRequest) -> Result<HttpResponse> {
         // codeql[rust/path-injection] - build_info_path is derived from SNAP env var (system-controlled by snapd, not user input)
         for line in content.lines() {
             if let Some(val) = line.strip_prefix("Version: ") {
-                // Format: "2.0.0-2004.1149" (dash) oder legacy "2.0.0+build...." (plus)
+                // Format: "2.0.0-2004.1149" (dash) or legacy "2.0.0+build...." (plus)
                 if let Some(sep) = val.find('-').or_else(|| val.find('+')) {
                     version = val[..sep].to_string();
                     build = val[sep + 1..].to_string();
@@ -3506,7 +3506,7 @@ async fn dl_client_and_token(
         .build()
         .unwrap_or_default();
 
-    // 1. Automatischer Auth-Versuch, wenn Zugangsdaten vorhanden sind
+    // 1. Automatic auth attempt if credentials are available
     if let (Some(username), Some(password)) = (&creds.username, &creds.password) {
         if let Some(t) = fetch_dl_token(&client, &cfg.base_url, username, password).await {
             return (client, Some(t));
@@ -3580,21 +3580,21 @@ async fn save_datalayer_config_handler(
     let mut cfg = data.load_datalayer_config();
 
     cfg.enabled = body.enabled;
-    // base_url nur überschreiben, wenn nicht leer
+    // Only overwrite base_url if not empty
     if !body.base_url.trim().is_empty() {
         cfg.base_url = body.base_url.clone();
     } else if cfg.base_url.trim().is_empty() {
-        // Falls bisher auch leer, auf Default setzen
+        // If still empty, set to default
         cfg.base_url = "https://localhost".to_string();
     }
 
-    // FIX 1: Expliziter Cast nach u32
+    // FIX 1: Explicit cast to u32
     cfg.poll_interval_ms = body.poll_interval_ms.max(500) as u32;
 
-    // FIX 2: Zuweisung des neuen Feldes
+    // FIX 2: Assign the new field
     cfg.accept_invalid_certs = body.accept_invalid_certs;
 
-    // Credentials separat speichern (nicht in datalayer-mappings.json)
+    // Store credentials separately (not in datalayer-mappings.json)
     let mut creds = data.load_datalayer_credentials();
     if !body.username.is_empty() && body.username != "***" {
         creds.username = Some(body.username.clone());
@@ -3633,7 +3633,7 @@ async fn get_datalayer_mappings(
     Ok(HttpResponse::Ok().json(serde_json::json!({"mappings": cfg.mappings})))
 }
 
-/// GET /api/datalayer/raw-config  — Lädt die JSON-Datei als rohen Text (für Debugging)
+/// GET /api/datalayer/raw-config  — loads the JSON file as raw text (for debugging)
 async fn get_raw_datalayer_config(
     req: HttpRequest,
     data: web::Data<AppState>,
@@ -3643,17 +3643,17 @@ async fn get_raw_datalayer_config(
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
 
-    // Wir lesen die Datei einfach nur als String und schicken sie direkt zurück,
-    // OHNE sie durch den serde_json Parser zu jagen!
+    // We simply read the file as a string and send it back directly,
+    // WITHOUT passing it through the serde_json parser!
     match std::fs::read_to_string(&data.datalayer_config_path) {
         // codeql[rust/path-injection] - path is derived from SNAP_DATA env var (system-controlled by snapd, not user input)
         Ok(content) => {
             Ok(HttpResponse::Ok()
-                .content_type("application/json") // Sagt dem Browser, dass es JSON ist
+                .content_type("application/json") // Tell the browser it is JSON
                 .body(content))
         }
         Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
-            "error": format!("Konnte datalayer-mappings.json nicht von der Festplatte lesen: {}", e)
+            "error": format!("Could not read datalayer-mappings.json from disk: {}", e)
         }))),
     }
 }
@@ -3728,7 +3728,7 @@ async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Res
     })))
 }
 
-/// HTTP GET über einen Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+/// HTTP GET over a Unix domain socket. Returns (HTTP status, body).
 async fn unix_socket_get(
     socket_path: &str,
     api_path: &str,
@@ -3751,7 +3751,7 @@ async fn unix_socket_delete(
     unix_socket_request(socket_path, "DELETE", api_path, None).await
 }
 
-/// Generische HTTP-Anfrage über Unix-Domain-Socket. Gibt (HTTP-Status, Body) zurück.
+/// Generic HTTP request over a Unix domain socket. Returns (HTTP status, body).
 async fn unix_socket_request(
     socket_path: &str,
     method: &str,
@@ -3790,7 +3790,7 @@ async fn unix_socket_request(
 
     let text = String::from_utf8_lossy(&buf).to_string();
 
-    // HTTP-Status aus erster Zeile parsen: "HTTP/1.1 200 OK"
+    // Parse HTTP status from first line: "HTTP/1.1 200 OK"
     let status: u16 = text
         .lines()
         .next()
@@ -3798,7 +3798,7 @@ async fn unix_socket_request(
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
 
-    // Body nach \r\n\r\n extrahieren
+    // Extract body after \r\n\r\n
     let body = if let Some(pos) = text.find("\r\n\r\n") {
         text[pos + 4..].to_string()
     } else if let Some(pos) = text.find("\n\n") {
@@ -3810,19 +3810,19 @@ async fn unix_socket_request(
     Ok((status, body))
 }
 
-/// Lizenznamen die geprüft werden: app-spezifische Lizenz + ctrlX COREvirtual 4H-Demo
+/// License names to check: app-specific license + ctrlX COREvirtual 4H demo
 const LICENSE_NAMES: &[&str] = &[
-    "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Hauptlizenz (Data Layer Access NRT)
+    "SWL-XCx-RUN-DLACCESSNRTxx-NNNN", // Main license (Data Layer Access NRT)
     "SWL_XCB_ENGINEERING_4H",         // ctrlX COREvirtual 4h Engineering Demo (Bosch)
     "SWL_XCR_ENGINEERING_4H",         // ctrlX CORE 4h Engineering Demo (Rexroth)
 ];
 
-/// Engineering/Demo-Lizenzen sind device-weit gehalten und können nicht per acquire geholt werden.
-/// Sie werden nur in capabilities geprüft (count > 0, startsInSeconds <= 0, expiresInSeconds > 0).
+/// Engineering/demo licenses are held device-wide and cannot be acquired via the acquire call.
+/// They are only checked in capabilities (count > 0, startsInSeconds <= 0, expiresInSeconds > 0).
 const ENGINEERING_LICENSE_NAMES: &[&str] = &["SWL_XCB_ENGINEERING_4H", "SWL_XCR_ENGINEERING_4H"];
 
-/// Prüft ob eine Engineering-Lizenz aktiv in den capabilities vorhanden ist.
-/// Gibt den Lizenznamen zurück wenn gefunden, sonst None.
+/// Checks whether an engineering license is active in the capabilities.
+/// Returns the license name if found, otherwise None.
 async fn check_engineering_license_in_capabilities(socket_path: &str) -> Option<String> {
     match unix_socket_get(socket_path, "/license-manager/api/v1/capabilities").await {
         Ok((200, body)) => {
@@ -3863,11 +3863,11 @@ async fn check_engineering_license_in_capabilities(socket_path: &str) -> Option<
         }
     }
 }
-/// Datei in /tmp für die gehaltene Lizenz-ID (überlebt App-Restart, nicht Reboot)
+/// File in /tmp holding the acquired license ID (survives app restart but not reboot)
 const LICENSE_ID_FILE: &str = "/tmp/ctrlx-cumulocity-thin-edge-io.license";
 
-/// Versucht eine Lizenz über den Unix-Socket zu acquiren.
-/// Gibt die Lizenz-ID zurück wenn erfolgreich, sonst None.
+/// Attempts to acquire a license via the Unix socket.
+/// Returns the license ID on success, otherwise None.
 async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String> {
     // Try with version "1.0" first, then without version (for engineering/demo licenses)
     let payloads = [
@@ -3909,7 +3909,7 @@ async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String
     None
 }
 
-/// Gibt eine gehaltene Lizenz frei.
+/// Releases a currently held license.
 async fn release_license(socket_path: &str, license_id: &str) {
     let path = format!("/license-manager/api/v1/license/{}", license_id);
     match unix_socket_delete(socket_path, &path).await {
@@ -3924,8 +3924,8 @@ async fn release_license(socket_path: &str, license_id: &str) {
     let _ = std::fs::remove_file(LICENSE_ID_FILE);
 }
 
-/// Hintergrund-Task: Lizenz acquiren, stündlich neu prüfen, bei Fehlen warnen.
-/// Läuft so lange bis der Prozess beendet wird (kein Shutdown-Signal nötig).
+/// Background task: acquire license, re-check hourly, warn if missing.
+/// Runs until the process exits (no shutdown signal required).
 async fn run_license_loop(socket_path: String) {
     info!(
         "[LICENSE] License enforcement loop started, socket={}",
@@ -3934,7 +3934,7 @@ async fn run_license_loop(socket_path: String) {
 
     let mut current_id: Option<String> = None;
 
-    // Beim Start: eventuell noch gehaltene ID aus /tmp laden und zuerst freigeben
+    // On startup: load any previously held license ID from /tmp and release it first
     if let Ok(old_id) = std::fs::read_to_string(LICENSE_ID_FILE) {
         // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
         let old_id = old_id.trim().to_string();
@@ -3968,7 +3968,7 @@ async fn run_license_loop(socket_path: String) {
             for &license_name in LICENSE_NAMES {
                 if let Some(id) = acquire_license(&socket_path, license_name).await {
                     info!("[LICENSE] Acquired license '{}' id={}", license_name, id);
-                    // ID in /tmp persistieren für Release bei Shutdown
+                    // Persist ID in /tmp for release on shutdown
                     let _ = std::fs::write(LICENSE_ID_FILE, &id); // codeql[rust/path-injection] - LICENSE_ID_FILE is a compile-time constant path, not user input
                     current_id = Some(id);
                     acquired = true;
@@ -3977,8 +3977,8 @@ async fn run_license_loop(socket_path: String) {
             }
 
             if !acquired {
-                // Engineering-Lizenzen sind device-weit gehalten (availableCount=0) und
-                // können nicht per acquire geholt werden — nur capabilities prüfen.
+                // Engineering licenses are held device-wide (availableCount=0) and
+                // cannot be acquired — only check capabilities.
                 if let Some(eng_name) =
                     check_engineering_license_in_capabilities(&socket_path).await
                 {
@@ -3997,7 +3997,7 @@ async fn run_license_loop(socket_path: String) {
             }
         }
 
-        // Stündlich neu prüfen (SDK-Empfehlung: periodisch prüfen)
+        // Re-check hourly (SDK recommendation: check periodically)
         tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
     }
 }
@@ -4070,7 +4070,7 @@ async fn browse_datalayer(
             .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
     }
 
-    // 2. Pfad für ctrlX aufbereiten
+    // 2. Prepare path for ctrlX
     let path = query.path.trim_start_matches('/').trim_end_matches('/');
     let url = if path.is_empty() {
         format!(
@@ -4085,11 +4085,11 @@ async fn browse_datalayer(
         )
     };
 
-    // 3. Client holen (dieser holt bei Bedarf ein neues Token via User/Passwort!)
+    // 3. Get client (fetches a new token via username/password if needed)
     let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
     let mut req_builder = http_client.get(&url);
 
-    // Priorität: Token vom Browser > Token vom Backend (User/Passwort)
+    // Priority: browser token > backend token (username/password)
     if let Some(t) = extracted_token.or(stored_token) {
         req_builder = req_builder.bearer_auth(t);
     }
@@ -4131,9 +4131,9 @@ async fn read_datalayer_node(
             .json(serde_json::json!({"error": "Datalayer base_url not configured"})));
     }
 
-    // Bearer-Token aus dem Request-Header extrahieren (Proxy-Token hat Priorität)
+    // Extract bearer token from request header (proxy token takes priority)
 
-    // Bearer-Token aus X-Auth-Token oder Authorization Header extrahieren (X-Auth-Token hat Priorität)
+    // Extract bearer token from X-Auth-Token or Authorization header (X-Auth-Token takes priority)
     let bearer_token = req
         .headers()
         .get("X-Auth-Token")
@@ -4156,7 +4156,7 @@ async fn read_datalayer_node(
     );
 
     let mut req_builder = http_client.get(&url);
-    // Priorität: Proxy-Token > gespeicherter Token
+    // Priority: proxy token > stored token
     if let Some(t) = bearer_token.or(token) {
         req_builder = req_builder.bearer_auth(t);
     }
@@ -4948,7 +4948,7 @@ fn resolve_snap_config_path(file_name: &str, snap_data: &str, snap_common: &str)
         "snap-inventory.json" => Some(format!("{}/snap-inventory.json", snap_data)),
         "tedge-web-config.json" => Some(format!("{}/tedge-web-config.json", snap_common)),
         "datalayer-mappings.json" => {
-            // liegt direkt in SNAP_DATA (nicht in einem Unterordner)
+            // stored directly in SNAP_DATA (not in a subdirectory)
             Some(format!("{}/datalayer-mappings.json", snap_data))
         }
         _ => None,
@@ -4993,7 +4993,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
 
     let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
 
-    // ctrlX API Pfad (Prüfe ob /automation/... oder /admin/...)
+    // ctrlX API path (check whether /automation/... or /admin/...)
     let url = format!(
         "{}/admin/api/v2/nodes?type=browse",
         cfg.base_url.trim_end_matches('/')
@@ -5002,7 +5002,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
     let mut req_builder = http_client.get(&url);
 
     if let Some(t) = bearer_token.clone().or(stored_token) {
-        debug!("Datalayer-Request mit Token (Länge: {})", t.len());
+        debug!("Datalayer request with token (length: {})", t.len());
         req_builder = req_builder.bearer_auth(t);
     }
 
@@ -5010,12 +5010,12 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
         Ok(r) => {
             let s = r.status().as_u16();
             if s == 401 {
-                warn!("Datalayer Zugriff verweigert (401) - Token ungültig?");
+                warn!("Datalayer access denied (401) - token invalid?");
             }
             (r.status().is_success(), Some(s), None)
         }
         Err(e) => {
-            error!("Datalayer Verbindungsfehler: {}", e);
+            error!("Datalayer connection error: {}", e);
             (false, None, Some(e.to_string()))
         }
     };
@@ -5211,7 +5211,7 @@ async fn main() -> io::Result<()> {
         PathBuf::from("./datalayer-mappings.json")
     };
 
-    // Credentials in SNAP_COMMON speichern – bleibt über Snap-Updates erhalten
+    // Store credentials in SNAP_COMMON — persists across snap updates
     // (snap_common already defined above)
     let credentials_path = if is_snap {
         PathBuf::from(&snap_common).join("datalayer-credentials.json")
@@ -5226,10 +5226,10 @@ async fn main() -> io::Result<()> {
         PathBuf::from("./www")
     };
 
-    info!("thin-edge.io Configuration Webserver (Rust) gestartet");
-    info!("Snap-Modus: {}", is_snap);
+    info!("thin-edge.io Configuration Webserver (Rust) started");
+    info!("Snap mode: {}", is_snap);
     if let Some(build) = read_build_info() {
-        info!("Build-Info: {}", build);
+        info!("Build info: {}", build);
     }
     info!("Web root: {:?}", web_root);
     info!("Config file: {:?}", config_path);
@@ -5245,7 +5245,7 @@ async fn main() -> io::Result<()> {
             .app_data(app_state.clone())
             .wrap(middleware::Logger::new("%a %r %s %b %T ms"))
             .wrap(middleware::Compress::default())
-            // Root-Redirect: / → /thin-edge-io/
+            // Root redirect: / → /thin-edge-io/
             .route(
                 "/",
                 web::get().to(|| async {
@@ -5254,12 +5254,12 @@ async fn main() -> io::Result<()> {
                         .finish()
                 }),
             )
-            // Lokaler Fallback (falls du auf dem PC entwickelst)
+            // Local fallback (for development on PC)
             .service(Files::new("/local", web_root.clone()).index_file("index.html"))
-            // Alles, was über den ctrlX Proxy kommt, liegt unter /thin-edge-io
+            // Everything routed via the ctrlX proxy is under /thin-edge-io
             .service(
                 web::scope("/thin-edge-io")
-                    // Die API liegt jetzt unter /thin-edge-io/api/...
+                    // The API is now located at /thin-edge-io/api/...
                     .service(
                         web::scope("/api")
                             .route("/status", web::get().to(get_status))
@@ -5347,9 +5347,9 @@ async fn main() -> io::Result<()> {
                                     .route("/node", web::get().to(read_datalayer_node)),
                             ),
                     )
-                    // Login liegt unter /thin-edge-io/login
+                    // Login is at /thin-edge-io/login
                     .route("/login", web::get().to(token_login))
-                    // Static Files GANZ AM ENDE DES SCOPES! (Wichtig für Actix Routing)
+                    // Static files MUST be at the END OF THE SCOPE! (Important for Actix routing)
                     .service(Files::new("/", web_root.clone()).index_file("index.html")),
             )
     })
@@ -5365,22 +5365,22 @@ async fn main() -> io::Result<()> {
         let snap_data = std::env::var("SNAP_DATA")
             .unwrap_or_else(|_| String::from("/var/snap/thin-edge-io/current"));
 
-        // Unterordner "thin-edge-io" für den ctrlX Proxy-Standard (package-run/<snapname>/web.sock)
+        // Subdirectory "thin-edge-io" for the ctrlX proxy standard (package-run/<snapname>/web.sock)
         let sock_dir = format!("{}/package-run/thin-edge-io", snap_data);
         let socket_path = format!("{}/web.sock", sock_dir);
 
-        // Verzeichnis anlegen (jetzt inklusive Unterordner)
+        // Create directory (including subdirectory)
         if let Err(e) = std::fs::create_dir_all(&sock_dir) {
-            warn!("Konnte Verzeichnis {} nicht erstellen: {}", sock_dir, e);
+            warn!("Could not create directory {}: {}", sock_dir, e);
         }
 
         let _ = std::fs::remove_file(&socket_path);
 
-        info!("Starte Server auf Unix-Socket: {}", socket_path);
+        info!("Starting server on Unix socket: {}", socket_path);
 
         let bound_server = server.bind_uds(&socket_path)?;
 
-        // Berechtigungen auf 777 (Wichtig, damit der Proxy-User zugreifen darf)
+        // Set permissions to 777 (required so the proxy user can access the socket)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -5391,7 +5391,7 @@ async fn main() -> io::Result<()> {
     } else {
         let port = std::env::var("WEB_PORT").unwrap_or_else(|_| "8888".to_string());
         let bind = format!("0.0.0.0:{}", port);
-        info!("Starte Server auf http://{}", bind);
+        info!("Starting server on http://{}", bind);
         server.bind(&bind)?.run().await
     }
 }

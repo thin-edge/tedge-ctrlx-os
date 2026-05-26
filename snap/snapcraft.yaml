@@ -4,7 +4,7 @@
 
 name: ctrlx-cumulocity-thin-edge-io
 title: thin-edge.io IoT Edge Framework
-version: 0.1.13
+version: 0.1.14
 grade: stable
 summary: Open-source cloud-agnostic IoT edge framework for ctrlX AUTOMATION
 description: |
@@ -469,8 +469,8 @@ parts:
       - meta/i18n/*
     override-prime: |
       craftctl default
-      # Snap-Namen im Caddyfile durch den tatsächlichen Projektnamen ersetzen,
-      # damit der Pfad korrekt ist wenn das Snap umbenannt wird.
+      # Replace the snap name in the Caddyfile with the actual project name
+      # so the path is correct if the snap is renamed.
       sed -i "s|/var/snap/ctrlx-cumulocity-thin-edge-io/|/var/snap/${SNAPCRAFT_PROJECT_NAME}/|g" \
         "$CRAFT_PRIME/package-assets/thin-edge-io/caddyfile"
 
@@ -667,7 +667,7 @@ parts:
       '*': web/www/
     override-prime: |
       craftctl default
-      # Icons müssen sowohl in web/www/ (für den Webserver) als auch in meta/ (für den Snap) liegen
+      # Icons must be in both web/www/ (for the web server) and meta/ (for the snap)
       cp $CRAFT_PRIME/web/www/pictures/thin-edge-avatar.png $CRAFT_PRIME/meta/icon.png
 
   # Default flows — shipped read-only in $SNAP, copied to $SNAP_DATA on install/refresh
