@@ -233,69 +233,77 @@ async fn main() -> Result<()> {
 
     let client_arc = Arc::new(Mutex::new(Some(async_client)));
 
-    // Register all snap services as thin-edge.io entities so they appear in the
-    // Cumulocity Services tab. We do this here (after MQTT is connected) rather than
-    // in the post-refresh hook, because mosquitto is not running during the hook.
-    // Delay to allow other services (tedge-agent, tedge-mapper-c8y, etc.) to complete
-    // their startup sequence before we publish retained registrations, so they don't
-    // overwrite ours.
-    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+    // Spawn a background task that periodically registers all snap services as
+    // thin-edge.io entities so they appear in the Cumulocity Services tab.
+    // We re-register every 5 minutes because tedge-agent / tedge-mapper-c8y
+    // may clear our retained MQTT registrations during their own startup.
     {
+        let client_for_reg = client_arc.clone();
         let snap_name = env::var("SNAP_INSTANCE_NAME")
             .unwrap_or_else(|_| env::var("SNAP_NAME").unwrap_or_default());
-        let services = [
-            "tedge-agent",
-            "tedge-mapper-c8y",
-            "tedge-mapper-aws",
-            "tedge-mapper-az",
-            "tedge-watchdog",
-            "mosquitto",
-            "tedge-datalayer-bridge",
-            "tedge-log-upload-manager",
-            "tedge-file-config-plugin",
-            "c8y-remote-access-plugin",
-            "c8y-firmware-plugin",
-            "webserver",
-        ];
-        if let Some(cli) = client_arc.lock().await.as_ref() {
-            for svc in &services {
-                let twin_topic = format!("te/device/main/service/{svc}");
-                let twin_payload = json!({
-                    "@parent": "device/main//",
-                    "@type": "service",
-                    "name": svc,
-                    "type": "service"
-                })
-                .to_string();
-                let _ = cli
-                    .publish(mqtt::Message::new_retained(&twin_topic, twin_payload, 1))
-                    .await;
+        tokio::spawn(async move {
+            // Initial delay: let all other services finish their startup first.
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            loop {
+                let services = [
+                    "tedge-agent",
+                    "tedge-mapper-c8y",
+                    "tedge-mapper-aws",
+                    "tedge-mapper-az",
+                    "tedge-watchdog",
+                    "mosquitto",
+                    "tedge-datalayer-bridge",
+                    "tedge-log-upload-manager",
+                    "tedge-file-config-plugin",
+                    "c8y-remote-access-plugin",
+                    "c8y-firmware-plugin",
+                    "webserver",
+                ];
+                if let Some(cli) = client_for_reg.lock().await.as_ref() {
+                    for svc in &services {
+                        let twin_topic = format!("te/device/main/service/{svc}");
+                        let twin_payload = json!({
+                            "@parent": "device/main//",
+                            "@type": "service",
+                            "name": svc,
+                            "type": "service"
+                        })
+                        .to_string();
+                        let _ = cli
+                            .publish(mqtt::Message::new_retained(&twin_topic, twin_payload, 1))
+                            .await;
 
-                // Determine service status via snapctl
-                let snap_svc = format!("{snap_name}.{svc}");
-                let health_status = if snap_name.is_empty() {
-                    "up"
-                } else {
-                    let out = std::process::Command::new("snapctl")
-                        .args(["services", &snap_svc])
-                        .output();
-                    match out {
-                        Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => "up",
-                        _ => "down",
+                        // Determine service status via snapctl
+                        let snap_svc = format!("{snap_name}.{svc}");
+                        let health_status = if snap_name.is_empty() {
+                            "up"
+                        } else {
+                            let out = std::process::Command::new("snapctl")
+                                .args(["services", &snap_svc])
+                                .output();
+                            match out {
+                                Ok(o) if String::from_utf8_lossy(&o.stdout).contains("active") => {
+                                    "up"
+                                }
+                                _ => "down",
+                            }
+                        };
+                        let health_topic = format!("te/device/main/service/{svc}/status/health");
+                        let health_payload = format!("{{\"status\":\"{health_status}\"}}");
+                        let _ = cli
+                            .publish(mqtt::Message::new_retained(
+                                &health_topic,
+                                health_payload,
+                                1,
+                            ))
+                            .await;
+                        info!("[BRIDGE] Registered service '{svc}' status={health_status}");
                     }
-                };
-                let health_topic = format!("te/device/main/service/{svc}/status/health");
-                let health_payload = format!("{{\"status\":\"{health_status}\"}}");
-                let _ = cli
-                    .publish(mqtt::Message::new_retained(
-                        &health_topic,
-                        health_payload,
-                        1,
-                    ))
-                    .await;
-                info!("[BRIDGE] Registered service '{svc}' status={health_status}");
+                }
+                // Re-register every 5 minutes to recover from any cleanup
+                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
             }
-        }
+        });
     }
 
     let dl_engine = DatalayerEngine::new_with_overrides(

@@ -938,10 +938,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         let mut locked = data.config.lock().unwrap_or_else(|p| p.into_inner());
         *locked = config.clone();
         if let Err(e) = data.save_config(&locked) {
-            warn!(
-                "[CONFIG] Could not save enriched configuration: {}",
-                e
-            );
+            warn!("[CONFIG] Could not save enriched configuration: {}", e);
         }
     }
 
@@ -3044,10 +3041,7 @@ async fn get_tedge_config_list(req: HttpRequest) -> Result<HttpResponse> {
                     String::from_utf8_lossy(&out.stdout).to_string()
                 } else {
                     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                    format!(
-                        "[Error running 'tedge config list']\n{}",
-                        stderr.trim()
-                    )
+                    format!("[Error running 'tedge config list']\n{}", stderr.trim())
                 }
             }
             Err(e) => format!("[tedge not executable: {}]", e),
