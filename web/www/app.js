@@ -1207,18 +1207,18 @@ function _syncCaStatus() {
   _updateOtpVisibility();
 }
 
-// Hide the OTP field when the certificate is active AND already downloaded.
+// Hide the OTP field when the certificate is active.
+// Uses cert-ca-status (the CA-mode indicator) so this works reliably regardless
+// of when the self-signed cert-status element is updated.
 function _updateOtpVisibility() {
-  const certStatus = document.getElementById("cert-status");
-  const downloadEl = document.getElementById("cert-ca-download-status");
+  const certCaStatus = document.getElementById("cert-ca-status");
   const otpGroup = document.querySelector("#cert-ca-fields .form-group");
   if (!otpGroup) return;
 
-  const certActive = certStatus && certStatus.classList.contains("success");
-  const downloaded =
-    downloadEl && downloadEl.textContent.includes("Downloaded");
+  const certActive =
+    certCaStatus && certCaStatus.classList.contains("success");
 
-  otpGroup.style.display = certActive && downloaded ? "none" : "";
+  otpGroup.style.display = certActive ? "none" : "";
 }
 
 function updateCaDownloadStatusDisplay(timestamp) {
@@ -2596,6 +2596,15 @@ function initCollapsibleSections() {
       if (wasCollapsed) {
         const loader = window._sectionLazyLoaders[section.id];
         if (loader) loader();
+      }
+      // Show/hide the header Save button together with the cloud config section.
+      // Track the user's explicit expand/collapse so showNav() does not
+      // auto-show the button on navigation / initial load.
+      if (section.id === "sec-cloud") {
+        const isNowExpanded = !section.classList.contains("collapsed");
+        window._cloudConfigExpanded = isNowExpanded;
+        const saveBtn = document.getElementById("header-save-btn");
+        if (saveBtn) saveBtn.style.display = isNowExpanded ? "" : "none";
       }
     });
   });
@@ -4586,8 +4595,11 @@ function showNav(sectionId, clickedEl) {
     else refreshBtn.onclick = () => refreshStatus();
   }
   if (saveBtn) {
+    // For the setup page the save button is controlled exclusively by the
+    // sec-cloud h2 click handler (window._cloudConfigExpanded flag) so that
+    // it does NOT appear automatically on page load or navigation.
     const showSave =
-      pageGroup === "setup" ||
+      (pageGroup === "setup" && !!window._cloudConfigExpanded) ||
       pageGroup === "device" ||
       pageGroup === "snap-config" ||
       pageGroup === "datalayer";
@@ -4614,8 +4626,8 @@ function toggleNavGroup(headerEl) {
   if (group) group.classList.toggle("open");
 }
 
-// Initialise navigator on DOMContentLoaded
-document.addEventListener("DOMContentLoaded", function () {
+
+window.addEventListener("DOMContentLoaded", function () {
   // Determine which section to show (persisted or default)
   const saved = sessionStorage.getItem("tedge-nav-section") || "sec-cloud";
   const navItem = document.querySelector(`.nav-item[data-target="${saved}"]`);
@@ -4623,4 +4635,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const defaultTarget = document.getElementById(saved);
   if (defaultTarget) defaultTarget.dataset.sectionLoaded = "1";
   showNav(saved, navItem);
+
+  // On initial load keep sec-cloud collapsed so the save button starts
+  // hidden. The user explicitly expands the section to reveal both the
+  // content and the save button.
+  if (!window._cloudConfigExpanded) {
+    const secCloud = document.getElementById("sec-cloud");
+    if (secCloud) secCloud.classList.add("collapsed");
+    const saveBtn = document.getElementById("header-save-btn");
+    if (saveBtn) saveBtn.style.display = "none";
+  }
 });
