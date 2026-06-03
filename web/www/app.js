@@ -1215,8 +1215,7 @@ function _updateOtpVisibility() {
   const otpGroup = document.querySelector("#cert-ca-fields .form-group");
   if (!otpGroup) return;
 
-  const certActive =
-    certCaStatus && certCaStatus.classList.contains("success");
+  const certActive = certCaStatus && certCaStatus.classList.contains("success");
 
   otpGroup.style.display = certActive ? "none" : "";
 }
@@ -4625,7 +4624,6 @@ function toggleNavGroup(headerEl) {
   const group = headerEl.closest(".nav-group");
   if (group) group.classList.toggle("open");
 }
-
 
 window.addEventListener("DOMContentLoaded", function () {
   // Determine which section to show (persisted or default)
