@@ -22,9 +22,8 @@ Run the build/package pipeline for this snap app.
    (`web/www/styles.less` → `.css`, synced into `web-server-rust/www/`), runs
    `cargo clippy --all-targets --all-features -- -D warnings` + `cargo fmt` +
    `rustfmt --check` for both `bridge-service-rust` and `web-server-rust`, bumps the
-   version, then runs `snapcraft --destructive-mode --enable-manifest
-   --target-arch=amd64` and again with `--target-arch=arm64`. Output is tee'd to
-   `logs/build-all-<timestamp>.log`.
+   version, then runs `snapcraft pack --destructive-mode --build-for=amd64` and again
+   with `--build-for=arm64`. Output is tee'd to `logs/build-all-<timestamp>.log`.
 
 3. **Verify output**: confirm both `.snap` files were produced (repo root, one per
    arch). If the script reports a failure, check the referenced build log for the
@@ -51,3 +50,9 @@ Run the build/package pipeline for this snap app.
   repo. `setup-and-build-all.sh` is the only real entry point.
 - Don't bump `Cargo.toml` versions or `configs/package-manifest.json`'s version to
   match — they track unrelated things (crate version, ctrlX manifest schema version).
+- `snapcraft` is installed unpinned (`latest/stable`) everywhere it's used. A future
+  upstream snapcraft CLI change can break the build command shown above the same way
+  the 9.0 release did in 2026-07 (dropped the legacy `--target-arch`/
+  `--enable-manifest` flags for `snapcraft pack --build-for=<arch>`) — if the build
+  step fails with "unrecognized arguments", check `snapcraft --version` and its
+  current `pack --help` before assuming the code changed.

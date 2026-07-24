@@ -95,10 +95,10 @@ jobs:
         run: lessc web/www/styles.less web/www/styles.css
 
       - name: Build amd64 snap
-        run: sudo -E snapcraft --destructive-mode --enable-manifest --target-arch=amd64
+        run: sudo -E snapcraft pack --destructive-mode --build-for=amd64
 
       - name: Build arm64 snap
-        run: sudo -E snapcraft --destructive-mode --enable-manifest --target-arch=arm64
+        run: sudo -E snapcraft pack --destructive-mode --build-for=arm64
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

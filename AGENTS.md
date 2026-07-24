@@ -39,9 +39,17 @@ snap install <file>.snap --dangerous   # install a locally-built snap for testin
 **Gotcha:** `docs/building.md` and `.vscode/tasks.json` reference `build-snap-amd64.sh`
 and `build-snap-arm64.sh` — **these scripts do not exist in this repo**. The only real,
 working build entry point is `setup-and-build-all.sh`; CI
-(`.github/workflows/build.yml`) calls `snapcraft --destructive-mode --target-arch=<arch>`
+(`.github/workflows/build.yml`) calls `snapcraft pack --destructive-mode --build-for=<arch>`
 directly. Don't invent or "restore" the missing scripts — fix the stale references
 instead if you're touching that doc/task config.
+
+**Gotcha:** `snapcraft` is installed unpinned (`snap install snapcraft --classic`,
+always `latest/stable`) in CI and in `setup-and-build-all.sh`. Canonical's snapcraft
+9.0 (released 2026-07-06) dropped the legacy bare `snapcraft --target-arch=<arch>
+--enable-manifest` invocation entirely in favor of `snapcraft pack --build-for=<arch>`
+(no more `--enable-manifest`) — this broke CI for every PR/push until fixed. If the
+build step starts failing with "unrecognized arguments" again, suspect another
+upstream snapcraft CLI change before assuming it's a code regression.
 
 ## Architecture
 

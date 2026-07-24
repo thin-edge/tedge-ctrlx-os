@@ -29,7 +29,9 @@ structured per-step pass/fail summary — never just "build failed" or "it works
 
    Output is tee'd to `logs/build-all-<timestamp>.log` — read that log to attribute
    any failure to the specific step (frontend build, clippy for a specific crate,
-   rustfmt, or `snapcraft --target-arch=amd64`/`arm64`).
+   rustfmt, or `snapcraft pack --build-for=amd64`/`arm64`). Note `snapcraft` is
+   installed unpinned (`latest/stable`); an "unrecognized arguments" failure on the
+   snapcraft step may mean upstream changed its CLI again, not a code regression.
 
 **Reporting**
 
