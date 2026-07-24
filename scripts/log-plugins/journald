@@ -51,8 +51,10 @@ get() {
         *)   unit="snap.${SNAP_NAME}.${log_type}.service" ;;
     esac
 
-    # Build journalctl arguments
-    ARGS="-u ${unit} --no-pager -o short-iso"
+    # Build journalctl arguments as positional parameters (not a string) so
+    # that no part of $log_type/$unit/$since/$until_ts is ever re-parsed as
+    # shell syntax.
+    set -- -u "$unit" --no-pager -o short-iso
 
     if [ -n "$since" ]; then
         # Convert seconds-since-epoch to date string for journalctl
@@ -60,7 +62,7 @@ get() {
             || date -r "${since}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
             || echo "")
         if [ -n "$SINCE_DATE" ]; then
-            ARGS="$ARGS --since \"${SINCE_DATE}\""
+            set -- "$@" --since "$SINCE_DATE"
         fi
     fi
 
@@ -69,11 +71,11 @@ get() {
             || date -r "${until_ts}" '+%Y-%m-%d %H:%M:%S' 2>/dev/null \
             || echo "")
         if [ -n "$UNTIL_DATE" ]; then
-            ARGS="$ARGS --until \"${UNTIL_DATE}\""
+            set -- "$@" --until "$UNTIL_DATE"
         fi
     fi
 
-    eval journalctl $ARGS 2>/dev/null || true
+    journalctl "$@" 2>/dev/null || true
 }
 
 if [ $# -lt 1 ]; then

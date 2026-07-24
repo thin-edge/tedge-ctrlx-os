@@ -19,12 +19,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 uuid = { version = "1.11", features = ["v4"] }
 which = "7"
 
-[dependencies.actix-http]
-version = "3.12"
-
-[dependencies.time]
-version = "0.3.47"
-
 [[bin]]
 name = "tedge-web-config"
 path = "src/main.rs"

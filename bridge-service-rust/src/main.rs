@@ -141,7 +141,6 @@ async fn main() -> Result<()> {
     };
 
     let mut config = DatalayerEngine::load_config(&config_path);
-    let credentials = DatalayerEngine::load_credentials(&credentials_path);
 
     // Determine device_external_id:
     // Priority 1: tedge config get device.id (matches the registered Cumulocity device)
@@ -298,19 +297,40 @@ async fn main() -> Result<()> {
         });
     }
 
-    let dl_engine = DatalayerEngine::new_with_overrides(
+    let dl_engine = Arc::new(Mutex::new(DatalayerEngine::new_with_overrides(
         config_path,
+        credentials_path,
         config.device_external_id.clone(),
         config.mqtt_service_enabled,
-    );
+    )));
     let dl_handle = tokio::spawn(run_datalayer_loop(
-        dl_engine,
+        dl_engine.clone(),
         client_arc.clone(),
         shutdown.clone(),
     ));
 
-    while let Some(Some(msg)) = msg_stream.next().await {
-        handle_mqtt_message(&msg, &config, &credentials, &bridge.http_client).await;
+    loop {
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
+        match msg_stream.next().await {
+            Some(Some(msg)) => {
+                handle_mqtt_message(&msg, &dl_engine, &bridge.http_client).await;
+            }
+            Some(None) => {
+                // paho-mqtt inserts a `None` item into the stream to notify us of a
+                // disconnect; the client keeps running and `automatic_reconnect`
+                // (configured in setup_mqtt) will reconnect it in-process. Tolerate
+                // it instead of falling out of the loop and exiting the process.
+                warn!("[BRIDGE] MQTT disconnect notification received; waiting for automatic reconnect");
+                continue;
+            }
+            None => {
+                // The stream itself has ended (client dropped) - nothing more to do.
+                warn!("[BRIDGE] MQTT message stream closed; exiting receive loop");
+                break;
+            }
+        }
         if shutdown.load(Ordering::Relaxed) {
             break;
         }

@@ -2086,7 +2086,6 @@ name = "tedge-web-config"
 version = "1.0.0"
 dependencies = [
  "actix-files",
- "actix-http",
  "actix-web",
  "env_logger",
  "log",
@@ -2094,7 +2093,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "time",
  "tokio",
  "uuid",
  "which",
