@@ -3,4 +3,6 @@ set -euo pipefail
 # Removes build artifacts and cleans the project
 
 echo "[clean.sh] Removing build artifacts ..."
-# ... insert logic for a full clean here ...
+rm -rf parts/ prime/ stage/
+rm -f -- *.snap
+echo "[clean.sh] Done."

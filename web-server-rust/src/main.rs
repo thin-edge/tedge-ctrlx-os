@@ -252,6 +252,17 @@ struct AppState {
     datalayer_config_path: PathBuf,
     datalayer_credentials_path: PathBuf,
     ca_jobs: CaJobStore,
+    /// Serializes the load-modify-save cycle for datalayer-mappings.json across
+    /// all mutating handlers (add/update/delete/save mapping, set_mapping_mode,
+    /// MQTT-port sync) - load_datalayer_config()/save_datalayer_config() are plain
+    /// fs calls with no locking of their own, so concurrent requests could
+    /// otherwise silently overwrite each other's changes.
+    datalayer_lock: std::sync::Mutex<()>,
+    /// Cached ctrlX Data Layer bearer token, reused across browse/read/status
+    /// requests instead of logging in fresh every time (mirrors bridge-service-
+    /// rust's DatalayerEngine.cached_token). Cleared on a 401 so the next call
+    /// re-authenticates.
+    dl_token_cache: std::sync::Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -301,6 +312,8 @@ impl AppState {
             datalayer_config_path,
             datalayer_credentials_path: credentials_path,
             ca_jobs: Arc::new(Mutex::new(HashMap::new())),
+            datalayer_lock: std::sync::Mutex::new(()),
+            dl_token_cache: std::sync::Mutex::new(None),
         }
     }
 
@@ -453,7 +466,12 @@ async fn add_datalayer_mapping(
         new_mapping.id = uuid::Uuid::new_v4().to_string();
     }
 
-    // Load config, add mapping, save config
+    // Load config, add mapping, save config — held under datalayer_lock so a
+    // concurrent add/update/delete can't silently overwrite this change.
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut cfg = data.load_datalayer_config();
     cfg.mappings.push(new_mapping.clone());
 
@@ -480,6 +498,10 @@ async fn update_datalayer_mapping(
 
     let id = path.into_inner();
     let updated = body.into_inner();
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut cfg = data.load_datalayer_config();
 
     if let Some(m) = cfg.mappings.iter_mut().find(|m| m.id == id) {
@@ -510,6 +532,10 @@ async fn delete_datalayer_mapping(
     }
 
     let id_to_delete = path.into_inner();
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut cfg = data.load_datalayer_config();
 
     let initial_len = cfg.mappings.len();
@@ -827,12 +853,20 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         })));
     }
 
+    // NOTE: `config` here is a scratch clone used only to work out which fields (if
+    // any) need enriching from the certificate/tedge CLI. It is deliberately never
+    // written back wholesale - see the merge block below - so a concurrent request
+    // that changes an unrelated field (e.g. via save_c8y_config) while this handler
+    // is awaiting the slow subprocess calls below can't be clobbered.
     let mut config = data
         .config
         .lock()
         .unwrap_or_else(|p| p.into_inner())
         .clone();
-    let mut changed = false;
+    let mut device_changed = false;
+    let mut c8y_changed = false;
+    let mut aws_changed = false;
+    let mut az_changed = false;
 
     // Always read device.id from the certificate CN — that is the ID Cumulocity knows.
     // tedge config get device.id may differ from the cert CN (e.g. serial number vs. hostname).
@@ -866,7 +900,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
                 if config.device.name.is_empty() || config.device.name == config.device.id {
                     config.device.name = cn_val;
                 }
-                changed = true;
+                device_changed = true;
             }
         } else if config.device.id.is_empty() {
             // No certificate present: show preview ID.
@@ -901,7 +935,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
                 if config.device.name.is_empty() {
                     config.device.name = id;
                 }
-                changed = true;
+                device_changed = true;
             }
         }
     }
@@ -911,7 +945,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         if let Some(url) = tedge_config_get("c8y.url").await {
             info!("[CONFIG] c8y.url read from tedge: {}", url);
             config.c8y.url = Some(url);
-            changed = true;
+            c8y_changed = true;
         }
     }
 
@@ -920,7 +954,7 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         if let Some(url) = tedge_config_get("aws.url").await {
             info!("[CONFIG] aws.url read from tedge: {}", url);
             config.aws.url = Some(url);
-            changed = true;
+            aws_changed = true;
         }
     }
 
@@ -929,17 +963,35 @@ async fn get_config(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
         if let Some(url) = tedge_config_get("az.url").await {
             info!("[CONFIG] az.url read from tedge: {}", url);
             config.az.url = Some(url);
-            changed = true;
+            az_changed = true;
         }
     }
 
-    // If new values were read: also write them back to the JSON file
-    if changed {
+    // If new values were read: merge only those specific fields onto the CURRENT
+    // locked config (re-read fresh here, not the stale pre-await `config` clone
+    // above) and persist that, so a concurrent write to an unrelated field made
+    // while this handler was awaiting can't be silently discarded.
+    if device_changed || c8y_changed || aws_changed || az_changed {
         let mut locked = data.config.lock().unwrap_or_else(|p| p.into_inner());
-        *locked = config.clone();
+        if device_changed {
+            locked.device.id = config.device.id.clone();
+            locked.device.name = config.device.name.clone();
+        }
+        if c8y_changed {
+            locked.c8y.url = config.c8y.url.clone();
+        }
+        if aws_changed {
+            locked.aws.url = config.aws.url.clone();
+        }
+        if az_changed {
+            locked.az.url = config.az.url.clone();
+        }
         if let Err(e) = data.save_config(&locked) {
             warn!("[CONFIG] Could not save enriched configuration: {}", e);
         }
+        let result = locked.clone();
+        drop(locked);
+        return Ok(HttpResponse::Ok().json(result));
     }
 
     Ok(HttpResponse::Ok().json(config))
@@ -1575,6 +1627,10 @@ async fn set_mqtt_port(
             "[MQTT-PORT] tedge binary '{}' not found – skipping config set, updating datalayer config only",
             tedge_bin
         );
+        let _guard = data
+            .datalayer_lock
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         let mut dl_cfg = data.load_datalayer_config();
         dl_cfg.mqtt_service_enabled = port == 9883;
         if let Err(e) = data.save_datalayer_config(&dl_cfg) {
@@ -1672,6 +1728,10 @@ async fn set_mqtt_port(
             );
             // Also sync mqttServiceEnabled in datalayer-mappings.json so the
             // bridge service picks up the correct MQTT topic prefix immediately.
+            let _guard = data
+                .datalayer_lock
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
             let mut dl_cfg = data.load_datalayer_config();
             dl_cfg.mqtt_service_enabled = port == 9883;
             if let Err(e) = data.save_datalayer_config(&dl_cfg) {
@@ -3430,7 +3490,14 @@ async fn fetch_dl_token(
     }
 }
 
+/// Returns an HTTP client and a Data Layer bearer token, reusing a cached
+/// token across calls instead of logging in fresh every time (which can
+/// exhaust the ctrlX identity manager's limited session slots - mirrors
+/// bridge-service-rust's `DatalayerEngine.cached_token`). Call
+/// `invalidate_dl_token` when a request using the returned token comes back
+/// with 401, so the *next* call re-authenticates.
 async fn dl_client_and_token(
+    data: &AppState,
     cfg: &DatalayerConfig,
     creds: &DatalayerCredentials,
 ) -> (reqwest::Client, Option<String>) {
@@ -3440,15 +3507,57 @@ async fn dl_client_and_token(
         .build()
         .unwrap_or_default();
 
+    // 0. Reuse a cached token if we have one.
+    if let Some(cached) = data
+        .dl_token_cache
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
+    {
+        return (client, Some(cached));
+    }
+
     // 1. Automatic auth attempt if credentials are available
     if let (Some(username), Some(password)) = (&creds.username, &creds.password) {
         if let Some(t) = fetch_dl_token(&client, &cfg.base_url, username, password).await {
+            *data
+                .dl_token_cache
+                .lock()
+                .unwrap_or_else(|p| p.into_inner()) = Some(t.clone());
             return (client, Some(t));
         }
     }
 
     // 2. Fallback: Statischer Token aus den Credentials
     (client, creds.token.clone())
+}
+
+/// Clears the cached Data Layer token (if any) and logs out the session on
+/// the ctrlX identity manager to free the session slot, mirroring
+/// `DatalayerEngine::fetch_token`'s logout-before-refetch behavior. Call this
+/// when a Data Layer request comes back with 401, so the next
+/// `dl_client_and_token` call re-authenticates instead of reusing a dead
+/// token forever.
+async fn invalidate_dl_token(data: &AppState, cfg: &DatalayerConfig) {
+    let old_token = {
+        let mut guard = data
+            .dl_token_cache
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        guard.take()
+    };
+    if let Some(token) = old_token {
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(cfg.accept_invalid_certs)
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap_or_default();
+        let url = format!(
+            "{}/identity-manager/api/v2/auth/token",
+            cfg.base_url.trim_end_matches('/')
+        );
+        let _ = client.delete(&url).bearer_auth(token).send().await;
+    }
 }
 
 /// GET /api/datalayer/config  — returns config (password + token masked)
@@ -3511,6 +3620,10 @@ async fn save_datalayer_config_handler(
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"})));
     }
 
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut cfg = data.load_datalayer_config();
 
     cfg.enabled = body.enabled;
@@ -3613,6 +3726,10 @@ async fn save_datalayer_mappings(
                 .json(serde_json::json!({"success": false, "error": format!("{}", e)})));
         }
     };
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let mut cfg = data.load_datalayer_config();
     cfg.mappings = mappings;
     if let Err(e) = data.save_datalayer_config(&cfg) {
@@ -3660,6 +3777,20 @@ async fn get_license_status(req: HttpRequest, _data: web::Data<AppState>) -> Res
         "licensed": has_engineering,
         "required": LICENSE_NAMES[0],
     })))
+}
+
+/// Truncates a string to at most `max_bytes` bytes for safe display/logging,
+/// without panicking if `max_bytes` would otherwise land in the middle of a
+/// multi-byte UTF-8 character (str slicing panics on non-char-boundary indices).
+fn truncate_for_log(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
 
 /// HTTP GET over a Unix domain socket. Returns (HTTP status, body).
@@ -3787,7 +3918,7 @@ async fn check_engineering_license_in_capabilities(socket_path: &str) -> Option<
             warn!(
                 "[LICENSE] GET /capabilities HTTP {}: {}",
                 status,
-                &body[..body.len().min(200)]
+                truncate_for_log(&body, 200)
             );
             None
         }
@@ -3818,7 +3949,7 @@ async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String
                 }
                 warn!(
                     "[LICENSE] POST /license HTTP 200 but no id in response: {}",
-                    &body[..body.len().min(200)]
+                    truncate_for_log(&body, 200)
                 );
                 // Try next payload variant
             }
@@ -3827,7 +3958,7 @@ async fn acquire_license(socket_path: &str, license_name: &str) -> Option<String
                     "[LICENSE] POST /license '{}' HTTP {}: {}",
                     license_name,
                     status,
-                    &body[..body.len().min(200)]
+                    truncate_for_log(&body, 200)
                 );
                 // Try next payload variant
             }
@@ -3851,7 +3982,7 @@ async fn release_license(socket_path: &str, license_id: &str) {
         Ok((status, body)) => warn!(
             "[LICENSE] Release HTTP {}: {}",
             status,
-            &body[..body.len().min(200)]
+            truncate_for_log(&body, 200)
         ),
         Err(e) => warn!("[LICENSE] Release socket error: {}", e),
     }
@@ -3958,16 +4089,16 @@ async fn get_licenses(req: HttpRequest, _data: web::Data<AppState>) -> Result<Ht
             warn!(
                 "[LICENSES] HTTP {} raw={}",
                 status,
-                &body[..body.len().min(500)]
+                truncate_for_log(&body, 500)
             );
             if status == 200 {
                 let json: serde_json::Value = serde_json::from_str(&body).unwrap_or(
-                    serde_json::json!({"error": format!("non-JSON from licensing socket: {}", &body[..body.len().min(200)])}),
+                    serde_json::json!({"error": format!("non-JSON from licensing socket: {}", truncate_for_log(&body, 200))}),
                 );
                 Ok(HttpResponse::Ok().json(json))
             } else {
                 Ok(HttpResponse::ServiceUnavailable()
-                    .json(serde_json::json!({"error": format!("licensing API returned HTTP {}: {}", status, &body[..body.len().min(200)])})))
+                    .json(serde_json::json!({"error": format!("licensing API returned HTTP {}: {}", status, truncate_for_log(&body, 200))})))
             }
         }
         Err(e) => {
@@ -4019,8 +4150,9 @@ async fn browse_datalayer(
         )
     };
 
-    // 3. Get client (fetches a new token via username/password if needed)
-    let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
+    // 3. Get client (reuses a cached token, or fetches a new one via
+    //    username/password if needed)
+    let (http_client, stored_token) = dl_client_and_token(&data, &cfg, &creds).await;
     let mut req_builder = http_client.get(&url);
 
     // Priority: browser token > backend token (username/password)
@@ -4031,6 +4163,9 @@ async fn browse_datalayer(
     match req_builder.send().await {
         Ok(resp) => {
             let status = resp.status();
+            if status == reqwest::StatusCode::UNAUTHORIZED {
+                invalidate_dl_token(&data, &cfg).await;
+            }
             let body: serde_json::Value = resp
                 .json()
                 .await
@@ -4080,7 +4215,7 @@ async fn read_datalayer_node(
         })
         .map(|s| s.to_string());
 
-    let (http_client, token) = dl_client_and_token(&cfg, &creds).await;
+    let (http_client, token) = dl_client_and_token(&data, &cfg, &creds).await;
 
     let path = query.path.trim_matches('/');
     let url = format!(
@@ -4098,6 +4233,9 @@ async fn read_datalayer_node(
     match req_builder.send().await {
         Ok(resp) => {
             let status = resp.status();
+            if status == reqwest::StatusCode::UNAUTHORIZED {
+                invalidate_dl_token(&data, &cfg).await;
+            }
             let body: serde_json::Value = resp
                 .json()
                 .await
@@ -4925,7 +5063,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
                 .map(|s| s.to_string())
         });
 
-    let (http_client, stored_token) = dl_client_and_token(&cfg, &creds).await;
+    let (http_client, stored_token) = dl_client_and_token(&data, &cfg, &creds).await;
 
     // ctrlX API path (check whether /automation/... or /admin/...)
     let url = format!(
@@ -4945,6 +5083,7 @@ async fn get_datalayer_status(req: HttpRequest, data: web::Data<AppState>) -> Re
             let s = r.status().as_u16();
             if s == 401 {
                 warn!("Datalayer access denied (401) - token invalid?");
+                invalidate_dl_token(&data, &cfg).await;
             }
             (r.status().is_success(), Some(s), None)
         }
@@ -5033,6 +5172,12 @@ async fn set_mapping_mode(
     let snap_data = env::var("SNAP_DATA").unwrap_or_else(|_| ".".to_string());
     let flows_base = PathBuf::from(&snap_data).join("tedge/mappers/c8y/flows");
     let flow_dirs = ["ctrlx-measurements", "ctrlx-events", "ctrlx-alarms"];
+    // Held across the whole match — the "flows"/"none" arms do a
+    // load_datalayer_config -> mutate -> save_datalayer_config cycle.
+    let _guard = data
+        .datalayer_lock
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
 
     match body.mode.as_str() {
         "bridge" => {

@@ -249,7 +249,7 @@ fi
 AMD64_BUILD_LOG="logs/build-snap-amd64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building amd64 snap (logging to $AMD64_BUILD_LOG)..."
 
-if snapcraft --destructive-mode --enable-manifest --target-arch=amd64 2>&1 | tee "$AMD64_BUILD_LOG"; then
+if snapcraft pack --destructive-mode --build-for=amd64 2>&1 | tee "$AMD64_BUILD_LOG"; then
     AMD64_SNAP=$(ls -1 ${SNAP_NAME}_*_amd64.snap 2>/dev/null | head -1 || true)
     if [ -z "$AMD64_SNAP" ]; then
         echo -e "${RED}[✗] Snap-Build meldet Erfolg, aber keine .snap-Datei gefunden!${NC}"; exit 1
@@ -270,7 +270,7 @@ echo "=============================================="
 ARM64_BUILD_LOG="logs/build-snap-arm64-$(date +%Y%m%d-%H%M%S).log"
 echo "[i] Building arm64 snap (logging to $ARM64_BUILD_LOG)..."
 
-if snapcraft --destructive-mode --enable-manifest --target-arch=arm64 2>&1 | tee "$ARM64_BUILD_LOG"; then
+if snapcraft pack --destructive-mode --build-for=arm64 2>&1 | tee "$ARM64_BUILD_LOG"; then
     ARM64_SNAP=$(ls -1 ${SNAP_NAME}_*_arm64.snap 2>/dev/null | head -1 || true)
     if [ -z "$ARM64_SNAP" ]; then
         echo -e "${RED}[✗] Snap-Build meldet Erfolg, aber keine .snap-Datei gefunden!${NC}"; exit 1

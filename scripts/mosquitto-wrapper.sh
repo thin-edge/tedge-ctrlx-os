@@ -15,8 +15,8 @@ fi
 # as a service. SNAP_USER_COMMON is only set for user sessions; the pattern match
 # guards against that edge case in a name-agnostic way.
 case "$SNAP_USER_COMMON" in
-    */snap/*/common*) COMMON=$SNAP_COMMON ;;
-    *)               COMMON=$SNAP_USER_COMMON ;;
+    */snap/*/common*) COMMON=$SNAP_USER_COMMON ;;
+    *)               COMMON=$SNAP_COMMON ;;
 esac
 
 CONFIG_FILE="$SNAP/etc/mosquitto/default_config.conf"

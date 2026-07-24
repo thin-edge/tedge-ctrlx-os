@@ -46,7 +46,7 @@ mosquitto_log() {
 
 mosquitto_config() {
     if [ -d /etc/mosquitto ]; then
-        if command -V tree >/dev/null >&2; then
+        if command -V tree >/dev/null 2>&1; then
             tree /etc/mosquitto > "$OUTPUT_DIR/etc_mosquitto.tree.txt" ||:
         else
             ls -l /etc/mosquitto/* > "$OUTPUT_DIR/etc_mosquitto.tree.txt" ||:

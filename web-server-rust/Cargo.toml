@@ -18,12 +18,14 @@ log = "0.4"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 uuid = { version = "1.11", features = ["v4"] }
 which = "7"
-
-[dependencies.actix-http]
-version = "3.12"
-
-[dependencies.time]
-version = "0.3.47"
+# Not used directly - paho-mqtt-sys links against OpenSSL unconditionally (for its
+# bundled Paho C library) and reqwest's still-enabled default-tls feature pulls in
+# native-tls/openssl-sys too, even though we use rustls-tls at runtime. The
+# "vendored" feature makes openssl-sys build its own OpenSSL from source for
+# whichever target it's compiling for, instead of needing target-specific system
+# OpenSSL dev headers (e.g. libssl-dev:arm64) installed in the cross-compile
+# environment.
+openssl = { version = "0.10", features = ["vendored"] }
 
 [[bin]]
 name = "tedge-web-config"

@@ -38,7 +38,7 @@ else
     fi
   fi
 
-  find ./web/www -type f -name '*.js' | xargs "$ESLINT_CMD"
+  find ./web/www -type f -name '*.js' -print0 | xargs -0 "$ESLINT_CMD"
 fi
 
 # Rust Linting (only if Clippy is available)
@@ -56,14 +56,14 @@ fi
 # JS/HTML: check and optionally auto-format
 if [ "$1" = "--fix" ]; then
   echo "[i] Running Prettier with --write (auto-fix)..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --write
+  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) -print0 | xargs -0 "$PRETTIER_CMD" --write
 else
   echo "[i] Checking formatting with Prettier..."
-  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) | xargs "$PRETTIER_CMD" --check
+  find ./web/www -type f \( -name '*.js' -o -name '*.html' \) -print0 | xargs -0 "$PRETTIER_CMD" --check
 fi
 
 # Rust: check formatting
-find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/target/*" | \
-  xargs "$RUSTFMT_CMD" --edition 2021 --check
+find bridge-service-rust web-server-rust -type f -name '*.rs' -not -path "*/target/*" -print0 | \
+  xargs -0 "$RUSTFMT_CMD" --edition 2021 --check
 
 echo "All format and lint checks passed!"

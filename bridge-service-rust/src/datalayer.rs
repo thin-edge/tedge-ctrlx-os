@@ -234,13 +234,20 @@ impl DatalayerEngine {
         }
     }
 
-    /// Like `new`, but overrides device_external_id and mqtt_service_enabled
+    /// Like `new`, but overrides device_external_id, mqtt_service_enabled, and the
+    /// credentials path. The credentials path must be passed in explicitly (rather
+    /// than derived from config_path's parent, as `new()` does) because credentials
+    /// are stored in $SNAP_COMMON (to survive snap updates) while config_path lives
+    /// in $SNAP_DATA - the two are different directories under snapd.
     pub fn new_with_overrides(
         config_path: PathBuf,
+        credentials_path: PathBuf,
         device_external_id: String,
         mqtt_service_enabled: bool,
     ) -> Self {
         let mut engine = Self::new(config_path);
+        engine.credentials = Self::load_credentials(&credentials_path);
+        engine.credentials_path = credentials_path;
         engine.config.device_external_id = device_external_id;
         engine.config.mqtt_service_enabled = mqtt_service_enabled;
         engine
@@ -353,11 +360,18 @@ impl DatalayerEngine {
         }
     }
 
-    fn effective_token(&self) -> String {
+    pub fn effective_token(&self) -> String {
         self.cached_token
             .clone()
             .or_else(|| self.credentials.token.clone())
             .unwrap_or_default()
+    }
+
+    /// A clone of the current (live, periodically-reloaded via `reload_config`)
+    /// mapping config, for callers that only need to read it (e.g. the MQTT
+    /// write path in `handle_mqtt_message`, which does not own the engine).
+    pub fn config_snapshot(&self) -> DatalayerConfig {
+        self.config.clone()
     }
 
     /// Logs out the current session to free up the session slot
@@ -390,10 +404,11 @@ impl DatalayerEngine {
         }
 
         let mappings = self.config.mappings.clone();
-        for mapping in mappings
-            .iter()
-            .filter(|m| m.enabled && m.direction == MappingDirection::DatalayerToTedge)
-        {
+        for mapping in mappings.iter().filter(|m| {
+            m.enabled
+                && m.direction == MappingDirection::DatalayerToTedge
+                && m.mapping_type != "flow"
+        }) {
             let url = format!(
                 "{}/automation/api/v2/nodes/{}?type=all",
                 self.config.base_url.trim_end_matches('/'),
@@ -431,7 +446,15 @@ impl DatalayerEngine {
                                 retry_req = retry_req.bearer_auth(&new_token);
                             }
                             if let Ok(retry_resp) = retry_req.send().await {
-                                if let Ok(node) = retry_resp.json::<DatalayerNodeValue>().await {
+                                let retry_status = retry_resp.status();
+                                if !retry_status.is_success() {
+                                    warn!(
+                                        "[DATALAYER] retry HTTP {} for path '{}' url='{}'",
+                                        retry_status, mapping.path, url
+                                    );
+                                } else if let Ok(node) =
+                                    retry_resp.json::<DatalayerNodeValue>().await
+                                {
                                     let val = node.value.unwrap_or(Value::Null);
                                     let should_publish = match mapping.transform {
                                         MappingTransform::Measurement | MappingTransform::Raw => {
@@ -518,7 +541,7 @@ impl DatalayerEngine {
 // --- Loops & Handler ---
 #[cfg(feature = "mqtt")]
 pub async fn run_datalayer_loop(
-    mut engine: DatalayerEngine,
+    engine: Arc<tokio::sync::Mutex<DatalayerEngine>>,
     mqtt_client: Arc<tokio::sync::Mutex<Option<mqtt::AsyncClient>>>,
     shutdown: Arc<AtomicBool>,
 ) {
@@ -542,180 +565,220 @@ pub async fn run_datalayer_loop(
         }
     }
     while !shutdown.load(Ordering::Relaxed) {
-        engine.reload_config();
+        let poll_interval_ms = {
+            let mut engine = engine.lock().await;
+            engine.reload_config();
 
-        // Publish health every ~30s (every 6 poll cycles at 5000ms default)
-        health_tick += 1;
-        if health_tick == 1 || health_tick.is_multiple_of(6) {
-            let time = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs_f64();
-            let health_status = if engine.is_token_failing() {
-                "down"
-            } else {
-                "up"
-            };
-            let health_msg = format!(r#"{{"pid":{pid},"status":"{health_status}","time":{time}}}"#);
-            let guard = mqtt_client.lock().await;
-            if let Some(cli) = guard.as_ref() {
-                let _ = cli
-                    .publish(mqtt::Message::new_retained(
-                        HEALTH_TOPIC,
-                        health_msg.as_str(),
-                        1,
-                    ))
-                    .await;
+            // Publish health every ~30s (every 6 poll cycles at 5000ms default)
+            health_tick += 1;
+            if health_tick == 1 || health_tick.is_multiple_of(6) {
+                let time = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f64();
+                let health_status = if engine.is_token_failing() {
+                    "down"
+                } else {
+                    "up"
+                };
+                let health_msg =
+                    format!(r#"{{"pid":{pid},"status":"{health_status}","time":{time}}}"#);
+                let guard = mqtt_client.lock().await;
+                if let Some(cli) = guard.as_ref() {
+                    let _ = cli
+                        .publish(mqtt::Message::new_retained(
+                            HEALTH_TOPIC,
+                            health_msg.as_str(),
+                            1,
+                        ))
+                        .await;
+                }
+                drop(guard);
             }
-            drop(guard);
-        }
 
-        if engine.is_enabled() {
-            let messages = engine.poll_mappings().await;
-            let guard = mqtt_client.lock().await;
-            if let Some(cli) = guard.as_ref() {
-                for (mapping_id, _topic, payload, node_type) in messages {
-                    // 1. Look up the mapping by ID (not by topic, as multiple mappings can share the same topic)
-                    if let Some(mapping) =
-                        engine.config.mappings.iter().find(|m| m.id == mapping_id)
-                    {
-                        // Determine the display name (fallback to ID if field_name is empty)
-                        let field_name = mapping.effective_field_name();
+            if engine.is_enabled() {
+                let messages = engine.poll_mappings().await;
+                let guard = mqtt_client.lock().await;
+                if let Some(cli) = guard.as_ref() {
+                    for (mapping_id, _topic, payload, node_type) in messages {
+                        // 1. Look up the mapping by ID (not by topic, as multiple mappings can share the same topic)
+                        if let Some(mapping) =
+                            engine.config.mappings.iter().find(|m| m.id == mapping_id)
+                        {
+                            // Determine the display name (fallback to ID if field_name is empty)
+                            let field_name = mapping.effective_field_name();
 
-                        // 2. Apply the transform
-                        let (final_topic, final_payload) = match mapping.transform {
-                            MappingTransform::Measurement => {
-                                // Parse payload from Data Layer (removes surrounding quotes)
-                                let mut parsed_value: serde_json::Value =
-                                    serde_json::from_str(&payload)
-                                        .unwrap_or_else(|_| serde_json::json!(payload));
+                            // 2. Apply the transform
+                            let (final_topic, final_payload) = match mapping.transform {
+                                MappingTransform::Measurement => {
+                                    // Parse payload from Data Layer (removes surrounding quotes)
+                                    let mut parsed_value: serde_json::Value =
+                                        serde_json::from_str(&payload)
+                                            .unwrap_or_else(|_| serde_json::json!(payload));
 
-                                // If the Data Layer sends an object (e.g. {"rSimuTemp": 26.0}),
-                                // extract only the numeric value
-                                if let Some(obj) = parsed_value.as_object() {
-                                    if let Some(val) = obj.values().next() {
-                                        parsed_value = val.clone();
+                                    // If the Data Layer sends an object (e.g. {"rSimuTemp": 26.0}),
+                                    // extract only the numeric value
+                                    if let Some(obj) = parsed_value.as_object() {
+                                        if let Some(val) = obj.values().next() {
+                                            parsed_value = val.clone();
+                                        }
                                     }
-                                }
 
-                                // Build JSON: {"memfree-mb": 7432.3, "unit": "MB", "time": "...", "externalId": "..."}
-                                // Include unit as a top-level field if present, omit otherwise
-                                let mut json_obj = serde_json::json!({ &field_name: parsed_value });
-                                if let Some(unit) = &mapping.unit {
-                                    if !unit.is_empty() {
-                                        json_obj["unit"] = serde_json::json!(unit);
-                                    }
-                                }
-                                // UTC timestamp in ISO-8601 format
-                                let now = std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_millis();
-                                let secs = now / 1000;
-                                let millis = now % 1000;
-                                let ts = format_iso8601(secs as u64, millis as u32);
-                                json_obj["time"] = serde_json::json!(ts);
-                                // Include externalId when using MQTT Service (port 9883)
-                                if mapping.topic.starts_with("c8y/mqtt/out/")
-                                    && !engine.config.device_external_id.is_empty()
-                                {
-                                    json_obj["externalId"] =
-                                        serde_json::json!(engine.config.device_external_id.clone());
-                                }
-                                let json_data = json_obj.to_string();
-
-                                // Use the topic configured in the UI
-                                (mapping.topic.clone(), json_data)
-                            }
-                            MappingTransform::Event => {
-                                let parsed_value: serde_json::Value =
-                                    serde_json::from_str(&payload)
-                                        .unwrap_or_else(|_| serde_json::json!(payload));
-
-                                if mapping.topic.starts_with("c8y/mqtt/out/") {
-                                    // MQTT Service (9883): full C8y event format
-                                    let time = parsed_value
-                                        .get("timestamp")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or_default()
-                                        .to_string();
-                                    let event_type = format!(
-                                        "c8y_{}",
-                                        node_type.as_deref().unwrap_or("ctrlx_Event")
-                                    );
-
-                                    let mut json_obj = serde_json::json!({
-                                        "Text": parsed_value,
-                                        "type": event_type,
-                                        "time": time
-                                    });
-                                    if !engine.config.device_external_id.is_empty() {
-                                        json_obj["externalId"] = serde_json::json!(engine
-                                            .config
-                                            .device_external_id
-                                            .clone());
-                                    }
-                                    (mapping.topic.clone(), json_obj.to_string())
-                                } else {
-                                    // Core MQTT (8883): publish to dl/ for flow processing
+                                    // Build JSON: {"memfree-mb": 7432.3, "unit": "MB", "time": "...", "externalId": "..."}
+                                    // Include unit as a top-level field if present, omit otherwise
                                     let mut json_obj =
                                         serde_json::json!({ &field_name: parsed_value });
+                                    if let Some(unit) = &mapping.unit {
+                                        if !unit.is_empty() {
+                                            json_obj["unit"] = serde_json::json!(unit);
+                                        }
+                                    }
+                                    // UTC timestamp in ISO-8601 format
                                     let now = std::time::SystemTime::now()
                                         .duration_since(std::time::UNIX_EPOCH)
                                         .unwrap_or_default()
                                         .as_millis();
-                                    json_obj["time"] = serde_json::json!(format_iso8601(
-                                        (now / 1000) as u64,
-                                        (now % 1000) as u32
-                                    ));
-                                    let ev_topic = format!("dl/device/main///e/{}", field_name);
-                                    (ev_topic, json_obj.to_string())
-                                }
-                            }
-                            MappingTransform::Alarm => {
-                                let parsed_value: serde_json::Value =
-                                    serde_json::from_str(&payload)
-                                        .unwrap_or_else(|_| serde_json::json!(payload));
-
-                                if mapping.topic.starts_with("c8y/mqtt/out/") {
-                                    // MQTT Service (9883): full C8y alarm format
-                                    let severity = parsed_value
-                                        .get("severity")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("MAJOR")
-                                        .to_string();
-                                    let time = parsed_value
-                                        .get("timestamp")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or_default()
-                                        .to_string();
-                                    let alarm_type = format!(
-                                        "c8y_{}",
-                                        node_type.as_deref().unwrap_or("ctrlx_Alarm")
-                                    );
-
-                                    let mut json_obj = serde_json::json!({
-                                        "Text": parsed_value,
-                                        "severity": severity,
-                                        "status": "ACTIVE",
-                                        "type": alarm_type,
-                                        "time": time
-                                    });
-                                    if !engine.config.device_external_id.is_empty() {
-                                        json_obj["externalId"] = serde_json::json!(engine
-                                            .config
-                                            .device_external_id
-                                            .clone());
-                                    }
-                                    (mapping.topic.clone(), json_obj.to_string())
-                                } else {
-                                    // Core MQTT (8883): publish to dl/ for flow processing
-                                    let mut json_obj =
-                                        serde_json::json!({ &field_name: parsed_value });
-                                    if let Some(sev) =
-                                        parsed_value.get("severity").and_then(|v| v.as_str())
+                                    let secs = now / 1000;
+                                    let millis = now % 1000;
+                                    let ts = format_iso8601(secs as u64, millis as u32);
+                                    json_obj["time"] = serde_json::json!(ts);
+                                    // Include externalId when using MQTT Service (port 9883)
+                                    if mapping.topic.starts_with("c8y/mqtt/out/")
+                                        && !engine.config.device_external_id.is_empty()
                                     {
-                                        json_obj["severity"] = serde_json::json!(sev);
+                                        json_obj["externalId"] = serde_json::json!(engine
+                                            .config
+                                            .device_external_id
+                                            .clone());
+                                    }
+                                    let json_data = json_obj.to_string();
+
+                                    // Use the topic configured in the UI
+                                    (mapping.topic.clone(), json_data)
+                                }
+                                MappingTransform::Event => {
+                                    let parsed_value: serde_json::Value =
+                                        serde_json::from_str(&payload)
+                                            .unwrap_or_else(|_| serde_json::json!(payload));
+
+                                    if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                        // MQTT Service (9883): full C8y event format
+                                        let time = parsed_value
+                                            .get("timestamp")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or_default()
+                                            .to_string();
+                                        let event_type = format!(
+                                            "c8y_{}",
+                                            node_type.as_deref().unwrap_or("ctrlx_Event")
+                                        );
+
+                                        let mut json_obj = serde_json::json!({
+                                            "Text": parsed_value,
+                                            "type": event_type,
+                                            "time": time
+                                        });
+                                        if !engine.config.device_external_id.is_empty() {
+                                            json_obj["externalId"] = serde_json::json!(engine
+                                                .config
+                                                .device_external_id
+                                                .clone());
+                                        }
+                                        (mapping.topic.clone(), json_obj.to_string())
+                                    } else {
+                                        // Core MQTT (8883): publish to dl/ for flow processing
+                                        let mut json_obj =
+                                            serde_json::json!({ &field_name: parsed_value });
+                                        let now = std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_millis();
+                                        json_obj["time"] = serde_json::json!(format_iso8601(
+                                            (now / 1000) as u64,
+                                            (now % 1000) as u32
+                                        ));
+                                        let ev_topic = format!("dl/device/main///e/{}", field_name);
+                                        (ev_topic, json_obj.to_string())
+                                    }
+                                }
+                                MappingTransform::Alarm => {
+                                    let parsed_value: serde_json::Value =
+                                        serde_json::from_str(&payload)
+                                            .unwrap_or_else(|_| serde_json::json!(payload));
+
+                                    if mapping.topic.starts_with("c8y/mqtt/out/") {
+                                        // MQTT Service (9883): full C8y alarm format
+                                        let severity = parsed_value
+                                            .get("severity")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("MAJOR")
+                                            .to_string();
+                                        let time = parsed_value
+                                            .get("timestamp")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or_default()
+                                            .to_string();
+                                        let alarm_type = format!(
+                                            "c8y_{}",
+                                            node_type.as_deref().unwrap_or("ctrlx_Alarm")
+                                        );
+
+                                        let mut json_obj = serde_json::json!({
+                                            "Text": parsed_value,
+                                            "severity": severity,
+                                            "status": "ACTIVE",
+                                            "type": alarm_type,
+                                            "time": time
+                                        });
+                                        if !engine.config.device_external_id.is_empty() {
+                                            json_obj["externalId"] = serde_json::json!(engine
+                                                .config
+                                                .device_external_id
+                                                .clone());
+                                        }
+                                        (mapping.topic.clone(), json_obj.to_string())
+                                    } else {
+                                        // Core MQTT (8883): publish to dl/ for flow processing
+                                        let mut json_obj =
+                                            serde_json::json!({ &field_name: parsed_value });
+                                        if let Some(sev) =
+                                            parsed_value.get("severity").and_then(|v| v.as_str())
+                                        {
+                                            json_obj["severity"] = serde_json::json!(sev);
+                                        }
+                                        let now = std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_millis();
+                                        json_obj["time"] = serde_json::json!(format_iso8601(
+                                            (now / 1000) as u64,
+                                            (now % 1000) as u32
+                                        ));
+                                        let al_topic = format!("dl/device/main///a/{}", field_name);
+                                        (al_topic, json_obj.to_string())
+                                    }
+                                }
+                                _ => {
+                                    // For "flow" mapping_type: publish to dl/device/main///m/<field>
+                                    // The "dl/" prefix is a dedicated datalayer-to-flow namespace:
+                                    // - Flows subscribe to "dl/+/+/+/+/m/+" (not "te/+/+/+/+/m/+")
+                                    // - Flows transform and re-publish to "te/device/main///m/<field>"
+                                    // - The c8y mapper built-in then adds source.id and forwards to C8y
+                                    // This avoids device-ID lookups in flow scripts and infinite loops.
+                                    let mut parsed_value: serde_json::Value =
+                                        serde_json::from_str(&payload)
+                                            .unwrap_or_else(|_| serde_json::json!(payload));
+                                    if let Some(obj) = parsed_value.as_object() {
+                                        if let Some(val) = obj.values().next() {
+                                            parsed_value = val.clone();
+                                        }
+                                    }
+                                    let mut json_obj =
+                                        serde_json::json!({ &field_name: parsed_value });
+                                    if let Some(unit) = &mapping.unit {
+                                        if !unit.is_empty() {
+                                            json_obj["unit"] = serde_json::json!(unit);
+                                        }
                                     }
                                     let now = std::time::SystemTime::now()
                                         .duration_since(std::time::UNIX_EPOCH)
@@ -725,72 +788,44 @@ pub async fn run_datalayer_loop(
                                         (now / 1000) as u64,
                                         (now % 1000) as u32
                                     ));
-                                    let al_topic = format!("dl/device/main///a/{}", field_name);
-                                    (al_topic, json_obj.to_string())
+                                    let dl_topic = format!("dl/device/main///m/{}", field_name);
+                                    (dl_topic, json_obj.to_string())
                                 }
-                            }
-                            _ => {
-                                // For "flow" mapping_type: publish to dl/device/main///m/<field>
-                                // The "dl/" prefix is a dedicated datalayer-to-flow namespace:
-                                // - Flows subscribe to "dl/+/+/+/+/m/+" (not "te/+/+/+/+/m/+")
-                                // - Flows transform and re-publish to "te/device/main///m/<field>"
-                                // - The c8y mapper built-in then adds source.id and forwards to C8y
-                                // This avoids device-ID lookups in flow scripts and infinite loops.
-                                let mut parsed_value: serde_json::Value =
-                                    serde_json::from_str(&payload)
-                                        .unwrap_or_else(|_| serde_json::json!(payload));
-                                if let Some(obj) = parsed_value.as_object() {
-                                    if let Some(val) = obj.values().next() {
-                                        parsed_value = val.clone();
-                                    }
-                                }
-                                let mut json_obj = serde_json::json!({ &field_name: parsed_value });
-                                if let Some(unit) = &mapping.unit {
-                                    if !unit.is_empty() {
-                                        json_obj["unit"] = serde_json::json!(unit);
-                                    }
-                                }
-                                let now = std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_millis();
-                                json_obj["time"] = serde_json::json!(format_iso8601(
-                                    (now / 1000) as u64,
-                                    (now % 1000) as u32
-                                ));
-                                let dl_topic = format!("dl/device/main///m/{}", field_name);
-                                (dl_topic, json_obj.to_string())
-                            }
-                        };
+                            };
 
-                        // 3. Publish the message
-                        let _ = cli
-                            .publish(mqtt::Message::new(final_topic, final_payload, 0))
-                            .await;
+                            // 3. Publish the message
+                            let _ = cli
+                                .publish(mqtt::Message::new(final_topic, final_payload, 0))
+                                .await;
+                        }
                     }
                 }
             }
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(
-            engine.config.poll_interval_ms as u64,
-        ))
-        .await;
+            engine.config.poll_interval_ms
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(poll_interval_ms as u64)).await;
     }
 
     // Clean up: release the session token on shutdown so the ctrlX session slot is freed.
-    if engine.cached_token.is_some() {
-        info!("[DATALAYER] Releasing token on shutdown");
-        engine.logout_token().await;
+    {
+        let mut engine = engine.lock().await;
+        if engine.cached_token.is_some() {
+            info!("[DATALAYER] Releasing token on shutdown");
+            engine.logout_token().await;
+        }
     }
 }
 
 #[cfg(feature = "mqtt")]
 pub async fn handle_mqtt_message(
     msg: &mqtt::Message,
-    config: &DatalayerConfig,
-    credentials: &DatalayerCredentials,
+    engine: &Arc<tokio::sync::Mutex<DatalayerEngine>>,
     http_client: &Client,
 ) {
+    let (config, token) = {
+        let engine = engine.lock().await;
+        (engine.config_snapshot(), engine.effective_token())
+    };
     let topic = msg.topic();
     if let Some(m) = config.mappings.iter().find(|m| {
         m.topic == topic && m.direction == MappingDirection::TedgeToDatalayer && m.enabled
@@ -801,7 +836,6 @@ pub async fn handle_mqtt_message(
             m.path.trim_start_matches('/')
         );
         let mut req = http_client.put(&url).body(msg.payload_str().to_string());
-        let token = credentials.token.clone().unwrap_or_default();
         if !token.is_empty() {
             req = req.bearer_auth(token);
         }

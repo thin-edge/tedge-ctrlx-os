@@ -1612,30 +1612,6 @@ async function saveAzConfig() {
   }
 }
 
-// Save device configuration
-async function saveDeviceConfig() {
-  const config = {
-    id: document.getElementById("device-id").value,
-    name: (document.getElementById("cert-common-name") || {}).value || "",
-  };
-
-  try {
-    const response = await fetchWithAuth("api/config/device", {
-      method: "POST",
-      body: JSON.stringify(config),
-    });
-
-    await handleApiResponse(
-      response,
-      t("notify.dev_saved"),
-      t("notify.dev_save_err"),
-    );
-  } catch (error) {
-    console.error("Error saving device config:", error);
-    showNotification(t("notify.dev_save_err"), "error");
-  }
-}
-
 // Refresh status
 function refreshStatus() {
   showNotification(t("notify.refreshing"), "info");
@@ -1645,14 +1621,18 @@ function refreshStatus() {
 }
 
 // Load logs from API
+let _loadLogsRequestId = 0;
 async function loadLogs() {
   const service = document.getElementById("log-service-select").value;
   const viewer = document.getElementById("log-viewer");
+  const requestId = ++_loadLogsRequestId;
   viewer.textContent = t("logs.loading", service);
   try {
     const response = await fetchWithAuth(
       `api/logs?service=${encodeURIComponent(service)}&lines=100`,
     );
+    // Ignore stale responses if a newer loadLogs() call has started since.
+    if (requestId !== _loadLogsRequestId) return;
     if (response.status === 403) {
       viewer.textContent = t("logs.no_perm");
       return;
@@ -1665,6 +1645,7 @@ async function loadLogs() {
     }
     viewer.scrollTop = viewer.scrollHeight;
   } catch (error) {
+    if (requestId !== _loadLogsRequestId) return;
     viewer.textContent = t("logs.load_error", error.message);
   }
 }
@@ -1712,15 +1693,6 @@ async function applyLogLevel() {
   }
 }
 
-// Tedge command blocks: toggle accordion
-function toggleTedgeCmd(id) {
-  const pre = document.getElementById(id);
-  const chevron = document.getElementById(id + "-chevron");
-  if (!pre) return;
-  const isOpen = pre.classList.toggle("open");
-  if (chevron) chevron.classList.toggle("open", isOpen);
-}
-
 // Load command selected from the dropdown
 async function loadTedgeCmdFromSelect() {
   const sel = document.getElementById("tedge-cmd-select");
@@ -1765,12 +1737,9 @@ function copyTedgeCmd(id) {
     });
 }
 
-// Legacy aliases (kept for backwards compatibility)
+// Legacy alias (kept for backwards compatibility)
 function loadTedgeConfig() {
   loadTedgeCmd("tedge-cmd-output", "api/tedge-config-list");
-}
-function copyTedgeConfig() {
-  copyTedgeCmd("tedge-cmd-output");
 }
 
 function copyLogs() {
@@ -1824,53 +1793,6 @@ async function runDiagUpload() {
       btn.disabled = false;
       btn.textContent = t("logs.diag_upload") || "Diag Upload";
     }
-  }
-}
-
-// Restart a single snap service
-async function restartService(service) {
-  if (!confirm(t("notify.restart_svc", service))) return;
-  try {
-    const res = await fetchWithAuth("api/restart-service", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      showNotification(t("notify.restarting"), "info");
-      setTimeout(loadStatus, 3500);
-    } else {
-      showNotification(data.error || t("notify.restart_err"), "error");
-    }
-  } catch (e) {
-    showNotification(t("notify.restart_err") + ": " + e.message, "error");
-  }
-}
-
-// Restart services
-async function restartServices() {
-  if (!confirm(t("notify.restart_confirm"))) {
-    return;
-  }
-
-  try {
-    const response = await fetchWithAuth("api/restart", {
-      method: "POST",
-    });
-
-    const success = await handleApiResponse(
-      response,
-      t("notify.restarting"),
-      t("notify.restart_err"),
-    );
-
-    if (success) {
-      setTimeout(loadStatus, 5000);
-    }
-  } catch (error) {
-    console.error("Error restarting services:", error);
-    showNotification(t("notify.restart_err"), "error");
   }
 }
 
@@ -2633,22 +2555,6 @@ async function loadBuildInfo() {
 let _dlMappings = []; // In-Memory Kopie der Mappings
 let _mqttServiceEnabled = null; // Cached MQTT service state (null = not yet loaded)
 
-/** 1. Initialisierung beim Laden */
-function _initDatalayerUI() {
-  loadDatalayerStatus();
-  loadDatalayerConfig();
-  loadDatalayerMappings();
-
-  // Formular initial verstecken
-  const section = document.getElementById("datalayer-mapping-section");
-  if (section) section.style.display = "none";
-
-  // Ein kleiner Delay stellt sicher, dass alle statischen Elemente
-  setTimeout(() => {
-    applyI18n();
-  }, 150);
-}
-
 // ─── Mapping Mode ──────────────────────────────────────────────────────────
 
 /** Sets the active mapping_type toggle (checkbox + label) in the edit form */
@@ -3302,7 +3208,9 @@ function _buildFlowOutputPayload(transform, fieldName, unit, ts) {
   }
 }
 
+let _dlPreviewRequestId = 0;
 async function showMappingPayloadPreview() {
+  const requestId = ++_dlPreviewRequestId;
   const preDl = document.getElementById("datalayer-payload-preview");
   const preMqtt = document.getElementById("datalayer-mqtt-payload-preview");
 
@@ -3334,8 +3242,11 @@ async function showMappingPayloadPreview() {
           const r = await fetchWithAuth(
             `api/datalayer/node?path=${encodeURIComponent(path)}`,
           );
+          // Ignore stale responses if a newer preview request has started since.
+          if (requestId !== _dlPreviewRequestId) return;
           if (r.ok) {
             const data = await r.json();
+            if (requestId !== _dlPreviewRequestId) return;
             preDl.textContent = JSON.stringify(data, null, 2);
           } else {
             preDl.textContent = JSON.stringify(
@@ -3345,6 +3256,7 @@ async function showMappingPayloadPreview() {
             );
           }
         } catch {
+          if (requestId !== _dlPreviewRequestId) return;
           preDl.textContent = JSON.stringify(
             { type: "double", value: 7441.35 },
             null,
@@ -3436,28 +3348,29 @@ function editDatalayerMapping(id) {
 
   // Store current mapping ID for delete
   window._currentMappingId = id;
-  // Deletes the currently loaded mapping from the edit form
-  async function deleteCurrentMapping() {
-    const id = window._currentMappingId;
-    if (!id) return;
-    if (!confirm(t("datalayer.confirm_delete") || "Mapping löschen?")) return;
-    try {
-      const r = await fetchWithAuth(
-        `api/datalayer/mappings/${encodeURIComponent(id)}`,
-        { method: "DELETE" },
-      );
-      const d = await r.json();
-      if (d.success) {
-        showNotification(t("notify.dl_mapping_deleted"), "success");
-        cancelMapping();
-        loadDatalayerMappings();
-        loadDatalayerStatus();
-      } else {
-        showNotification(d.error || t("notify.dl_mapping_del_err"), "error");
-      }
-    } catch (e) {
-      showNotification(t("notify.dl_mapping_del_err"), "error");
+}
+
+// Deletes the currently loaded mapping from the edit form
+async function deleteCurrentMapping() {
+  const id = window._currentMappingId;
+  if (!id) return;
+  if (!confirm(t("datalayer.confirm_delete") || "Mapping löschen?")) return;
+  try {
+    const r = await fetchWithAuth(
+      `api/datalayer/mappings/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    const d = await r.json();
+    if (d.success) {
+      showNotification(t("notify.dl_mapping_deleted"), "success");
+      cancelMapping();
+      loadDatalayerMappings();
+      loadDatalayerStatus();
+    } else {
+      showNotification(d.error || t("notify.dl_mapping_del_err"), "error");
     }
+  } catch (e) {
+    showNotification(t("notify.dl_mapping_del_err"), "error");
   }
 }
 
@@ -4520,14 +4433,6 @@ async function confirmAddFile() {
   openFileInEditor(flowName, rawName, _defaultFileContent(rawName));
   // File is created on disk only when the user clicks "Speichern"
   await loadFlows();
-}
-
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 // ── Navigator ────────────────────────────────────────────────────────
